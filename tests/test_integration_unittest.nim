@@ -1,30 +1,30 @@
 ## tests/test_integration_unittest.nim — E1 integration test.
 ##
-## Exercises `nimfoot/integration_unittest` (std/unittest backend): the
+## Exercises `tripwire/integration_unittest` (std/unittest backend): the
 ## `test:` template wraps a std/unittest test body with a verifier
 ## lifecycle (push on entry, verifyAll on teardown, addExitProc wire-up).
 ##
-## Self-hosting note: we must NOT use nimfoot's `test:` at the outer
+## Self-hosting note: we must NOT use tripwire's `test:` at the outer
 ## level — we're the module testing it. Use `std/unittest` directly for
-## the outer suite, and invoke nimfoot's `test:` as a nested construct
+## the outer suite, and invoke tripwire's `test:` as a nested construct
 ## inside the body.
 ##
 ## Backend swallow caveat: `std/unittest.test` catches all exceptions and
 ## only reports them via the process exit code. So when we need to
-## assert that the `test:` lifecycle actually RAISES a nimfoot defect
+## assert that the `test:` lifecycle actually RAISES a tripwire defect
 ## (rather than checking that the program exit code flipped to 1), we
 ## invoke the lifecycle steps directly from the outer `std_ut.test`
 ## body. The happy path is still exercised through the real nested
 ## `test:` form below.
 ##
 ## Backend gating: this file is a no-op when compiled with
-## `-d:nimfootUnittest2` because `integration_unittest` then swaps its
+## `-d:tripwireUnittest2` because `integration_unittest` then swaps its
 ## backend to unittest2, and importing both unittest frameworks in the
 ## same module collides on their shared identifiers (TestStatus, etc.).
 ## The unittest2 matrix cell is covered by `test_integration_unittest2.nim`.
-when not defined(nimfootUnittest2):
+when not defined(tripwireUnittest2):
   import std/[unittest as std_ut, tables, options]
-  import nimfoot/[types, errors, timeline, sandbox, verify, intercept,
+  import tripwire/[types, errors, timeline, sandbox, verify, intercept,
                   integration_unittest]
 
   # ---- Local test plugin ----
@@ -39,14 +39,14 @@ when not defined(nimfootUnittest2):
   let itPlugin = ItPlugin(name: "it", enabled: true)
 
   proc itCall(a: int): int =
-    nimfootInterceptBody(itPlugin, "itCall",
+    tripwireInterceptBody(itPlugin, "itCall",
       fingerprintOf("itCall", @[$a]),
       ItResp):
       {.noRewrite.}:
         a
 
   std_ut.suite "integration_unittest":
-    std_ut.test "nimfoot test: registers verifier, body runs, teardown verifies":
+    std_ut.test "tripwire test: registers verifier, body runs, teardown verifies":
       # Happy path through the real nested `test:` form — verifier is
       # pushed, body runs, timeline entry is asserted, teardown verifyAll
       # passes. An outer `ran` flag confirms the body executed.
@@ -63,7 +63,7 @@ when not defined(nimfootUnittest2):
         ran = true
       std_ut.check ran
 
-    std_ut.test "nimfoot test lifecycle raises UnusedMocksDefect when mock unconsumed":
+    std_ut.test "tripwire test lifecycle raises UnusedMocksDefect when mock unconsumed":
       # Direct invocation of the `test:` lifecycle so the defect escapes
       # rather than being absorbed by `backend.test`'s blanket handler.
       # Mirrors what the template expands to, one-to-one.
@@ -78,7 +78,7 @@ when not defined(nimfootUnittest2):
           discard popVerifier()
           nfV.verifyAll()  # raises UnusedMocksDefect
 
-    std_ut.test "nimfoot test lifecycle raises UnassertedInteractionsDefect":
+    std_ut.test "tripwire test lifecycle raises UnassertedInteractionsDefect":
       # Same direct invocation, this time with a consumed mock but no
       # markAsserted -> UnassertedInteractionsDefect.
       std_ut.expect UnassertedInteractionsDefect:
@@ -109,7 +109,7 @@ when not defined(nimfootUnittest2):
       std_ut.check verifierStack.len == 0
 
     std_ut.test "backend alias exposes std/unittest under default build":
-      # Under the default (no -d:nimfootUnittest2) the backend alias
+      # Under the default (no -d:tripwireUnittest2) the backend alias
       # resolves to std/unittest. Exercised here; the unittest2 parity
       # test lives in tests/test_integration_unittest2.nim.
       std_ut.check backendName == "std/unittest"

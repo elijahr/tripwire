@@ -15,9 +15,9 @@
 ## surfaces in practice. Tests that want to exercise the mocked proc
 ## directly declare a local helper proc.
 import std/[unittest, options, tables, deques]
-import nimfoot/[types, errors, timeline, sandbox, verify, intercept,
+import tripwire/[types, errors, timeline, sandbox, verify, intercept,
                 macros as nfmacros]
-import nimfoot/plugins/mock
+import tripwire/plugins/mock
 
 # User-declared proc that we want to mock.
 proc computeThing(x, y: int): int =

@@ -1,5 +1,5 @@
 import std/[unittest, tables, deques, monotimes]
-import nimfoot/types
+import tripwire/types
 
 suite "types":
   test "Plugin base type initializes with default values":

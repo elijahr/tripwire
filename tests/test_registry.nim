@@ -1,11 +1,11 @@
 import std/unittest
-import nimfoot/[types, registry]
+import tripwire/[types, registry]
 
 # Registry ordering hazard:
 #
 # The global `pluginRegistry` is populated at module init time by each
 # built-in plugin (mock, httpclient, osproc). Once G1's `auto.nim`
-# umbrella is active, `--import:nimfoot/auto` imports all three plugins
+# umbrella is active, `--import:tripwire/auto` imports all three plugins
 # BEFORE any test suite runs. Nim's import-dedup then prevents the
 # plugins from re-registering when later test files (test_mock_plugin,
 # test_httpclient_plugin, test_osproc_plugin) import them.

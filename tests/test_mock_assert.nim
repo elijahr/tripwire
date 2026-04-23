@@ -1,8 +1,8 @@
 ## tests/test_mock_assert.nim — F3: MockPlugin assert DSL macro.
 import std/[unittest, options, tables, deques]
-import nimfoot/[types, errors, timeline, sandbox, verify, intercept,
+import tripwire/[types, errors, timeline, sandbox, verify, intercept,
                 macros as nfmacros]
-import nimfoot/plugins/mock
+import tripwire/plugins/mock
 
 proc computeThing(x, y: int): int = x + y
 mockable(computeThing(0, 0))

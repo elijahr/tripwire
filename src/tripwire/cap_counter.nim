@@ -1,4 +1,4 @@
-## nimfoot/cap_counter.nim — Defense 3 compile-time cap tripwire.
+## tripwire/cap_counter.nim — Defense 3 compile-time cap tripwire.
 ##
 ## Nim's term-rewriting-macros engine silently drops rewrites past ~19 per
 ## hloBody. Past that threshold, a TRM `expect`-ed call simply runs its
@@ -24,20 +24,20 @@
 
 import std/macros
 
-const NimfootCapThreshold* = 15
+const TripwireCapThreshold* = 15
   ## Maximum rewrites allowed in one compilation unit. Set conservatively
   ## below Nim's ~19 internal cap to leave headroom for Nim updates.
 
 var nfRewriteCount {.compileTime.} = 0
 
-macro nimfootCountRewrite*(): untyped =
+macro tripwireCountRewrite*(): untyped =
   ## Plugin TRM bodies call this unconditionally. At expansion time it
   ## increments the per-compilation-unit counter; if the threshold is
   ## exceeded `macros.error` aborts compilation with a message that
   ## directs the user to split the test.
   inc(nfRewriteCount)
-  if nfRewriteCount > NimfootCapThreshold:
-    error("nimfoot: more than " & $NimfootCapThreshold &
+  if nfRewriteCount > TripwireCapThreshold:
+    error("tripwire: more than " & $TripwireCapThreshold &
       " TRM rewrites in a single compilation unit. Nim's rewrite " &
       "engine silently drops rewrites past ~19. Split the test with " &
       "`sandbox:` sub-blocks or refactor into smaller helpers.")

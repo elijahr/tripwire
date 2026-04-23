@@ -1,5 +1,5 @@
 import std/[unittest, tables, options, deques]
-import nimfoot/[types, errors, timeline, sandbox, verify]
+import tripwire/[types, errors, timeline, sandbox, verify]
 
 suite "verifier":
   setup:

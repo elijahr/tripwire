@@ -1,4 +1,4 @@
-## nimfoot/context.nim — sandbox-scoped assertion context.
+## tripwire/context.nim — sandbox-scoped assertion context.
 ##
 ## Houses:
 ## - `assertionsOpen` thread-local counter (tracks live assert DSL blocks).

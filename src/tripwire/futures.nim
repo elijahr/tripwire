@@ -1,4 +1,4 @@
-## nimfoot/futures.nim — Future construction helpers.
+## tripwire/futures.nim — Future construction helpers.
 ##
 ## Runtime helpers for Future construction. Plugin async TRMs MUST call
 ## `makeCompletedFuture` / `makeFailedFuture` rather than inlining
@@ -19,7 +19,7 @@
 import std/asyncdispatch
 # Re-export asyncdispatch's public surface (Future[T], newFuture, waitFor,
 # await, complete, fail, read, etc.) EXCEPT `hasPendingOperations`, which
-# nimfoot intentionally wraps below to OR in chronos's pending-count when
+# tripwire intentionally wraps below to OR in chronos's pending-count when
 # compiled with `-d:chronos -d:chronosFutureTracking`. Plain re-export
 # would shadow our wrapper and re-create the ambiguity.
 export asyncdispatch except hasPendingOperations
@@ -64,8 +64,8 @@ when defined(chronos):
   # to `chronos.newFuture` so stack traces still carry a recognizable
   # origin.
   const
-    chronosMakeCompletedLabel = "nimfoot.makeCompletedFutureChronos"
-    chronosMakeFailedLabel    = "nimfoot.makeFailedFutureChronos"
+    chronosMakeCompletedLabel = "tripwire.makeCompletedFutureChronos"
+    chronosMakeFailedLabel    = "tripwire.makeFailedFutureChronos"
 
   proc makeCompletedFutureChronos*[T](value: sink T,
       label: string = ""): chronos.Future[T] =

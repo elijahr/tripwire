@@ -1,16 +1,16 @@
 ## tests/test_integration_unittest2.nim — E2 compile-gate for the
-## unittest2 backend of `nimfoot/integration_unittest`.
+## unittest2 backend of `tripwire/integration_unittest`.
 ##
-## Gated entirely by `when defined(nimfootUnittest2)`. Without that
+## Gated entirely by `when defined(tripwireUnittest2)`. Without that
 ## define, the file is a no-op that imports nothing — so the default
 ## `nimble test` cell (which targets std/unittest) doesn't need
-## unittest2 in the env to compile. Under `-d:nimfootUnittest2`, the
+## unittest2 in the env to compile. Under `-d:tripwireUnittest2`, the
 ## same lifecycle assertions as E1 are re-run against unittest2 to
 ## prove the backend switch works end-to-end.
-when defined(nimfootUnittest2):
+when defined(tripwireUnittest2):
   import std/[tables, options]
   import unittest2 as u2
-  import nimfoot/[types, errors, timeline, sandbox, verify, intercept,
+  import tripwire/[types, errors, timeline, sandbox, verify, intercept,
                   integration_unittest]
 
   type
@@ -21,14 +21,14 @@ when defined(nimfootUnittest2):
   let u2Plugin = U2Plugin(name: "u2", enabled: true)
 
   proc u2Call(a: int): int =
-    nimfootInterceptBody(u2Plugin, "u2Call",
+    tripwireInterceptBody(u2Plugin, "u2Call",
       fingerprintOf("u2Call", @[$a]),
       U2Resp):
       {.noRewrite.}:
         a
 
   u2.suite "integration_unittest2":
-    u2.test "nimfoot test: works with unittest2 backend":
+    u2.test "tripwire test: works with unittest2 backend":
       # Real nested test: verifies the lifecycle push/pop/verifyAll path
       # through unittest2 instead of std/unittest. Under unittest2 we
       # still can't assert the defect-bearing negative case via an outer
@@ -48,7 +48,7 @@ when defined(nimfootUnittest2):
         ran = true
       u2.check ran
 
-    u2.test "backend alias is unittest2 under -d:nimfootUnittest2":
+    u2.test "backend alias is unittest2 under -d:tripwireUnittest2":
       u2.check backendName == "unittest2"
 else:
   discard

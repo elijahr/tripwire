@@ -29,7 +29,7 @@ import ./test_osproc_plugin
 # rewrites-per-compilation-unit cap (cap_counter.nim). Run it directly:
 #   nim c -r tests/test_osproc_arrays.nim
 import ./test_integration_unittest
-import ./test_integration_unittest2  # gated internally by `when defined(nimfootUnittest2)`
+import ./test_integration_unittest2  # gated internally by `when defined(tripwireUnittest2)`
 import ./test_auto_umbrella
 import ./test_defenses
 # H2: framework's existence proof (three guarantees).

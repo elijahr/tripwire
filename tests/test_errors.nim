@@ -1,12 +1,12 @@
 import std/[unittest, tables, strutils]
-import nimfoot/[types, errors]
+import tripwire/[types, errors]
 
 suite "errors":
-  test "UnmockedInteractionDefect inherits from NimfootDefect":
+  test "UnmockedInteractionDefect inherits from TripwireDefect":
     let e = newUnmockedInteractionDefect("httpclient", "get", "fp",
       (file: "t.nim", line: 1, column: 1))
     check e of UnmockedInteractionDefect
-    check e of NimfootDefect
+    check e of TripwireDefect
     check e of Defect
     check e.pluginName == "httpclient"
     check FFIScopeFooter in e.msg
@@ -20,7 +20,7 @@ suite "errors":
   test "PendingAsyncDefect carries test name":
     let e = newPendingAsyncDefect("test_x")
     check e.testName == "test_x"
-    check e of NimfootDefect
+    check e of TripwireDefect
 
   test "LeakedInteractionDefect carries threadId":
     let e = newLeakedInteractionDefect(42,
@@ -36,7 +36,7 @@ suite "errors":
     check e of CatchableError
     check not (e of Defect)
 
-  test "NimfootDefect cannot be caught by except CatchableError":
+  test "TripwireDefect cannot be caught by except CatchableError":
     ## Sanity check of Defense 4 — verifies the hierarchy choice.
     var caught = false
     try:

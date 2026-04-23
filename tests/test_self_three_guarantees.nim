@@ -1,14 +1,14 @@
 ## tests/test_self_three_guarantees.nim — the framework's existence proof.
 ##
-## Each of the three nimfoot guarantees is exercised end-to-end here; if
+## Each of the three tripwire guarantees is exercised end-to-end here; if
 ## any of them fails to fire the expected defect, the framework is broken
 ## and this file must fail the build. The happy-path test catches the
 ## inverse (false-positive) regression where teardown spuriously raises.
 ##
-## The outer `suite`/`test` come from `std/unittest` (via the nimfoot
+## The outer `suite`/`test` come from `std/unittest` (via the tripwire
 ## facade's re-export of `integration_unittest`). Inside those wrappers,
 ## `expect <Defect>:` is std/unittest's exception-matching form — which
-## wins over nimfoot's `expect(typed, untyped)` mock-registration macro
+## wins over tripwire's `expect(typed, untyped)` mock-registration macro
 ## because the argument is a type symbol, not a call expression (design
 ## §5.2.1 overload-resolution note).
 ##
@@ -16,16 +16,16 @@
 ## (`expectHttp`/`assertHttp` for httpclient) must be imported directly
 ## because `auto.nim` doesn't export plugin symbols — it only pulls the
 ## plugin modules in so their TRM templates become in-scope in every TU
-## via `--import:"nimfoot/auto"`.
+## via `--import:"tripwire/auto"`.
 import std/[httpclient, asyncdispatch, options, tables]
-# The nimfoot facade re-exports integration_unittest, which re-exports
+# The tripwire facade re-exports integration_unittest, which re-exports
 # whichever backend is active (std/unittest by default, unittest2 under
-# `-d:nimfootUnittest2`), minus its `test`/`suite` so the nimfoot-
+# `-d:tripwireUnittest2`), minus its `test`/`suite` so the tripwire-
 # wrapped forms win. The backend's `expect` / `check` / `suite` come
 # through here. Importing std/unittest DIRECTLY in addition would
 # create an ambiguous-call clash under the unittest2 matrix cell.
-import nimfoot
-import nimfoot/plugins/httpclient as nfhttp
+import tripwire
+import tripwire/plugins/httpclient as nfhttp
 
 suite "Three Guarantees — self-test":
 
@@ -57,7 +57,7 @@ suite "Three Guarantees — self-test":
         # no call at all → UnusedMocksDefect.
 
   test "G1 fires for async httpclient calls":
-    expect NimfootDefect:
+    expect TripwireDefect:
       sandbox:
         let c = newAsyncHttpClient()
         let resp = waitFor c.get("http://example.com")

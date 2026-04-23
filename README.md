@@ -1,4 +1,4 @@
-# nimfoot
+# tripwire
 
 Test mocking framework for Nim, enforcing the **three guarantees**:
 
@@ -6,16 +6,16 @@ Test mocking framework for Nim, enforcing the **three guarantees**:
 2. Every recorded interaction is explicitly asserted.
 3. Every registered mock is consumed.
 
-Violations raise `{.NimfootDefect.}`s that are NOT catchable by user
+Violations raise `{.TripwireDefect.}`s that are NOT catchable by user
 code — they abort the test binary with a stack trace that names the
 offending interaction.
 
 ## !! SCOPE
 
-**nimfoot intercepts Nim source calls only.** FFI (`{.importc.}`,
+**tripwire intercepts Nim source calls only.** FFI (`{.importc.}`,
 `{.dynlib.}`, `{.header.}`) is NOT intercepted in v0. This is an
 intentional scope cut: the libc-level firewall (bigfoot's v3 layer)
-arrives in v0.2 via `-d:nimfootAuditFFI` (stub present in v0).
+arrives in v0.2 via `-d:tripwireAuditFFI` (stub present in v0).
 
 Every defect message includes an FFI-scope footer pointing at
 `docs/concepts.md#scope`; if your test reports `UnmockedInteraction`
@@ -34,14 +34,14 @@ See [`docs/quickstart.md`](docs/quickstart.md) for the full walkthrough.
 ## Install
 
 ```bash
-nimble install nimfoot
+nimble install tripwire
 ```
 
 ## Minimal example
 
 ```nim
-import nimfoot
-import nimfoot/plugins/httpclient as nfhttp
+import tripwire
+import tripwire/plugins/httpclient as nfhttp
 import std/[httpclient, options, tables]
 
 test "user fetch":

@@ -1,17 +1,17 @@
-## nimfoot/errors.nim — full Defect hierarchy + constructors.
+## tripwire/errors.nim — full Defect hierarchy + constructors.
 ##
 ## Two roots descending from system:
-##   NimfootDefect -> Defect       (verification failures; unswallowable)
-##   NimfootError  -> CatchableError (API misuse; recoverable)
+##   TripwireDefect -> Defect       (verification failures; unswallowable)
+##   TripwireError  -> CatchableError (API misuse; recoverable)
 
 import std/tables
 import ./types
 import ./plugin_base
 
 type
-  NimfootDefect* = object of Defect
+  TripwireDefect* = object of Defect
 
-  UnmockedInteractionDefect* = object of NimfootDefect
+  UnmockedInteractionDefect* = object of TripwireDefect
     pluginName*: string
     procName*: string
     fingerprint*: string
@@ -19,38 +19,38 @@ type
     site*: tuple[file: string, line, column: int]
     nearestMockHints*: seq[string]
 
-  UnassertedInteractionsDefect* = object of NimfootDefect
+  UnassertedInteractionsDefect* = object of TripwireDefect
     interactions*: seq[Interaction]
     verifierName*: string
 
-  UnusedMocksDefect* = object of NimfootDefect
+  UnusedMocksDefect* = object of TripwireDefect
     mocks*: seq[Mock]
     verifierName*: string
 
-  LeakedInteractionDefect* = object of NimfootDefect
+  LeakedInteractionDefect* = object of TripwireDefect
     threadId*: int
     procName*: string
 
-  PostTestInteractionDefect* = object of NimfootDefect
+  PostTestInteractionDefect* = object of TripwireDefect
     verifierName*: string
     generation*: int
     pluginName*: string
     procName*: string
 
-  PendingAsyncDefect* = object of NimfootDefect
+  PendingAsyncDefect* = object of TripwireDefect
     testName*: string
 
-  UnmockableContainerDefect* = object of NimfootDefect
+  UnmockableContainerDefect* = object of TripwireDefect
     procName*: string
     containerType*: string
     site*: tuple[file: string, line, column: int]
 
-  NimfootError* = object of CatchableError
+  TripwireError* = object of CatchableError
 
-  AssertionInsideSandboxError* = object of NimfootError
+  AssertionInsideSandboxError* = object of TripwireError
     site*: tuple[file: string, line, column: int]
 
-const FFIScopeFooter* = "\n(nimfoot intercepts Nim source calls only. " &
+const FFIScopeFooter* = "\n(tripwire intercepts Nim source calls only. " &
   "FFI ({.importc.}, {.dynlib.}, {.header.}) is not intercepted in v0. " &
   "See docs/concepts.md#scope.)"
 
@@ -105,7 +105,7 @@ proc newPostTestInteractionDefect*(verifierName: string, generation: int,
 
 proc newPendingAsyncDefect*(testName: string): ref PendingAsyncDefect =
   let msg = "test '" & testName & "' ended with pending async operations." &
-    "\nUse `waitFor` to drain futures, or -d:nimfootAllowPendingAsync to" &
+    "\nUse `waitFor` to drain futures, or -d:tripwireAllowPendingAsync to" &
     " suppress." & FFIScopeFooter
   result = (ref PendingAsyncDefect)(msg: msg, testName: testName)
 

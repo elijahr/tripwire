@@ -1,3 +1,3 @@
-# nimfoot package-level config.nims
-# Consumer projects add --import:"nimfoot/auto" --define:"nimfootActive"
-# to THEIR config.nims. This file governs nimfoot's own compilation.
+# tripwire package-level config.nims
+# Consumer projects add --import:"tripwire/auto" --define:"tripwireActive"
+# to THEIR config.nims. This file governs tripwire's own compilation.

@@ -1,15 +1,15 @@
-## nimfoot/config.nim — nimfoot.toml parsing + discovery.
+## tripwire/config.nim — tripwire.toml parsing + discovery.
 ##
 ## Discovery rules (in order):
-##   1. `NIMFOOT_CONFIG` env var, if set — must point to an existing file
+##   1. `TRIPWIRE_CONFIG` env var, if set — must point to an existing file
 ##      (otherwise raises ValueError).
-##   2. Walk up from `getCurrentDir()` looking for `nimfoot.toml`.
+##   2. Walk up from `getCurrentDir()` looking for `tripwire.toml`.
 ##   3. Stop the walk at the first directory that contains a `.nimble` file
 ##      (package root). Return `none(string)` if no toml was found along
 ##      the way — `loadConfig(none)` produces the builtin defaults.
 ##
 ## Schema (v0):
-##   [nimfoot]
+##   [tripwire]
 ##     enabled_plugins      = ["name", ...]
 ##     allow_pending_async  = bool
 ##   [<plugin-name>]          # one block per plugin listed above
@@ -31,17 +31,17 @@ type
     allowedDomains*: seq[string]
     allowedProcesses*: seq[string]
 
-  NimfootConfig* = object
+  TripwireConfig* = object
     enabledPlugins*: seq[string]
     pluginOptions*: Table[string, TomlValueRef]
     firewall*: FirewallConfig
     allowPendingAsync*: bool
     sources*: seq[string]
 
-proc defaultConfig*(): NimfootConfig =
+proc defaultConfig*(): TripwireConfig =
   ## Builtin defaults — returned by `loadConfig(none)` and used as the
   ## starting point for `loadConfig(some path)` before overlaying the TOML.
-  NimfootConfig(
+  TripwireConfig(
     enabledPlugins: @[],
     pluginOptions: initTable[string, TomlValueRef](),
     firewall: FirewallConfig(mode: fmOff),
@@ -49,17 +49,17 @@ proc defaultConfig*(): NimfootConfig =
     sources: @["builtin-defaults"])
 
 proc discoverConfigPath*(): Option[string] =
-  ## Locate a `nimfoot.toml` by walking up from cwd, stopping at the
-  ## package root (directory with any `.nimble`). Honors `NIMFOOT_CONFIG`.
-  let envPath = getEnv("NIMFOOT_CONFIG", "")
+  ## Locate a `tripwire.toml` by walking up from cwd, stopping at the
+  ## package root (directory with any `.nimble`). Honors `TRIPWIRE_CONFIG`.
+  let envPath = getEnv("TRIPWIRE_CONFIG", "")
   if envPath.len > 0:
     if fileExists(envPath):
       return some(envPath)
     raise newException(ValueError,
-      "NIMFOOT_CONFIG set to '" & envPath & "' but file does not exist")
+      "TRIPWIRE_CONFIG set to '" & envPath & "' but file does not exist")
   var dir = getCurrentDir().absolutePath()
   while true:
-    let tomlPath = dir / "nimfoot.toml"
+    let tomlPath = dir / "tripwire.toml"
     if fileExists(tomlPath):
       return some(tomlPath)
     # Package root reached — stop without finding a toml.
@@ -84,8 +84,8 @@ proc parseFirewallConfig(t: TomlValueRef): FirewallConfig =
   if t.hasKey("allowed_processes"):
     result.allowedProcesses = t["allowed_processes"].getElems.mapIt(it.getStr)
 
-proc loadConfig*(path: Option[string]): NimfootConfig =
-  ## Load a `NimfootConfig` from `path`. If `path.isNone`, returns
+proc loadConfig*(path: Option[string]): TripwireConfig =
+  ## Load a `TripwireConfig` from `path`. If `path.isNone`, returns
   ## `defaultConfig()`. Unknown keys / sections are ignored by design;
   ## per-plugin blocks are stashed verbatim as TomlValueRef.
   if path.isNone:
@@ -93,8 +93,8 @@ proc loadConfig*(path: Option[string]): NimfootConfig =
   let toml = parsetoml.parseFile(path.get)
   result = defaultConfig()
   result.sources = @["builtin-defaults", path.get]
-  if toml.hasKey("nimfoot"):
-    let n = toml["nimfoot"]
+  if toml.hasKey("tripwire"):
+    let n = toml["tripwire"]
     if n.hasKey("enabled_plugins"):
       result.enabledPlugins = n["enabled_plugins"].getElems.mapIt(it.getStr)
     if n.hasKey("allow_pending_async"):
@@ -105,9 +105,9 @@ proc loadConfig*(path: Option[string]): NimfootConfig =
   if toml.hasKey("firewall"):
     result.firewall = parseFirewallConfig(toml["firewall"])
 
-var configMemo {.threadvar.}: Option[NimfootConfig]
+var configMemo {.threadvar.}: Option[TripwireConfig]
 
-proc getConfig*(): NimfootConfig =
+proc getConfig*(): TripwireConfig =
   ## Thread-local memoized accessor. First call runs discovery + parse;
   ## subsequent calls return the cached value.
   if configMemo.isNone:
@@ -116,4 +116,4 @@ proc getConfig*(): NimfootConfig =
 
 proc reloadConfig*() =
   ## Advanced: drop the memoized config so the next `getConfig()` re-reads.
-  configMemo = none(NimfootConfig)
+  configMemo = none(TripwireConfig)

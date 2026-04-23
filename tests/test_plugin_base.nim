@@ -1,5 +1,5 @@
 import std/[unittest, tables, strutils]
-import nimfoot/[types, errors, plugin_base]
+import tripwire/[types, errors, plugin_base]
 
 suite "plugin base methods":
   test "default assertableFields is empty seq":

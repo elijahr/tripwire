@@ -1,6 +1,6 @@
-## nimfoot/types.nim — base types shared by every module.
+## tripwire/types.nim — base types shared by every module.
 ##
-## This module has NO dependencies on other nimfoot modules and is
+## This module has NO dependencies on other tripwire modules and is
 ## safe to import from plugin authors and from the core.
 
 import std/[tables, deques, monotimes]

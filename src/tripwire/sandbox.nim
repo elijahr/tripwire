@@ -1,4 +1,4 @@
-## nimfoot/sandbox.nim — Verifier type, thread-local stack, sandbox template.
+## tripwire/sandbox.nim — Verifier type, thread-local stack, sandbox template.
 import std/[tables, monotimes]
 import ./[types, timeline]
 
@@ -35,9 +35,9 @@ proc currentVerifier*(): Verifier {.inline.} =
 
 template sandbox*(body: untyped) =
   ## Lexical scope: push fresh verifier, run body, pop, verifyAll.
-  ## `verifyAll` lives in `nimfoot/verify` which imports this module;
+  ## `verifyAll` lives in `tripwire/verify` which imports this module;
   ## to avoid a circular `bind`, it resolves at instantiation site
-  ## (caller must `import nimfoot/verify` alongside `nimfoot/sandbox`).
+  ## (caller must `import tripwire/verify` alongside `tripwire/sandbox`).
   ##
   ## **First-violation-wins semantics.** If the body raises (e.g., a TRM
   ## fired `UnmockedInteractionDefect`), that defect IS the verification

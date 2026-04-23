@@ -1,17 +1,17 @@
-## nimfoot/plugins/osproc.nim — std/osproc interception.
+## tripwire/plugins/osproc.nim — std/osproc interception.
 ##
 ## Intercepts `execProcess` and `execCmdEx`. Fake `Process` scaffolding
-## (NimfootFakeProcessTag + thread-local `fakeProcessTags`) supports F8's
+## (TripwireFakeProcessTag + thread-local `fakeProcessTags`) supports F8's
 ## `startProcess` fake-Process variant.
 ##
-## TRMs route through `nimfootPluginIntercept` (untyped respType) rather
-## than `nimfootInterceptBody` — see plugins/plugin_intercept.nim.
+## TRMs route through `tripwirePluginIntercept` (untyped respType) rather
+## than `tripwireInterceptBody` — see plugins/plugin_intercept.nim.
 
 import std/[osproc, strtabs, tables, options, macros]
 import ../[types, registry, timeline, sandbox, verify, intercept, errors]
 import ./plugin_intercept
 
-export plugin_intercept.nimfootPluginIntercept
+export plugin_intercept.tripwirePluginIntercept
 
 type
   OsprocPlugin* = ref object of Plugin
@@ -27,7 +27,7 @@ type
     output*: string
     stderr*: string
 
-  NimfootFakeProcessTag* = object
+  TripwireFakeProcessTag* = object
     ## Thread-local record attached to a fake Process pid, consumed by
     ## Process-state accessors (waitForExit, peekExitCode, etc) in F8.
     mockId*: int
@@ -41,7 +41,7 @@ method realize*(r: OsprocExecCmdExResponse): tuple[output: string, exitCode: int
   (output: r.output, exitCode: r.exitCode)
 
 # Thread-local tag table for fake Processes (F8 populates on startProcess).
-var fakeProcessTags* {.threadvar.}: Table[int, NimfootFakeProcessTag]
+var fakeProcessTags* {.threadvar.}: Table[int, TripwireFakeProcessTag]
 
 let osprocPluginInstance* = OsprocPlugin(name: "osproc", enabled: true)
 registerPlugin(osprocPluginInstance)
@@ -66,7 +66,7 @@ template execProcessSeqTRM*{execProcess(cmd, workingDir, args, env, options)}(
     args: seq[string] = @[],
     env: StringTableRef = nil,
     options: set[ProcessOption] = {poStdErrToStdOut, poUsePath, poEvalCommand}): string =
-  nimfootPluginIntercept(
+  tripwirePluginIntercept(
     osprocPluginInstance,
     "execProcess",
     fingerprintExecProcess(cmd, workingDir, args, env, options),
@@ -86,7 +86,7 @@ template execCmdExTRM*{execCmdEx(c, o, e, w, i)}(
     o: set[ProcessOption] = {poStdErrToStdOut, poUsePath},
     e: StringTableRef = nil, w: string = "",
     i: string = ""): tuple[output: string, exitCode: int] =
-  nimfootPluginIntercept(
+  tripwirePluginIntercept(
     osprocPluginInstance,
     "execCmdEx",
     fingerprintExecCmdEx(c, o, e, w, i),
@@ -126,7 +126,7 @@ macro emitExecProcessArrayVariants(maxN: static[int]): untyped =
           `envI`: StringTableRef = nil,
           `optsI`: set[ProcessOption] = {poStdErrToStdOut, poUsePath,
                                           poEvalCommand}): string =
-        nimfootPluginIntercept(
+        tripwirePluginIntercept(
           osprocPluginInstance,
           "execProcess",
           fingerprintExecProcess(`cmdI`, `wdI`, @(`argsI`), `envI`, `optsI`),
@@ -156,7 +156,7 @@ template execProcessOpenArrayFallbackTRM*{
   # A trailing "" satisfies the type-checker; the `UnreachableCode` hint
   # at the call site is expected and benign.
   block:
-    nimfootCountRewrite()
+    tripwireCountRewrite()
     raise newUnmockableContainerDefect(
       procName = "execProcess",
       containerType = "openArray[string] (unknown concrete container)",

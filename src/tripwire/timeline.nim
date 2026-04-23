@@ -1,4 +1,4 @@
-## nimfoot/timeline.nim — Timeline and Interaction operations.
+## tripwire/timeline.nim — Timeline and Interaction operations.
 import std/[tables, monotimes]
 import ./types
 

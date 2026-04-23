@@ -1,7 +1,7 @@
 ## tests/test_httpclient_async.nim — F5: async TRM + Uri overload.
 import std/[unittest, httpclient, uri, asyncdispatch, options, tables]
-import nimfoot/[types, errors, timeline, sandbox, verify, intercept]
-import nimfoot/plugins/httpclient as nfhttp
+import tripwire/[types, errors, timeline, sandbox, verify, intercept]
+import tripwire/plugins/httpclient as nfhttp
 
 proc doAsyncRequest(c: AsyncHttpClient, url: string): Future[AsyncResponse] =
   c.request(url)

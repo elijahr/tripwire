@@ -1,4 +1,4 @@
-## nimfoot/plugins/httpclient.nim — std/httpclient interception.
+## tripwire/plugins/httpclient.nim — std/httpclient interception.
 ##
 ## Design §12.2: intercept at the `request` level, not per-wrapper.
 ## TRM signature defaults MUST match std/httpclient 2.2.6 exactly:
@@ -13,8 +13,8 @@
 ##   getter lazily reads from `bodyStream`. Constructing a Response
 ##   here sets `bodyStream` to a `StringStream` carrying the mocked
 ##   body; the caller's `r.body` then reads it correctly.
-## * Using `nimfootPluginIntercept` (from ./plugin_intercept) rather than
-##   `nimfootInterceptBody` (from ../intercept): the latter declares
+## * Using `tripwirePluginIntercept` (from ./plugin_intercept) rather than
+##   `tripwireInterceptBody` (from ../intercept): the latter declares
 ##   `respType: typedesc`, which silently breaks TRM pattern matching
 ##   in Nim 2.2.6. See plugin_intercept.nim for the analysis.
 import std/[httpclient, streams, asyncdispatch, uri, tables, options, macros]
@@ -22,7 +22,7 @@ import ../[types, registry, timeline, sandbox, verify, intercept, futures]
 import ../macros as nfmacros
 import ./plugin_intercept
 
-export plugin_intercept.nimfootPluginIntercept
+export plugin_intercept.tripwirePluginIntercept
 export nfmacros.respond, nfmacros.responded, nfmacros.request
 
 type
@@ -75,7 +75,7 @@ template requestSyncTRM*{request(c, url, httpMethod, body, headers, multipart)}(
     c: HttpClient, url: string, httpMethod: HttpMethod = HttpGet,
     body: string = "", headers: HttpHeaders = nil,
     multipart: MultipartData = nil): Response =
-  nimfootPluginIntercept(
+  tripwirePluginIntercept(
     httpclientPluginInstance,
     "request",
     fingerprintHttpRequest(url, httpMethod, body, headers, multipart),
@@ -88,7 +88,7 @@ template requestAsyncTRM*{request(c, url, httpMethod, body, headers, multipart)}
     c: AsyncHttpClient, url: string, httpMethod: HttpMethod = HttpGet,
     body: string = "", headers: HttpHeaders = nil,
     multipart: MultipartData = nil): Future[AsyncResponse] =
-  nimfootPluginIntercept(
+  tripwirePluginIntercept(
     httpclientPluginInstance,
     "request",
     fingerprintHttpRequest(url, httpMethod, body, headers, multipart),
@@ -101,7 +101,7 @@ template requestSyncUriTRM*{request(c, url, httpMethod, body, headers, multipart
     c: HttpClient, url: Uri, httpMethod: HttpMethod = HttpGet,
     body: string = "", headers: HttpHeaders = nil,
     multipart: MultipartData = nil): Response =
-  nimfootPluginIntercept(
+  tripwirePluginIntercept(
     httpclientPluginInstance,
     "request",
     fingerprintHttpRequest($url, httpMethod, body, headers, multipart),
@@ -113,7 +113,7 @@ template requestAsyncUriTRM*{request(c, url, httpMethod, body, headers, multipar
     c: AsyncHttpClient, url: Uri, httpMethod: HttpMethod = HttpGet,
     body: string = "", headers: HttpHeaders = nil,
     multipart: MultipartData = nil): Future[AsyncResponse] =
-  nimfootPluginIntercept(
+  tripwirePluginIntercept(
     httpclientPluginInstance,
     "request",
     fingerprintHttpRequest($url, httpMethod, body, headers, multipart),

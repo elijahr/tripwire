@@ -2,7 +2,7 @@
 ##
 ## `inAnyOrder` lives in tests/test_context.nim (Task A3.5); not duplicated here.
 import std/[unittest, macros]
-import nimfoot/[types, errors, timeline, sandbox, verify, intercept,
+import tripwire/[types, errors, timeline, sandbox, verify, intercept,
                 macros as nfmacros]
 
 suite "macros":

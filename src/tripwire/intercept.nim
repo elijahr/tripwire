@@ -1,16 +1,16 @@
-## nimfoot/intercept.nim — shared TRM body helpers.
+## tripwire/intercept.nim — shared TRM body helpers.
 ##
-## Plugin authors call `nimfootInterceptBody` inside every TRM body.
+## Plugin authors call `tripwireInterceptBody` inside every TRM body.
 ## It encapsulates the required sequence: cap-count, guard, mock lookup,
 ## timeline record, spy-or-raise.
 import std/[tables, options]
 import ./[types, errors, timeline, sandbox, verify, cap_counter]
 
 # ---- Defense 3: real cap counter (replaces A7 stub) ---------------------
-export cap_counter.nimfootCountRewrite, cap_counter.NimfootCapThreshold
+export cap_counter.tripwireCountRewrite, cap_counter.TripwireCapThreshold
 
 # ---- Defense 6 primitive -------------------------------------------------
-template nimfootGuard*(plugin: Plugin, procName: string): untyped {.dirty.} =
+template tripwireGuard*(plugin: Plugin, procName: string): untyped {.dirty.} =
   bind currentVerifier, newLeakedInteractionDefect,
     newPostTestInteractionDefect, getThreadId, instantiationInfo
   let nfVerifier {.inject.} = currentVerifier()
@@ -30,16 +30,16 @@ method realize*(r: MockResponse): auto {.base.} =
     "MockResponse.realize must be overridden by each plugin's subclass")
 
 # ---- The combinator ------------------------------------------------------
-template nimfootInterceptBody*(plugin: Plugin, procName: string,
+template tripwireInterceptBody*(plugin: Plugin, procName: string,
                                fingerprint: string,
                                responseType: typedesc,
                                spyBody: untyped): untyped {.dirty.} =
   ## Canonical TRM body combinator. See design §5.3.
-  bind nimfootCountRewrite, currentVerifier, newLeakedInteractionDefect,
+  bind tripwireCountRewrite, currentVerifier, newLeakedInteractionDefect,
     newPostTestInteractionDefect, getThreadId, instantiationInfo,
     newUnmockedInteractionDefect, popMatchingMock, record, fingerprintOf,
     supportsPassthrough, passthroughFor, realize
-  nimfootCountRewrite()
+  tripwireCountRewrite()
   let nfVerifier {.inject.} = currentVerifier()
   if nfVerifier.isNil:
     raise newLeakedInteractionDefect(getThreadId(), instantiationInfo())

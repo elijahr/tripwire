@@ -2,7 +2,7 @@
 ##
 ## Two probes:
 ##   1. Compile-fail probe: the fixture `cap_overflow.nim` must NOT compile
-##      because it calls `nimfootCountRewrite` 16 times (cap is 15).
+##      because it calls `tripwireCountRewrite` 16 times (cap is 15).
 ##   2. Compile-success probe: 15 calls must compile clean.
 ##
 ## Both probes shell out to `nim check` because the counter is per
@@ -10,13 +10,13 @@
 ## would pollute its own counter.
 ##
 ## TRM scope note: once G1's `auto.nim` umbrella is active (which the
-## nimble test task injects via `--import:nimfoot/auto`), the osproc
+## nimble test task injects via `--import:tripwire/auto`), the osproc
 ## plugin's `execCmdExTRM` is in lexical scope in every TU, including
 ## this one. The two `execCmdEx` call sites below are genuinely
 ## non-mock uses (they shell out to `nim check` as test infrastructure),
 ## so we suppress the TRM with `{.noRewrite.}` to let them pass through
 ## to the real stdlib proc. Without the guard, the TRM would expand
-## inside a TU that does not import `nimfoot/verify`, and the `{.dirty.}`
+## inside a TU that does not import `tripwire/verify`, and the `{.dirty.}`
 ## template body would fail with `popMatchingMock` undeclared.
 import std/[unittest, os, osproc, strutils]
 
@@ -33,14 +33,14 @@ suite "cap counter (Defense 3)":
     {.noRewrite.}:
       (output, code) = execCmdEx(cmd)
     check code != 0
-    check "nimfoot: more than 15 TRM rewrites" in output
+    check "tripwire: more than 15 TRM rewrites" in output
 
   test "15 rewrites in one file compile clean":
     # Embed 15 calls in a tempfile and run `nim check`. Using an absolute
     # path via `getTempDir()` avoids CWD ambiguity across shells.
     let src = """
-import nimfoot/cap_counter
-""" & "nimfootCountRewrite()\n".repeat(15)
+import tripwire/cap_counter
+""" & "tripwireCountRewrite()\n".repeat(15)
     let tmp = getTempDir() / "nf_cap_ok.nim"
     writeFile(tmp, src)
     defer: removeFile(tmp)

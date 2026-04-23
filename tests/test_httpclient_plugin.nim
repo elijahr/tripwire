@@ -1,8 +1,8 @@
 ## tests/test_httpclient_plugin.nim — F4: httpclient plugin base + sync request TRM.
 import std/[unittest, httpclient, options, strutils]
-import nimfoot/[types, errors, timeline, sandbox, verify, intercept,
+import tripwire/[types, errors, timeline, sandbox, verify, intercept,
                 macros as nfmacros]
-import nimfoot/plugins/httpclient as nfhttp
+import tripwire/plugins/httpclient as nfhttp
 
 # Wrapper proc — TRM-on-direct-call-in-test gotcha (see test_mock_expect.nim).
 proc doRequest(c: HttpClient, url: string): Response =

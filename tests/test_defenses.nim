@@ -2,11 +2,11 @@
 ## plus runtime regressions for Defenses 3, 5, and 6 (Task H3).
 ##
 ## Covers:
-##   - **Defense 1** (G2): `import nimfoot` must fail with a clear
+##   - **Defense 1** (G2): `import tripwire` must fail with a clear
 ##     {.error.} when the consumer forgot to activate via
-##     `--import:"nimfoot/auto" --define:"nimfootActive"`. The
-##     escape hatch `-d:nimfootAllowInactive` must suppress the
-##     error for tooling that references nimfoot symbols without
+##     `--import:"tripwire/auto" --define:"tripwireActive"`. The
+##     escape hatch `-d:tripwireAllowInactive` must suppress the
+##     error for tooling that references tripwire symbols without
 ##     wiring up TRM activation.
 ##   - **Defense 3** (D2): the compile-time rewrite cap message.
 ##     Probe + 15-OK cell live in `test_cap_counter.nim`; this file
@@ -25,23 +25,23 @@
 ## compile-time error terminates the subprocess, not the main
 ## test binary.
 import std/[unittest, osproc, strutils]
-import nimfoot/[types, errors, timeline, sandbox, verify, intercept,
+import tripwire/[types, errors, timeline, sandbox, verify, intercept,
                 futures, cap_counter]
 
 const FixturePath = "tests/fixtures/defense1_probe.nim"
 
 suite "Defense 1: facade activation guard (G2)":
-  test "D1: importing nimfoot without flags fails at compile time":
+  test "D1: importing tripwire without flags fails at compile time":
     let cmd = "nim check --hints:off --warnings:off " & FixturePath & " 2>&1"
     var output: string
     var code: int
     {.noRewrite.}:
       (output, code) = execCmdEx(cmd)
     check code != 0
-    check "nimfoot was imported but not activated" in output
+    check "tripwire was imported but not activated" in output
 
-  test "D1: -d:nimfootAllowInactive suppresses the error":
-    let cmd = "nim check --hints:off -d:nimfootAllowInactive " &
+  test "D1: -d:tripwireAllowInactive suppresses the error":
+    let cmd = "nim check --hints:off -d:tripwireAllowInactive " &
       FixturePath & " 2>&1"
     var output: string
     var code: int
@@ -49,10 +49,10 @@ suite "Defense 1: facade activation guard (G2)":
       (output, code) = execCmdEx(cmd)
     check code == 0
 
-  test "D1: -d:nimfootActive (the activation path) also suppresses":
-    # Sanity check: the intended happy path (user set nimfootActive)
+  test "D1: -d:tripwireActive (the activation path) also suppresses":
+    # Sanity check: the intended happy path (user set tripwireActive)
     # must also compile clean.
-    let cmd = "nim check --hints:off -d:nimfootActive " &
+    let cmd = "nim check --hints:off -d:tripwireActive " &
       FixturePath & " 2>&1"
     var output: string
     var code: int
@@ -63,12 +63,12 @@ suite "Defense 1: facade activation guard (G2)":
     check code == 0
 
   test "facade exposes the full public API surface":
-    # The fixture imports nimfoot and also references symbols that
+    # The fixture imports tripwire and also references symbols that
     # live in the core modules (types, errors, sandbox, etc.). If the
     # facade fails to re-export them, `nim check` on the fixture with
-    # `-d:nimfootActive` will error with `undeclared identifier`.
+    # `-d:tripwireActive` will error with `undeclared identifier`.
     const SurfacePath = "tests/fixtures/facade_surface.nim"
-    let cmd = "nim check --hints:off -d:nimfootActive " &
+    let cmd = "nim check --hints:off -d:tripwireActive " &
       SurfacePath & " 2>&1"
     var output: string
     var code: int
@@ -85,18 +85,18 @@ suite "Defense 1: facade activation guard (G2)":
 # on the constant embedded in cap_counter.nim instead.
 suite "Defense 3: cap-counter message shape":
   test "threshold constant is 15 (conservative margin below ~19)":
-    check NimfootCapThreshold == 15
+    check TripwireCapThreshold == 15
 
   test "threshold constant is exported through the facade":
     # If cap_counter.nim stops exporting the constant, or the facade
     # fails to re-export it transitively, this breaks at compile time
-    # because `NimfootCapThreshold` resolves from `nimfoot/cap_counter`
+    # because `TripwireCapThreshold` resolves from `tripwire/cap_counter`
     # via the registry module's transitive import.
     #
     # NOTE: The constant is intentionally NOT re-exported from the
-    # public `nimfoot` facade (cap_counter is an internal concern);
+    # public `tripwire` facade (cap_counter is an internal concern);
     # what the facade exposes is the runtime effect, not the knob.
-    check NimfootCapThreshold > 10 and NimfootCapThreshold < 19
+    check TripwireCapThreshold > 10 and TripwireCapThreshold < 19
 
 # ---- Defense 6: LeakedInteraction / PostTestInteraction / PendingAsync -
 # These defects guard the verifier-stack invariants: TRMs must only fire
@@ -105,7 +105,7 @@ suite "Defense 3: cap-counter message shape":
 #
 # We construct each scenario without relying on the plugin TRM call
 # sites (that would inflate this file's rewrite count and collide with
-# the 15-TRM cap under `-d:nimfootActive`). Instead we invoke the
+# the 15-TRM cap under `-d:tripwireActive`). Instead we invoke the
 # defect constructors directly and thread them through the same
 # code paths the TRM bodies use.
 suite "Defense 6: LeakedInteractionDefect":
@@ -117,7 +117,7 @@ suite "Defense 6: LeakedInteractionDefect":
     check "t.nim:10" in d.msg
 
   test "TRM path raises when stack is empty (covered by test_intercept.nim)":
-    # `nimfootPluginIntercept`'s first action (after cap-count) is to
+    # `tripwirePluginIntercept`'s first action (after cap-count) is to
     # check `currentVerifier()`; nil → LeakedInteractionDefect. End-to-end
     # coverage lives in `test_intercept.nim` "unmocked without passthrough"
     # + "leaked interaction" paths — both fire the raise. Duplicating the
@@ -154,9 +154,9 @@ suite "Defense 6: PendingAsyncDefect":
     check "waitFor" in d.msg
 
   test "hasPendingOperations gates the check":
-    # With no pending operations, nimfoot's `test:` template would not
+    # With no pending operations, tripwire's `test:` template would not
     # raise. This regression catches the case where the re-exported
     # asyncdispatch shadows our `hasPendingOperations` wrapper (see
     # futures.nim docstring: we re-export asyncdispatch EXCEPT this
-    # name so consumers get our wrapper via `nimfoot`).
+    # name so consumers get our wrapper via `tripwire`).
     check not futures.hasPendingOperations()

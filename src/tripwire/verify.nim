@@ -1,4 +1,4 @@
-## nimfoot/verify.nim — mock registration, popMatchingMock, verifyAll,
+## tripwire/verify.nim — mock registration, popMatchingMock, verifyAll,
 ## fingerprint helpers.
 import std/[tables, deques, options]
 import ./[types, timeline, sandbox, errors]

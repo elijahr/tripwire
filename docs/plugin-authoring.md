@@ -1,6 +1,6 @@
 # Plugin authoring — the 13 Rules
 
-A **nimfoot plugin** is a Nim module that intercepts one or more
+A **tripwire plugin** is a Nim module that intercepts one or more
 procs from another library and lets tests mock their return values.
 The built-in plugins (`mock`, `httpclient`, `osproc`) are the
 reference implementations; this guide distils the 13 authoring rules
@@ -12,8 +12,8 @@ Every plugin ships:
 2. One or more `MockResponse` subtypes (`ref object of MockResponse`)
    carrying the data your TRM returns to callers.
 3. One **term-rewriting-macro template** per proc shape you intercept.
-4. The TRM body invokes `nimfootInterceptBody` (or its plugin-friendly
-   sibling `nimfootPluginIntercept`) so the three-guarantee lifecycle
+4. The TRM body invokes `tripwireInterceptBody` (or its plugin-friendly
+   sibling `tripwirePluginIntercept`) so the three-guarantee lifecycle
    runs on every rewritten call.
 
 The reference skeleton (from design §5.3.1) is:
@@ -21,14 +21,14 @@ The reference skeleton (from design §5.3.1) is:
 ```nim
 template mockedProcTRM*(a: int, b: string): Response
   {.pattern: mockedProc(a, b), fingerprint: nfFingerprintMockedProc.} =
-  nimfootInterceptBody(mockedProcPlugin, "mockedProc",
+  tripwireInterceptBody(mockedProcPlugin, "mockedProc",
     fingerprintOf("mockedProc", @[$a, $b]),
     MockedProcResponse):
     {.noRewrite.}:
       mockedProc(a, b)   # real call (spy/passthrough)
 ```
 
-Every rule below references the file in `src/nimfoot/plugins/` where
+Every rule below references the file in `src/tripwire/plugins/` where
 the built-ins demonstrate it.
 
 ## Rule 1 — Reproduce the wrapped proc's arity and defaults exactly
@@ -63,24 +63,24 @@ Inside a TRM body, if you need to call the original proc (spy mode,
 or the plugin passes through unmocked calls), wrap the real call in
 `{.noRewrite.}:`. Without this, the TRM re-enters itself infinitely.
 
-## Rule 5 — Construct Futures via `nimfoot/futures`, not inline `complete`
+## Rule 5 — Construct Futures via `tripwire/futures`, not inline `complete`
 
 Chronos 4.x has a lexical-scoping bug (`spike #6 Q4`) where
 `complete(fut, value)` inside a template body crashes the compiler.
-Delegate to `makeCompletedFuture` from `nimfoot/futures.nim`, which
+Delegate to `makeCompletedFuture` from `tripwire/futures.nim`, which
 wraps the complete call in a runtime proc that Nim's macro engine
 handles cleanly.
 
-## Rule 6 — The TRM body calls `nimfootCountRewrite()` first
+## Rule 6 — The TRM body calls `tripwireCountRewrite()` first
 
 Defense 3 enforces the ~15-rewrites-per-TU cap. The
-`nimfootInterceptBody` / `nimfootPluginIntercept` combinators handle
+`tripwireInterceptBody` / `tripwirePluginIntercept` combinators handle
 this for you — if you write a custom body, call
-`nimfootCountRewrite()` as the first statement.
+`tripwireCountRewrite()` as the first statement.
 
 ## Rule 7 — Every TRM body checks the current verifier
 
-`nimfootInterceptBody` does this: if `currentVerifier()` is nil → raise
+`tripwireInterceptBody` does this: if `currentVerifier()` is nil → raise
 `LeakedInteractionDefect` (Defense 6). If the verifier is popped but
 still current (generation mismatch), raise `PostTestInteractionDefect`.
 Hand-rolled TRM bodies MUST replicate these checks — `test_intercept.nim`
@@ -107,11 +107,11 @@ at the pattern level. `std/osproc.execCmdEx` returns
 `tuple[output: string, exitCode: int]` — the TRM must use that
 spelling verbatim.
 
-## Rule 11 — `extern: "nosp$1"` → `nimfootRaw*` helper prefix
+## Rule 11 — `extern: "nosp$1"` → `tripwireRaw*` helper prefix
 
 When a plugin wraps a proc that already has a C-level name (e.g.,
-`{.extern: "nosp$1".}`), the nimfoot-local helper that stands in for
-the real impl in spy mode is named `nimfootRaw<ProcName>`. This
+`{.extern: "nosp$1".}`), the tripwire-local helper that stands in for
+the real impl in spy mode is named `tripwireRaw<ProcName>`. This
 prevents link-time collisions with the real symbol. `plugins/osproc.nim`
 demonstrates the pattern for `execProcess`.
 
@@ -140,9 +140,9 @@ A complete plugin wrapping a single user-declared proc:
 
 ```nim
 # myservice_plugin.nim
-import nimfoot/[types, errors, timeline, sandbox, verify, intercept,
+import tripwire/[types, errors, timeline, sandbox, verify, intercept,
                 cap_counter, macros as nfmacros]
-import nimfoot/plugins/plugin_intercept
+import tripwire/plugins/plugin_intercept
 import std/[tables, options]
 
 # 1) Plugin type + singleton
@@ -164,7 +164,7 @@ proc fetchCount*(url: string): int =
 # 3) TRM that intercepts it
 template fetchCountTRM*(url: string): int
   {.pattern: fetchCount(url), fingerprint: fingerprintFetchCount.} =
-  nimfootPluginIntercept(myPlugin, "fetchCount",
+  tripwirePluginIntercept(myPlugin, "fetchCount",
     fingerprintOf("fetchCount", @[url]),
     MyServiceResp):
     {.noRewrite.}:
@@ -193,5 +193,5 @@ same pattern generalizes to any plugin that accepts value-typed args.
 - **Design §5.3.1**: TRM body skeleton, spy-or-raise mode.
 - **Design §5.8**: the 13 rules indexed by footnote (authoritative source).
 - **Design §12.2**: why httpclient intercepts at `request` depth.
-- **`src/nimfoot/plugins/plugin_intercept.nim`**: the combinator
+- **`src/tripwire/plugins/plugin_intercept.nim`**: the combinator
   plugin TRMs are expected to wrap their bodies in.

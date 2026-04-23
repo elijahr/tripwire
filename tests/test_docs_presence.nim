@@ -32,7 +32,7 @@ suite "docs presence (H4/H5/H6)":
     check "Rule 13" in p
     # Canonical TRM body helper must be mentioned somewhere — users
     # grep for this when starting a plugin.
-    check "nimfootInterceptBody" in p
+    check "tripwireInterceptBody" in p
 
   test "spike #2 cap report exists":
     check fileExists(RepoRoot / "spike" / "cap" / "REPORT.md")

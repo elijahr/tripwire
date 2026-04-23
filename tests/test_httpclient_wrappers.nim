@@ -1,8 +1,8 @@
 ## tests/test_httpclient_wrappers.nim — F6: wrapper canonicalization DSL.
 import std/[unittest, httpclient, options, tables]
-import nimfoot/[types, errors, timeline, sandbox, verify, intercept,
+import tripwire/[types, errors, timeline, sandbox, verify, intercept,
                 macros as nfmacros]
-import nimfoot/plugins/httpclient as nfhttp
+import tripwire/plugins/httpclient as nfhttp
 
 # Wrapper procs — see test_mock_expect.nim gotcha.
 proc doGet(c: HttpClient, url: string): Response = c.get(url)

@@ -1,5 +1,5 @@
 import std/[unittest, tables]
-import nimfoot/[types, timeline]
+import tripwire/[types, timeline]
 
 suite "timeline":
   test "record increments nextSeq and appends":

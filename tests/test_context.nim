@@ -1,5 +1,5 @@
 import std/unittest
-import nimfoot/[types, errors, timeline, sandbox, verify, context]
+import tripwire/[types, errors, timeline, sandbox, verify, context]
 
 suite "context":
   setup:

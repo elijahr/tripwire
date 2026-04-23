@@ -1,5 +1,5 @@
 import std/[unittest, tables, options]
-import nimfoot/[types, errors, timeline, sandbox, verify, intercept]
+import tripwire/[types, errors, timeline, sandbox, verify, intercept]
 
 # ---- Test plugin ---------------------------------------------------------
 type
@@ -16,18 +16,18 @@ method passthroughFor*(p: TestIntPlugin, procName: string): bool =
 let testIntPlugin* = TestIntPlugin(name: "testint", enabled: true)
 
 # ---- Wrappers that use the combinator ------------------------------------
-# We simulate a TRM body by wrapping nimfootInterceptBody in a proc that
+# We simulate a TRM body by wrapping tripwireInterceptBody in a proc that
 # calls it on known args. Real plugins have this body inside a TRM
 # template; for unit-testing the combinator, a regular proc suffices.
 proc interceptedAdd(a, b: int): int =
-  nimfootInterceptBody(testIntPlugin, "interceptedAdd",
+  tripwireInterceptBody(testIntPlugin, "interceptedAdd",
     fingerprintOf("interceptedAdd", @[$a, $b]),
     TestIntResp):
     {.noRewrite.}:
       a + b
 
 proc spyProc(x: int): int =
-  nimfootInterceptBody(testIntPlugin, "spyProc",
+  tripwireInterceptBody(testIntPlugin, "spyProc",
     fingerprintOf("spyProc", @[$x]),
     TestIntResp):
     {.noRewrite.}:

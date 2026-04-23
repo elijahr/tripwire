@@ -1,4 +1,4 @@
-[nimfoot]
+[tripwire]
 enabled_plugins = ["mock", "httpclient"]
 allow_pending_async = true
 

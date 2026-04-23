@@ -1,13 +1,13 @@
 ## tests/test_async_asyncdispatch.nim — C1 acceptance test for
-## asyncdispatch branch of nimfoot/futures.
+## asyncdispatch branch of tripwire/futures.
 import std/unittest
-import nimfoot/futures
-# `nimfoot/futures` re-exports `std/asyncdispatch` EXCEPT
-# `hasPendingOperations` (the nimfoot wrapper intentionally shadows it
+import tripwire/futures
+# `tripwire/futures` re-exports `std/asyncdispatch` EXCEPT
+# `hasPendingOperations` (the tripwire wrapper intentionally shadows it
 # to OR in chronos's count when compiled with `-d:chronos
 # -d:chronosFutureTracking`). So `waitFor`, `Future`, `newException`,
 # etc. come through unchanged; `hasPendingOperations` resolves to the
-# nimfoot wrapper without ambiguity.
+# tripwire wrapper without ambiguity.
 
 suite "async asyncdispatch":
   test "makeCompletedFuture yields the value":

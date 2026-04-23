@@ -11,6 +11,6 @@ suite "nimble manifest":
     check "test_defenses" in output
 
   test "parsetoml dependency is declared":
-    let manifest = readFile(getCurrentDir() / "nimfoot.nimble")
+    let manifest = readFile(getCurrentDir() / "tripwire.nimble")
     check "parsetoml" in manifest
     check ">= 0.7.0" in manifest or ">=0.7.0" in manifest

@@ -1,10 +1,10 @@
-## nimfoot/plugins/mock.nim — generic user-proc mocking.
+## tripwire/plugins/mock.nim — generic user-proc mocking.
 ##
 ## Design §5.1 / §6: MockPlugin is the passthrough-by-default plugin that
 ## intercepts arbitrary user procs. The user interface is two-part:
 ##
 ##   * `mockable(fn)` at MODULE scope: emits a TRM matching `fn(a0, a1, ...)`
-##     that routes through `nimfootPluginIntercept`. Must be invoked once
+##     that routes through `tripwirePluginIntercept`. Must be invoked once
 ##     per mockable proc, alongside the user's own module-level code.
 ##
 ##   * `expect fn(args...): respond value: V` inside a test block:
@@ -24,7 +24,7 @@ import ../[types, registry, timeline, sandbox, verify, intercept, plugin_base]
 import ../macros as nfmacros
 import ./plugin_intercept
 export nfmacros.respond, nfmacros.responded, nfmacros.request
-export plugin_intercept.nimfootPluginIntercept
+export plugin_intercept.tripwirePluginIntercept
 
 type
   MockPlugin* = ref object of Plugin
@@ -68,7 +68,7 @@ proc emitMockTRMFor(procSym: NimNode, args: seq[NimNode],
     formalParams.add(nnkIdentDefs.newTree(aId,
       getTypeInst(arg), newEmptyNode()))
 
-  # Build body: nimfootInterceptBody(pluginInstance, procName,
+  # Build body: tripwireInterceptBody(pluginInstance, procName,
   #   fingerprintOf(procName, @[$a0, $a1, ...]),
   #   MockUserResponse[retType],
   #   spyBody = {.noRewrite.}: procSym(a0, a1, ...))
@@ -76,13 +76,13 @@ proc emitMockTRMFor(procSym: NimNode, args: seq[NimNode],
   for i in 0 ..< args.len:
     renderedArgs.add(newCall("$", ident("a" & $i)))
 
-  # nimfootPluginIntercept(plugin, procName, fingerprint, respType, spyBody).
+  # tripwirePluginIntercept(plugin, procName, fingerprint, respType, spyBody).
   # spyBody is the 5th positional arg. Wrap the real-proc invocation in a
   # {.noRewrite.} pragma block so the TRM does NOT match itself (Nim's
   # term-rewriting engine skips {.noRewrite.}-tagged subtrees).
   #
-  # NOTE: We call `nimfootPluginIntercept` (from plugin_intercept.nim)
-  # rather than `nimfootInterceptBody` (from intercept.nim) because the
+  # NOTE: We call `tripwirePluginIntercept` (from plugin_intercept.nim)
+  # rather than `tripwireInterceptBody` (from intercept.nim) because the
   # latter declares `respType: typedesc`, which silently breaks TRM
   # pattern matching. See plugin_intercept.nim's module docstring for the
   # detailed analysis.
@@ -90,7 +90,7 @@ proc emitMockTRMFor(procSym: NimNode, args: seq[NimNode],
   let spyBodyNode = nnkPragmaBlock.newTree(
     noRewritePragma,
     nnkStmtList.newTree(patternCall.copyNimTree))
-  let body = newCall("nimfootPluginIntercept",
+  let body = newCall("tripwirePluginIntercept",
     ident"mockPluginInstance",
     newLit(procName),
     newCall("fingerprintOf", newLit(procName), prefix(renderedArgs, "@")),
@@ -110,7 +110,7 @@ proc emitMockTRMFor(procSym: NimNode, args: seq[NimNode],
   #   [5] reserved (empty)
   #   [6] body
   # Non-dirty template: symbols in the body resolve at template-definition
-  # site (here, inside plugins/mock). `nimfootInterceptBody`,
+  # site (here, inside plugins/mock). `tripwireInterceptBody`,
   # `mockPluginInstance`, `fingerprintOf`, and `MockUserResponse` are all
   # imported into this scope, so non-dirty binding works.
   let tmplName = genSym(nskTemplate, "mockTRM_" & procName)

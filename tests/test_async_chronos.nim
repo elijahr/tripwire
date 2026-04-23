@@ -1,6 +1,6 @@
 ## tests/test_async_chronos.nim — C2 chronos overlay test.
 ##
-## Validates that nimfoot/futures.nim's chronos branch (the
+## Validates that tripwire/futures.nim's chronos branch (the
 ## `makeCompletedFutureChronos` / `makeFailedFutureChronos` procs)
 ## returns actual `chronos.Future[T]` values that behave correctly
 ## under chronos's own `waitFor`.
@@ -9,11 +9,11 @@
 ## a no-op when compiled without `-d:chronos`. Consequently the default
 ## `nimble test` cell and all non-chronos matrix cells silently skip
 ## this file, and the optional chronos cell (set via
-## `NIMFOOT_TEST_CHRONOS=1` or `-d:chronos`) exercises it.
+## `TRIPWIRE_TEST_CHRONOS=1` or `-d:chronos`) exercises it.
 when defined(chronos):
   import std/unittest
   import chronos
-  import nimfoot/futures
+  import tripwire/futures
 
   suite "async chronos":
     test "makeCompletedFutureChronos returns a chronos Future":

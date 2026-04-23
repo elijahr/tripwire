@@ -1,7 +1,7 @@
 ## tests/test_osproc_plugin.nim — F7: osproc plugin execProcess + execCmdEx.
 import std/[unittest, osproc, options, tables]
-import nimfoot/[types, errors, timeline, sandbox, verify, intercept]
-import nimfoot/plugins/osproc as nfosp
+import tripwire/[types, errors, timeline, sandbox, verify, intercept]
+import tripwire/plugins/osproc as nfosp
 
 # Wrapper procs — TRM-in-test gotcha (see test_mock_expect.nim docstring).
 proc doExecProcess(cmd, workingDir: string, args: seq[string]): string =

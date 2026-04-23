@@ -5,8 +5,8 @@
 ## via macro), and that any container not covered by seq/array routes to
 ## the openArray fallback trap, which raises UnmockableContainerDefect.
 import std/[unittest, osproc, strtabs, options, tables]
-import nimfoot/[types, errors, timeline, sandbox, verify, intercept]
-import nimfoot/plugins/osproc as nfosp
+import tripwire/[types, errors, timeline, sandbox, verify, intercept]
+import tripwire/plugins/osproc as nfosp
 
 # Wrapper procs — TRM-in-test gotcha (see test_mock_expect.nim docstring).
 # The wrapper forces stdlib default elaboration at the wrapper call site,

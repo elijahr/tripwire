@@ -1,4 +1,4 @@
-# nimfoot v0 — quickstart
+# tripwire v0 — quickstart
 
 This walkthrough takes you from a fresh clone to a passing test in
 under five minutes. If any step fails, jump to
@@ -8,12 +8,12 @@ or file an issue with the exact command + output.
 ## 1. Install
 
 ```bash
-nimble install nimfoot
+nimble install tripwire
 ```
 
-nimfoot requires **Nim >= 2.0** and **parsetoml >= 0.7**. Chronos and
+tripwire requires **Nim >= 2.0** and **parsetoml >= 0.7**. Chronos and
 unittest2 are optional; the framework ships working matrix cells for
-both but they are gated behind `-d:chronos` / `-d:nimfootUnittest2`.
+both but they are gated behind `-d:chronos` / `-d:tripwireUnittest2`.
 
 ## 2. Activate
 
@@ -21,27 +21,27 @@ Consumer projects must add **two lines** to their test `config.nims`:
 
 ```nim
 # tests/config.nims
---import:"nimfoot/auto"
---define:"nimfootActive"
+--import:"tripwire/auto"
+--define:"tripwireActive"
 --warning:UnusedImport:off
 ```
 
-The `--import:"nimfoot/auto"` flag injects the umbrella module into
+The `--import:"tripwire/auto"` flag injects the umbrella module into
 every test TU so plugin TRMs become in-scope for pattern matching.
-`-d:nimfootActive` gates that injection AND tells the public facade
-(`import nimfoot`) the user really did activate the framework.
+`-d:tripwireActive` gates that injection AND tells the public facade
+(`import tripwire`) the user really did activate the framework.
 
-Without activation, `import nimfoot` fails at compile time with a
+Without activation, `import tripwire` fails at compile time with a
 clear message (Defense 1). The escape hatch for tooling that needs
-to reference nimfoot symbols without running tests is
-`-d:nimfootAllowInactive`.
+to reference tripwire symbols without running tests is
+`-d:tripwireAllowInactive`.
 
 ## 3. First test
 
 ```nim
 # tests/test_my_service.nim
-import nimfoot
-import nimfoot/plugins/httpclient as nfhttp
+import tripwire
+import tripwire/plugins/httpclient as nfhttp
 import std/[httpclient, options, tables]
 
 test "fetches user data":
@@ -62,7 +62,7 @@ test "fetches user data":
 Run it:
 
 ```bash
-nim c -r --define:nimfootActive --import:nimfoot/auto tests/test_my_service.nim
+nim c -r --define:tripwireActive --import:tripwire/auto tests/test_my_service.nim
 ```
 
 Or through nimble once you declare a test task. The test passes
@@ -81,14 +81,14 @@ The framework enforces a narrow contract. These boundaries are known
 scope cuts, surfaced here so you don't discover them by surprise:
 
 - **User-code threading** (`--threads:on` on worker threads): TRMs
-  on worker threads crash the process. The nimfoot compilation is
+  on worker threads crash the process. The tripwire compilation is
   thread-safe (threadvar verifier stacks) but the framework does not
   support parallel test bodies in v0.
 - **`asyncCheck` inside tests**: use `waitFor` instead. Leaked
   Futures raise `PendingAsyncDefect` at teardown (Defense 6).
-- **FFI calls** (`{.importc.}`, `{.dynlib.}`, `{.header.}`): nimfoot
+- **FFI calls** (`{.importc.}`, `{.dynlib.}`, `{.header.}`): tripwire
   intercepts Nim-source calls only. The libc-level firewall arrives
-  in v0.2 (`-d:nimfootAuditFFI` already accepts the stub in v0).
+  in v0.2 (`-d:tripwireAuditFFI` already accepts the stub in v0).
 - **Windows guard mode**: the failure hardening that makes bigfoot
   kill-tests-on-leak under Linux/macOS hasn't been ported yet.
 

@@ -1,7 +1,7 @@
 ## tests/test_mock_plugin.nim — F1: MockPlugin type + registration.
 import std/unittest
-import nimfoot/[types, registry, intercept]
-import nimfoot/plugins/mock
+import tripwire/[types, registry, intercept]
+import tripwire/plugins/mock
 
 suite "MockPlugin":
   test "registered as 'mock' and enabled":

@@ -1,4 +1,4 @@
-## nimfoot/plugin_base.nim — base methods plugins override.
+## tripwire/plugin_base.nim — base methods plugins override.
 ## Declares the four {.base.} methods required by design §5.1/§3.3.
 import std/tables
 import ./types

@@ -1,4 +1,4 @@
-## nimfoot/plugins/plugin_intercept.nim — TRM-safe intercept helper.
+## tripwire/plugins/plugin_intercept.nim — TRM-safe intercept helper.
 ##
 ## Problem: Nim 2.2.6's TRM pattern-matching engine silently skips TRM
 ## rewriting when the template body calls another template that takes a
@@ -8,14 +8,14 @@
 ##   * Pattern matcher reports "declared but not used"
 ##   * The user-visible call hits the real proc instead of the mock
 ##
-## `nimfoot/intercept.nim`'s `nimfootInterceptBody` combinator takes
+## `tripwire/intercept.nim`'s `tripwireInterceptBody` combinator takes
 ## `responseType: typedesc`, which triggers this silent-skip. Rather than
 ## modify the shared combinator (reserved for the core track), plugins
-## call `nimfootPluginIntercept` below — a type-identical combinator whose
+## call `tripwirePluginIntercept` below — a type-identical combinator whose
 ## `responseType` parameter is `untyped` so TRM expansion succeeds.
 ##
-## The body is a line-for-line port of `nimfootInterceptBody` (see
-## src/nimfoot/intercept.nim). The only delta is `responseType: untyped`.
+## The body is a line-for-line port of `tripwireInterceptBody` (see
+## src/tripwire/intercept.nim). The only delta is `responseType: untyped`.
 ## When `respType` is used as a type expression at expansion time (e.g.
 ## `respType(resp).realize()`) Nim substitutes the untyped AST node and
 ## resolves the type at the caller's scope — identical behavior to the
@@ -31,14 +31,14 @@ proc nfRecordFingerprint*(t: var OrderedTable[string, string], fp: string) =
   ## shadowing at TRM expansion sites.
   t[".fp"] = fp
 
-template nimfootPluginIntercept*(plugin: Plugin, procName: string,
+template tripwirePluginIntercept*(plugin: Plugin, procName: string,
                                  fingerprint: string,
                                  respType: untyped,
                                  spyBody: untyped): untyped {.dirty.} =
   ## Plugin-facing intercept combinator. Identical semantics to
-  ## `nimfoot/intercept.nimfootInterceptBody`; differs only in the
+  ## `tripwire/intercept.tripwireInterceptBody`; differs only in the
   ## `respType` parameter being `untyped` to survive TRM expansion.
-  bind nimfootCountRewrite, currentVerifier, newLeakedInteractionDefect,
+  bind tripwireCountRewrite, currentVerifier, newLeakedInteractionDefect,
     newPostTestInteractionDefect, getThreadId, instantiationInfo,
     newUnmockedInteractionDefect, popMatchingMock, record, fingerprintOf,
     supportsPassthrough, passthroughFor, realize,
@@ -49,7 +49,7 @@ template nimfootPluginIntercept*(plugin: Plugin, procName: string,
   # Without this, {.dirty.} template expansion produces
   # "redefinition of 'nfVerifier'" during the second TRM's instantiation.
   block:
-    nimfootCountRewrite()
+    tripwireCountRewrite()
     let nfVerifier = currentVerifier()
     if nfVerifier.isNil:
       raise newLeakedInteractionDefect(getThreadId(), instantiationInfo())

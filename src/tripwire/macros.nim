@@ -1,4 +1,4 @@
-## nimfoot/macros.nim — shared DSL keywords + AST helpers for plugin authors.
+## tripwire/macros.nim — shared DSL keywords + AST helpers for plugin authors.
 ##
 ## The user-visible DSL verbs (`respond`, `responded`, `request`) are declared
 ## as `{.dirty.}` templates so plugin-specific `expect` macros can inspect and
@@ -7,7 +7,7 @@
 ## (F1: MockPlugin, F4: httpclient) because each plugin's `expect` must emit
 ## plugin-specific `registerMock` calls.
 ##
-## `inAnyOrder` lives in `nimfoot/context.nim` (Task A3.5), not here.
+## `inAnyOrder` lives in `tripwire/context.nim` (Task A3.5), not here.
 import std/macros
 import ./[types, sandbox]
 

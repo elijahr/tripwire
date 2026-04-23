@@ -1,4 +1,4 @@
-## nimfoot/registry.nim — global plugin registry.
+## tripwire/registry.nim — global plugin registry.
 import ./types
 
 var pluginRegistry {.global.}: seq[Plugin] = @[]

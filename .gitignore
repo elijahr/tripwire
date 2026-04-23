@@ -1,15 +1,20 @@
-# Nim compile output (test binaries live next to their .nim sources)
-tests/test_*
-!tests/test_*.nim
-
-# nimcache
+# Nim
 nimcache/
 *.nim.c
 *.nim.o
+*.exe
 
-# OS / editor
+# Compiled test binaries (tests/ has binaries without .nim extension
+# next to their .nim sources; protect .nim sources and subdirectories)
+tests/all_tests
+tests/test_*
+!tests/all_tests.nim
+!tests/test_*.nim
+!tests/test_*/
+
+# OS
 .DS_Store
 
-# Aggregate test binary
-tests/all_tests
-!tests/all_tests.nim
+# IDE
+.vscode/
+.idea/

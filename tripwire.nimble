@@ -1,7 +1,7 @@
 # Package
 
 version       = "0.1.0"
-author        = "axiomantic"
+author        = "elijahr <elijahr+tripwire@gmail.com>"
 description   = "Test mocking framework with three-guarantee enforcement"
 license       = "MIT"
 srcDir        = "src"

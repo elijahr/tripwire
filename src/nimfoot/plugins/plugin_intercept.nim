@@ -25,6 +25,12 @@ import std/[tables, options]
 import ../[types, errors, timeline, sandbox, verify, cap_counter, intercept]
 export options.isSome, options.isNone, options.get
 
+proc nfRecordFingerprint*(t: var OrderedTable[string, string], fp: string) =
+  ## Helper to stuff the call-site fingerprint into an Interaction.args
+  ## table without tripping the httpclient/HttpHeaders `[]=` overload
+  ## shadowing at TRM expansion sites.
+  t[".fp"] = fp
+
 template nimfootPluginIntercept*(plugin: Plugin, procName: string,
                                  fingerprint: string,
                                  respType: untyped,
@@ -36,7 +42,7 @@ template nimfootPluginIntercept*(plugin: Plugin, procName: string,
     newPostTestInteractionDefect, getThreadId, instantiationInfo,
     newUnmockedInteractionDefect, popMatchingMock, record, fingerprintOf,
     supportsPassthrough, passthroughFor, realize,
-    initOrderedTable, isSome, isNil, get
+    initOrderedTable, isSome, isNil, get, nfRecordFingerprint
   nimfootCountRewrite()
   let nfVerifier {.inject.} = currentVerifier()
   if nfVerifier.isNil:
@@ -49,8 +55,11 @@ template nimfootPluginIntercept*(plugin: Plugin, procName: string,
   let nfSite = instantiationInfo()
   # Record the call-site fingerprint in args[".fp"] so assertMock can
   # match by (procName, fingerprint) rather than procName alone.
+  # Routed through nfRecordFingerprint (a real proc) so the TRM expansion
+  # site does NOT try to overload-resolve tables.[]= against any nearby
+  # HttpHeaders.[]= etc.
   var nfArgs = initOrderedTable[string, string]()
-  nfArgs[".fp"] = fingerprint
+  nfRecordFingerprint(nfArgs, fingerprint)
   discard nfVerifier.timeline.record(plugin, procName, nfArgs,
     (if nfMockOpt.isSome: nfMockOpt.get.response else: nil),
     (file: nfSite.filename, line: nfSite.line, column: nfSite.column))

@@ -65,8 +65,15 @@ template test*(name: string, body: untyped) =
   ## verifier push/pop + verifyAll lifecycle. Pending async operations at
   ## body end raise `PendingAsyncDefect` (suppressed by
   ## `-d:nimfootAllowPendingAsync`).
+  ##
+  ## **First-violation-wins semantics** (matches `sandbox:` in
+  ## `nimfoot/sandbox.nim`): if the body raised, that defect IS the
+  ## verification failure — pop the verifier but skip verifyAll so the
+  ## original (more informative) defect isn't masked by a secondary
+  ## UnassertedInteractionsDefect raised inside a `finally`.
   bind pushVerifier, popVerifier, newVerifier, hasPendingOperations,
-    newPendingAsyncDefect, verifyAllOnExit, addExitProc
+    newPendingAsyncDefect, verifyAllOnExit, addExitProc,
+    getCurrentException
   if not exitHookRegistered:
     addExitProc(verifyAllOnExit)
     exitHookRegistered = true
@@ -79,7 +86,8 @@ template test*(name: string, body: untyped) =
           raise newPendingAsyncDefect(name)
     finally:
       discard popVerifier()
-      nfV.verifyAll()
+      if getCurrentException() == nil:
+        nfV.verifyAll()
 
 template suite*(name: string, body: untyped) =
   ## Pass-through to the active backend's `suite`. Exists so `import

@@ -17,7 +17,13 @@
 ## because `auto.nim` doesn't export plugin symbols — it only pulls the
 ## plugin modules in so their TRM templates become in-scope in every TU
 ## via `--import:"nimfoot/auto"`.
-import std/[unittest, httpclient, asyncdispatch, options, tables]
+import std/[httpclient, asyncdispatch, options, tables]
+# The nimfoot facade re-exports integration_unittest, which re-exports
+# whichever backend is active (std/unittest by default, unittest2 under
+# `-d:nimfootUnittest2`), minus its `test`/`suite` so the nimfoot-
+# wrapped forms win. The backend's `expect` / `check` / `suite` come
+# through here. Importing std/unittest DIRECTLY in addition would
+# create an ambiguous-call clash under the unittest2 matrix cell.
 import nimfoot
 import nimfoot/plugins/httpclient as nfhttp
 

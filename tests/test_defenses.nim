@@ -24,9 +24,9 @@
 ## The Defense 1 probes shell out to `nim check` so the guard's
 ## compile-time error terminates the subprocess, not the main
 ## test binary.
-import std/[unittest, osproc, strutils, asyncdispatch]
+import std/[unittest, osproc, strutils]
 import nimfoot/[types, errors, timeline, sandbox, verify, intercept,
-                futures, integration_unittest, cap_counter]
+                futures, cap_counter]
 
 const FixturePath = "tests/fixtures/defense1_probe.nim"
 

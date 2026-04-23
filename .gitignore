@@ -1,0 +1,15 @@
+# Nim compile output (test binaries live next to their .nim sources)
+tests/test_*
+!tests/test_*.nim
+
+# nimcache
+nimcache/
+*.nim.c
+*.nim.o
+
+# OS / editor
+.DS_Store
+
+# Aggregate test binary
+tests/all_tests
+!tests/all_tests.nim

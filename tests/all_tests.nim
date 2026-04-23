@@ -13,5 +13,6 @@ import ./test_context
 import ./test_intercept
 import ./test_config
 import ./test_macros
+import ./test_async_asyncdispatch
 # test_nimble_manifest.nim deliberately excluded — it shells out to `nimble tasks`
 # which, when invoked under `nimble test`, creates a recursive-invocation loop.

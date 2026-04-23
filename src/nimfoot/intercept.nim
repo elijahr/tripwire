@@ -4,12 +4,10 @@
 ## It encapsulates the required sequence: cap-count, guard, mock lookup,
 ## timeline record, spy-or-raise.
 import std/[tables, options]
-import ./[types, errors, timeline, sandbox, verify]
+import ./[types, errors, timeline, sandbox, verify, cap_counter]
 
-# ---- Defense 3 stub (full impl in Task D3) ------------------------------
-template nimfootCountRewrite*(): untyped =
-  ## Stub: no-op in A7. Replaced with compile-time counter in D3.
-  discard
+# ---- Defense 3: real cap counter (replaces A7 stub) ---------------------
+export cap_counter.nimfootCountRewrite, cap_counter.NimfootCapThreshold
 
 # ---- Defense 6 primitive -------------------------------------------------
 template nimfootGuard*(plugin: Plugin, procName: string): untyped {.dirty.} =

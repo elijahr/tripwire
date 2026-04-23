@@ -22,6 +22,7 @@ import ./test_mock_assert
 import ./test_httpclient_plugin
 import ./test_httpclient_async
 import ./test_httpclient_wrappers
+import ./test_osproc_plugin
 import ./test_integration_unittest
 import ./test_integration_unittest2  # gated internally by `when defined(nimfootUnittest2)`
 # test_nimble_manifest.nim deliberately excluded — it shells out to `nimble tasks`

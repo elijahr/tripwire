@@ -22,6 +22,9 @@ task test, "Run the full test matrix":
   exec "nim c --gc:refc --define:nimfootActive --define:nimfootUnittest2 --import:nimfoot/auto -r tests/all_tests.nim"
   # orc + unittest2
   exec "nim c --gc:orc --define:nimfootActive --define:nimfootUnittest2 --import:nimfoot/auto -r tests/all_tests.nim"
+  # test_osproc_arrays.nim runs standalone — aggregating its wrappers into
+  # all_tests.nim pushes cap_counter's 15-rewrite cap (Defense 3).
+  exec "nim c --gc:orc --define:nimfootActive -r tests/test_osproc_arrays.nim"
   # orc + chronos — opt-in via env var because chronos isn't in `requires`.
   # Set NIMFOOT_TEST_CHRONOS=1 to enable; otherwise skip the chronos cell.
   if existsEnv("NIMFOOT_TEST_CHRONOS"):

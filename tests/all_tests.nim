@@ -23,6 +23,11 @@ import ./test_httpclient_plugin
 import ./test_httpclient_async
 import ./test_httpclient_wrappers
 import ./test_osproc_plugin
+# test_osproc_arrays.nim deliberately excluded from the aggregate harness —
+# its 3 wrapper procs + the existing test_osproc_plugin wrappers + every
+# other test file's wrappers push the aggregate over Defense 3's 15
+# rewrites-per-compilation-unit cap (cap_counter.nim). Run it directly:
+#   nim c -r tests/test_osproc_arrays.nim
 import ./test_integration_unittest
 import ./test_integration_unittest2  # gated internally by `when defined(nimfootUnittest2)`
 # test_nimble_manifest.nim deliberately excluded — it shells out to `nimble tasks`

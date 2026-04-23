@@ -7,7 +7,7 @@
 ## TRMs route through `nimfootPluginIntercept` (untyped respType) rather
 ## than `nimfootInterceptBody` — see plugins/plugin_intercept.nim.
 
-import std/[osproc, strtabs, tables, options]
+import std/[osproc, strtabs, tables, options, macros]
 import ../[types, registry, timeline, sandbox, verify, intercept, errors]
 import ./plugin_intercept
 
@@ -75,13 +75,12 @@ template execProcessSeqTRM*{execProcess(cmd, workingDir, args, env, options)}(
       execProcess(cmd, workingDir, args, env, options)
 
 # ---- execCmdEx TRM -------------------------------------------------------
-# Note the distinct pattern-var names (c, o, e, w, i) from the local
-# params (cmd, options, env, workingDir, input). Using the exact same
-# names as in execProcessSeqTRM's pattern triggers a spurious
-# 'redefinition of nfVerifier' error during pattern registration — two
-# TRMs in one module with identical pattern-var names seem to share an
-# expansion scope at compile time. Distinct pattern-var names isolate
-# the templates.
+# Note: execCmdEx's stdlib default is {poStdErrToStdOut, poUsePath}, NOT
+# {poStdErrToStdOut, poUsePath, poEvalCommand} like execProcess. Fingerprints
+# in user tests must match the stdlib default otherwise the TRM fires but
+# finds no mock. Pattern-var names (c, o, e, w, i) are distinct from
+# execProcessSeqTRM's (cmd, workingDir, args, env, options) purely for
+# readability and to avoid any identifier overlap between the two TRMs.
 template execCmdExTRM*{execCmdEx(c, o, e, w, i)}(
     c: string,
     o: set[ProcessOption] = {poStdErrToStdOut, poUsePath},
@@ -94,3 +93,72 @@ template execCmdExTRM*{execCmdEx(c, o, e, w, i)}(
     OsprocExecCmdExResponse):
     {.noRewrite.}:
       execCmdEx(c, o, e, w, i)
+
+# ---- F8: execProcess array variants 0..8 --------------------------------
+# stdlib's execProcess declares `args: openArray[string] = []`. Fixed-size
+# arrays pass through this openArray, but Nim TRM matching treats `seq` and
+# `array[N, string]` as distinct call shapes. Emit a dedicated TRM per
+# small arity (0..8) so common inline-array usage is intercepted without
+# the user converting to `@args`. Arities >8 fall through to the fallback
+# trap at the bottom, which tells the user how to proceed (wrap with `@`).
+macro emitExecProcessArrayVariants(maxN: static[int]): untyped =
+  ## Pattern vars are built via `ident` (not bare names inside `quote do:`)
+  ## so they reach the AST un-gensym'd. With gensym'd names the template
+  ## pattern `{execProcess(cmd, ...)}` fails to match the call — Nim
+  ## 2.2.6's TRM engine compares pattern-var symbols to the template's
+  ## formal-param symbols, and gensym breaks that linkage. Confirmed via
+  ## isolated repro; see test_osproc_arrays.nim.
+  result = newStmtList()
+  let cmdI = ident"cmd"
+  let wdI = ident"workingDir"
+  let argsI = ident"args"
+  let envI = ident"env"
+  let optsI = ident"options"
+  for n in 0 .. maxN:
+    let tmplName = ident("execProcessArrayTRM" & $n)
+    let arrayTy = nnkBracketExpr.newTree(
+      ident"array", newLit(n), ident"string")
+    let tdef = quote do:
+      template `tmplName`*{execProcess(`cmdI`, `wdI`, `argsI`, `envI`,
+                                        `optsI`)}(
+          `cmdI`: string, `wdI`: string = "",
+          `argsI`: `arrayTy`,
+          `envI`: StringTableRef = nil,
+          `optsI`: set[ProcessOption] = {poStdErrToStdOut, poUsePath,
+                                          poEvalCommand}): string =
+        nimfootPluginIntercept(
+          osprocPluginInstance,
+          "execProcess",
+          fingerprintExecProcess(`cmdI`, `wdI`, @(`argsI`), `envI`, `optsI`),
+          OsprocExecProcessResponse):
+          {.noRewrite.}:
+            execProcess(`cmdI`, `wdI`, `argsI`, `envI`, `optsI`)
+    result.add(tdef)
+
+emitExecProcessArrayVariants(8)
+
+# ---- F8: Defense 5 — openArray fallback trap (MUST be last) -------------
+# If seq + arrays 0..8 all missed, the user passed a container shape we
+# cannot canonicalize (typically a `toOpenArray` slice or an array with
+# arity > 8). Raise UnmockableContainerDefect pointing the user to wrap
+# args with `@` to force a seq. Registration ORDER matters: Nim 2.2.6
+# tries TRMs in declaration order, so this MUST be emitted after the
+# seq TRM and the array-variant macro.
+template execProcessOpenArrayFallbackTRM*{
+    execProcess(cmd, workingDir, args, env, options)}(
+    cmd: string, workingDir: string = "",
+    args: openArray[string],
+    env: StringTableRef = nil,
+    options: set[ProcessOption] = {poStdErrToStdOut, poUsePath,
+                                    poEvalCommand}): string =
+  # Body must have a `string` value for type-check, but the raise
+  # unconditionally transfers control before the sentinel is produced.
+  # A trailing "" satisfies the type-checker; the `UnreachableCode` hint
+  # at the call site is expected and benign.
+  block:
+    nimfootCountRewrite()
+    raise newUnmockableContainerDefect(
+      procName = "execProcess",
+      containerType = "openArray[string] (unknown concrete container)",
+      site = instantiationInfo())
+    ""

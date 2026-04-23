@@ -18,5 +18,6 @@ import ./test_async_asyncdispatch
 import ./test_async_chronos  # gated internally by `when defined(chronos)`
 import ./test_mock_plugin
 import ./test_integration_unittest
+import ./test_integration_unittest2  # gated internally by `when defined(nimfootUnittest2)`
 # test_nimble_manifest.nim deliberately excluded — it shells out to `nimble tasks`
 # which, when invoked under `nimble test`, creates a recursive-invocation loop.

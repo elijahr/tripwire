@@ -36,7 +36,14 @@ else:
   import std/unittest as backend
   const backendName* = "std/unittest"
 
-export backend
+# Re-export the backend EXCEPT its `test` and `suite` templates. Those
+# are shadowed by nimfoot's own `test`/`suite` wrappers below — if both
+# were visible, consumers writing bare `suite "x":` / `test "y":` would
+# hit an ambiguous-call error (seen under `-d:nimfootUnittest2`). The
+# nimfoot wrapper is the intended entry point; the backend's raw forms
+# stay available as `backend.test` / `backend.suite` through the
+# `backend` alias when callers need them (e.g., self-hosting tests).
+export backend except test, suite
 
 var exitHookRegistered {.threadvar.}: bool
 
@@ -75,8 +82,11 @@ template test*(name: string, body: untyped) =
       nfV.verifyAll()
 
 template suite*(name: string, body: untyped) =
-  ## Pass-through to the active backend's `suite`. Exists only so user
-  ## code can write `import nimfoot/integration_unittest` and have
-  ## `suite:` resolve alongside `test:` without reaching for `backend`.
+  ## Pass-through to the active backend's `suite`. Exists so `import
+  ## nimfoot/integration_unittest` alone supplies both `test:` (nimfoot-
+  ## lifecycle-wrapped) and `suite:` to consumer tests. The backend's
+  ## raw `suite` is intentionally excluded from the re-export to avoid
+  ## ambiguity; callers that need the unwrapped form can reach it via
+  ## the `backend` alias.
   backend.suite name:
     body

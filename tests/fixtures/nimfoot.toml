@@ -1,0 +1,10 @@
+[nimfoot]
+enabled_plugins = ["mock", "httpclient"]
+allow_pending_async = true
+
+[httpclient]
+include_body_in_errors = true
+
+[firewall]
+mode = "allow_list"
+allowed_domains = ["api.example.com"]

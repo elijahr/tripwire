@@ -1,0 +1,41 @@
+## tests/test_config.nim — B1 TDD suite for nimfoot/config.nim.
+
+import std/[unittest, os, options, tables]
+import nimfoot/config
+
+suite "config":
+  test "defaultConfig has empty enabled plugins and builtin source":
+    let c = defaultConfig()
+    check c.enabledPlugins.len == 0
+    check c.sources == @["builtin-defaults"]
+    check c.allowPendingAsync == false
+
+  test "loadConfig with fixture reads enabled_plugins":
+    let path = currentSourcePath().parentDir / "fixtures" / "nimfoot.toml"
+    let c = loadConfig(some(path))
+    check c.enabledPlugins == @["mock", "httpclient"]
+    check c.allowPendingAsync == true
+    check "builtin-defaults" in c.sources
+    check path in c.sources
+
+  test "loadConfig parses plugin options":
+    let path = currentSourcePath().parentDir / "fixtures" / "nimfoot.toml"
+    let c = loadConfig(some(path))
+    check c.pluginOptions.hasKey("httpclient")
+
+  test "loadConfig parses firewall block":
+    let path = currentSourcePath().parentDir / "fixtures" / "nimfoot.toml"
+    let c = loadConfig(some(path))
+    check c.firewall.mode == fmAllowList
+    check c.firewall.allowedDomains == @["api.example.com"]
+
+  test "NIMFOOT_CONFIG missing file raises":
+    putEnv("NIMFOOT_CONFIG", "/nonexistent/path.toml")
+    expect ValueError:
+      discard discoverConfigPath()
+    delEnv("NIMFOOT_CONFIG")
+
+  test "loadConfig(none) returns defaults with single source":
+    let c = loadConfig(none(string))
+    check c.sources == @["builtin-defaults"]
+    check c.enabledPlugins.len == 0

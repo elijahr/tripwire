@@ -47,8 +47,11 @@ template nimfootPluginIntercept*(plugin: Plugin, procName: string,
   let nfMockOpt = nfVerifier.popMatchingMock(plugin.name, procName,
                                               fingerprint)
   let nfSite = instantiationInfo()
-  discard nfVerifier.timeline.record(plugin, procName,
-    initOrderedTable[string, string](),
+  # Record the call-site fingerprint in args[".fp"] so assertMock can
+  # match by (procName, fingerprint) rather than procName alone.
+  var nfArgs = initOrderedTable[string, string]()
+  nfArgs[".fp"] = fingerprint
+  discard nfVerifier.timeline.record(plugin, procName, nfArgs,
     (if nfMockOpt.isSome: nfMockOpt.get.response else: nil),
     (file: nfSite.filename, line: nfSite.line, column: nfSite.column))
   if nfMockOpt.isNone:

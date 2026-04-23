@@ -223,3 +223,87 @@ macro expect*(call: typed, body: untyped): untyped =
       newCall("fingerprintOf", procNameLit, prefix(renderedArgs, "@")),
       respConstr,
       newCall("instantiationInfo")))
+
+macro assertMock*(call: typed, body: untyped): untyped =
+  ## `assertMock fnName(args...): responded value: VALUE`
+  ##
+  ## Finds the next unasserted Interaction in the current verifier's
+  ## timeline matching `fnName` (with passthrough-aware fingerprint),
+  ## checks that its recorded `MockUserResponse[T].returnValue` equals
+  ## `VALUE`, and marks the interaction asserted.
+  ##
+  ## Named `assertMock` rather than `assert` to avoid collision with the
+  ## system `assert` template (overload resolution picks the wrong one).
+  ##
+  ## Raises `AssertionDefect` if no matching unasserted interaction exists
+  ## or if the response value mismatches.
+  expectKind(call, nnkCall)
+  let procSym = call[0]
+  var callArgs: seq[NimNode]
+  for i in 1 ..< call.len:
+    callArgs.add(call[i])
+
+  # Extract `responded value: VALUE` from body. Parser shape:
+  #   Command(Ident responded, Ident value, StmtList(VALUE))
+  var valueExpr: NimNode = nil
+  for stmt in body:
+    let isResponded = (stmt.kind in {nnkCommand, nnkCall}) and stmt.len >= 1 and
+                      stmt[0].kind == nnkIdent and stmt[0].strVal == "responded"
+    if not isResponded: continue
+    var i = 1
+    while i < stmt.len:
+      let fieldNode = stmt[i]
+      if fieldNode.kind == nnkIdent and fieldNode.strVal == "value" and
+         i + 1 < stmt.len:
+        let rhs = stmt[i + 1]
+        if rhs.kind == nnkStmtList and rhs.len == 1:
+          valueExpr = rhs[0]
+        else:
+          valueExpr = rhs
+        break
+      if fieldNode.kind == nnkExprColonExpr and
+         fieldNode[0].kind == nnkIdent and fieldNode[0].strVal == "value":
+        valueExpr = fieldNode[1]
+        break
+      inc i
+    if valueExpr != nil: break
+  if valueExpr == nil:
+    error("assertMock ...: must contain `responded value: <expr>`", body)
+
+  let retType = procReturnType(call)
+  var renderedArgs = nnkBracket.newTree()
+  for a in callArgs:
+    renderedArgs.add(newCall("$", a))
+  let procNameLit = newLit($procSym)
+
+  # Runtime:
+  #   block:
+  #     let v = currentVerifier()
+  #     doAssert v != nil, "assertMock outside sandbox"
+  #     let fp = fingerprintOf(procName, @[$a0, ...])
+  #     var found: Interaction = nil
+  #     for e in v.timeline.entries:
+  #       if not e.asserted and e.procName == procName:
+  #         found = e; break
+  #     doAssert found != nil, "assertMock: no unasserted interaction for ..."
+  #     let resp = MockUserResponse[retType](found.response)
+  #     doAssert resp.returnValue == VALUE, "assertMock: response mismatch"
+  #     v.timeline.markAsserted(found)
+  result = quote do:
+    block:
+      let nfAV = currentVerifier()
+      doAssert nfAV != nil, "assertMock outside sandbox"
+      let nfAFp = fingerprintOf(`procNameLit`, @`renderedArgs`)
+      var nfAFound: Interaction = nil
+      for e in nfAV.timeline.entries:
+        if not e.asserted and e.procName == `procNameLit` and
+           ".fp" in e.args and e.args[".fp"] == nfAFp:
+          nfAFound = e
+          break
+      doAssert nfAFound != nil,
+        "assertMock: no unasserted interaction for " & `procNameLit` &
+        " with fingerprint " & nfAFp
+      let nfAResp = MockUserResponse[`retType`](nfAFound.response)
+      doAssert nfAResp.returnValue == `valueExpr`,
+        "assertMock: response mismatch for " & `procNameLit`
+      nfAV.timeline.markAsserted(nfAFound)

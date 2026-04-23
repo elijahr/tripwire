@@ -6,6 +6,7 @@
 
 import std/tables
 import ./types
+import ./plugin_base
 
 type
   NimfootDefect* = object of Defect
@@ -56,8 +57,17 @@ const FFIScopeFooter* = "\n(nimfoot intercepts Nim source calls only. " &
 # ---- Constructors --------------------------------------------------------
 
 proc newUnmockedInteractionDefect*(pluginName, procName, fingerprint: string,
-    site: tuple[file: string, line, column: int]): ref UnmockedInteractionDefect =
-  let msg = "unmocked interaction: " & pluginName & "." & procName &
+    site: tuple[file: string, line, column: int],
+    plugin: Plugin = nil): ref UnmockedInteractionDefect =
+  ## If `plugin` is provided, the header uses `plugin.formatInteraction` for
+  ## a verbose rendering; otherwise it falls back to `<plugin>.<proc>`.
+  let header =
+    if plugin != nil:
+      let synth = Interaction(plugin: plugin, procName: procName)
+      "unmocked interaction: " & plugin.formatInteraction(synth)
+    else:
+      "unmocked interaction: " & pluginName & "." & procName
+  let msg = header &
     " at " & site.file & ":" & $site.line & ":" & $site.column &
     "\n  fingerprint: " & fingerprint & FFIScopeFooter
   result = (ref UnmockedInteractionDefect)(msg: msg,

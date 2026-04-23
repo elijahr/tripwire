@@ -56,17 +56,41 @@ when defined(chronos):
   import chronos
   export chronos
 
+  # Chronos's `newFuture[T]` is a template whose `fromProc` parameter is
+  # typed `static[string]` — it MUST be a compile-time constant. The
+  # runtime `label` parameter accepted by these helpers is therefore
+  # absorbed (passed through to `asyncdispatch`'s `newFuture` in the
+  # non-chronos branch, documented here). We pass a constant debug tag
+  # to `chronos.newFuture` so stack traces still carry a recognizable
+  # origin.
+  const
+    chronosMakeCompletedLabel = "nimfoot.makeCompletedFutureChronos"
+    chronosMakeFailedLabel    = "nimfoot.makeFailedFutureChronos"
+
   proc makeCompletedFutureChronos*[T](value: sink T,
       label: string = ""): chronos.Future[T] =
     ## Chronos analogue of `makeCompletedFuture`. Only present under
-    ## `-d:chronos`. The return type is `chronos.Future[T]`, which is a
-    ## distinct type from `asyncdispatch.Future[T]`.
-    result = chronos.newFuture[T](label)
+    ## `-d:chronos`. The return type is `chronos.Future[T]`, a distinct
+    ## type from `asyncdispatch.Future[T]`.
+    ##
+    ## The `label` parameter is accepted for API symmetry with
+    ## `makeCompletedFuture` but is not forwarded to `chronos.newFuture`
+    ## (whose `fromProc` is `static[string]`). A constant debug tag is
+    ## used instead; the runtime label is ignored.
+    discard label  # silence unused-parameter warning
+    result = chronos.newFuture[T](chronosMakeCompletedLabel)
     chronos.complete(result, value)
 
-  proc makeFailedFutureChronos*[T](err: ref Exception,
+  proc makeFailedFutureChronos*[T](err: ref CatchableError,
       label: string = ""): chronos.Future[T] =
     ## Chronos analogue of `makeFailedFuture`. Only present under
     ## `-d:chronos`.
-    result = chronos.newFuture[T](label)
+    ##
+    ## Note: chronos's `fail` templates require `ref CatchableError`
+    ## (stricter than asyncdispatch's `ref Exception`). Callers passing
+    ## a plain `ref Exception` must narrow the type themselves.
+    ## The `label` parameter is accepted for API symmetry; see the
+    ## corresponding note on `makeCompletedFutureChronos`.
+    discard label
+    result = chronos.newFuture[T](chronosMakeFailedLabel)
     chronos.fail(result, err)

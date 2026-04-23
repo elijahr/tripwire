@@ -10,6 +10,13 @@ Violations raise `{.TripwireDefect.}`s that are NOT catchable by user
 code — they abort the test binary with a stack trace that names the
 offending interaction.
 
+> **Alpha quality.** Tripwire is under active development. v0 shipped
+> April 2026 with the core three-guarantee machinery and three plugins
+> (MockPlugin, HttpClientPlugin, OsProcPlugin); it has not yet been
+> heavily exercised in real test suites. Expect rough edges. Bug
+> reports, feedback, and contributions are welcome — please open an
+> issue or PR.
+
 ## !! SCOPE
 
 **tripwire intercepts Nim source calls only.** FFI (`{.importc.}`,

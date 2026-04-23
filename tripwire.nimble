@@ -1,7 +1,7 @@
 # Package
 
 version       = "0.1.0"
-author        = "tripwire contributors"
+author        = "axiomantic"
 description   = "Test mocking framework with three-guarantee enforcement"
 license       = "MIT"
 srcDir        = "src"

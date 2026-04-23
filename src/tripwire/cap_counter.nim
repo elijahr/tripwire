@@ -1,4 +1,4 @@
-## tripwire/cap_counter.nim — Defense 3 compile-time cap tripwire.
+## tripwire/cap_counter.nim — Defense 3 compile-time rewrite cap.
 ##
 ## Nim's term-rewriting-macros engine silently drops rewrites past ~19 per
 ## hloBody. Past that threshold, a TRM `expect`-ed call simply runs its

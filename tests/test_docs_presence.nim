@@ -1,0 +1,38 @@
+## tests/test_docs_presence.nim — H4/H5/H6 acceptance.
+##
+## Verifies that user-facing documentation exists and carries the
+## contractually-required surface markers (SCOPE callout, FFI mention,
+## 13 plugin authoring rules, spike #2 report). Shelling out to
+## fileExists rather than parsing markdown because the goal is to catch
+## accidental deletion, not grammatical correctness.
+import std/[unittest, os, strutils]
+
+# The tests shell out to the filesystem relative to the repo root; they
+# must run with the repo root as the CWD (which nimble test ensures).
+const RepoRoot = currentSourcePath().parentDir().parentDir()
+
+suite "docs presence (H4/H5/H6)":
+  test "quickstart exists":
+    check fileExists(RepoRoot / "docs" / "quickstart.md")
+
+  test "README exists with SCOPE callout":
+    let path = RepoRoot / "README.md"
+    check fileExists(path)
+    let r = readFile(path)
+    check "SCOPE" in r
+    check "FFI" in r
+
+  test "plugin-authoring doc enumerates 13 rules":
+    let path = RepoRoot / "docs" / "plugin-authoring.md"
+    check fileExists(path)
+    let p = readFile(path)
+    # Rule count sanity: each rule is tagged as `Rule N` somewhere
+    # in the body; the intro enumerates the 13 headers.
+    check "Rule 1" in p
+    check "Rule 13" in p
+    # Canonical TRM body helper must be mentioned somewhere — users
+    # grep for this when starting a plugin.
+    check "nimfootInterceptBody" in p
+
+  test "spike #2 cap report exists":
+    check fileExists(RepoRoot / "spike" / "cap" / "REPORT.md")

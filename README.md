@@ -22,7 +22,18 @@ offending interaction.
 **tripwire intercepts Nim source calls only.** FFI (`{.importc.}`,
 `{.dynlib.}`, `{.header.}`) is NOT intercepted in v0. This is an
 intentional scope cut: the libc-level firewall (bigfoot's v3 layer)
-arrives in v0.2 via `-d:tripwireAuditFFI` (stub present in v0).
+arrives in v0.2.
+
+An opt-in FFI *audit* (Defense 2 Part 3) ships in v0 via
+`-d:tripwireAuditFFI`. When set, tripwire scans the paths named in
+`TRIPWIRE_FFI_SCAN_PATHS` (default: `src`) at compile time and emits
+a `{.hint.}` listing every `{.importc.}`, `{.importcpp.}`,
+`{.importobjc.}`, and `{.importjs.}` pragma it finds, with per-file
+counts and a grand total. Set `TRIPWIRE_FFI_TRANSITIVE_PATHS` to
+include the Nim stdlib or a nimble deps dir for transitive coverage;
+if unset, the audit reports "transitive FFI: 0 (not scanned)" so the
+partial scope is visible. A fully macro-driven transitive walk that
+does not require user path configuration is tracked for v0.2.
 
 Every defect message includes an FFI-scope footer pointing at
 `docs/concepts.md#scope`; if your test reports `UnmockedInteraction`

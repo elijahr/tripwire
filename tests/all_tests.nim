@@ -37,7 +37,7 @@ import ./test_defenses
 import ./test_self_three_guarantees
 # H4/H5/H6: documentation presence guardrails.
 import ./test_docs_presence
-# H6.5: Defense 2 Part 3 FFI audit stub.
-import ./test_audit_ffi_stub
+# Defense 2 Part 3 FFI audit: real scoped scanner (replaces the v0 stub).
+import ./test_audit_ffi
 # test_nimble_manifest.nim deliberately excluded — it shells out to `nimble tasks`
 # which, when invoked under `nimble test`, creates a recursive-invocation loop.

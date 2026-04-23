@@ -32,5 +32,7 @@ import ./test_integration_unittest
 import ./test_integration_unittest2  # gated internally by `when defined(nimfootUnittest2)`
 import ./test_auto_umbrella
 import ./test_defenses
+# H2: framework's existence proof (three guarantees).
+import ./test_self_three_guarantees
 # test_nimble_manifest.nim deliberately excluded — it shells out to `nimble tasks`
 # which, when invoked under `nimble test`, creates a recursive-invocation loop.

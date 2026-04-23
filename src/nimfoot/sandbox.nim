@@ -38,10 +38,24 @@ template sandbox*(body: untyped) =
   ## `verifyAll` lives in `nimfoot/verify` which imports this module;
   ## to avoid a circular `bind`, it resolves at instantiation site
   ## (caller must `import nimfoot/verify` alongside `nimfoot/sandbox`).
-  bind popVerifier, pushVerifier, newVerifier
+  ##
+  ## **First-violation-wins semantics.** If the body raises (e.g., a TRM
+  ## fired `UnmockedInteractionDefect`), that defect IS the verification
+  ## failure — we pop the verifier but do NOT re-run `verifyAll`, because
+  ## a second raise inside a `finally` would mask the original with a
+  ## spurious `UnassertedInteractionsDefect` (the timeline entry for the
+  ## unmocked call is unasserted by definition, since the body never
+  ## reached the `assert` clause). Only run `verifyAll` on normal
+  ## completion, where it reports the first unmet guarantee.
+  bind popVerifier, pushVerifier, newVerifier, getCurrentException
   let nfV = pushVerifier(newVerifier())
   try:
     body
   finally:
     discard popVerifier()
-    nfV.verifyAll()
+    # First-violation-wins: if an exception (including Defect) is already
+    # in flight from body, don't re-run verifyAll — doing so would raise
+    # UnassertedInteractionsDefect inside a `finally`, masking the
+    # original (and more informative) failure.
+    if getCurrentException() == nil:
+      nfV.verifyAll()

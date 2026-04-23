@@ -10,11 +10,7 @@ Violations raise `{.TripwireDefect.}`s that are NOT catchable by user
 code — they abort the test binary with a stack trace that names the
 offending interaction.
 
-Tripwire is the Nim port of
-[bigfoot](https://github.com/axiomantic/bigfoot), the pytest
-test-mocking framework. It adapts bigfoot's three-guarantee model
-(pre-authorized, asserted, consumed) to Nim via term-rewriting macros
-and `--import:tripwire/auto` injection.
+Nim adaptation of [bigfoot](https://github.com/axiomantic/bigfoot) (pytest).
 
 > **Alpha quality.** Tripwire is under active development. v0 shipped
 > April 2026 with the core three-guarantee machinery and three plugins

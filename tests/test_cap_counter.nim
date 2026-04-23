@@ -8,6 +8,16 @@
 ## Both probes shell out to `nim check` because the counter is per
 ## compilation unit — running the checks inside the main test process
 ## would pollute its own counter.
+##
+## TRM scope note: once G1's `auto.nim` umbrella is active (which the
+## nimble test task injects via `--import:nimfoot/auto`), the osproc
+## plugin's `execCmdExTRM` is in lexical scope in every TU, including
+## this one. The two `execCmdEx` call sites below are genuinely
+## non-mock uses (they shell out to `nim check` as test infrastructure),
+## so we suppress the TRM with `{.noRewrite.}` to let them pass through
+## to the real stdlib proc. Without the guard, the TRM would expand
+## inside a TU that does not import `nimfoot/verify`, and the `{.dirty.}`
+## template body would fail with `popMatchingMock` undeclared.
 import std/[unittest, os, osproc, strutils]
 
 const FixturePath = "tests/fixtures/cap_overflow.nim"
@@ -18,7 +28,10 @@ suite "cap counter (Defense 3)":
     # the {.error.} in cap_counter.nim. `2>&1` folds stderr into stdout
     # so we can match either stream.
     let cmd = "nim check --hints:off --warnings:off " & FixturePath & " 2>&1"
-    let (output, code) = execCmdEx(cmd)
+    var output: string
+    var code: int
+    {.noRewrite.}:
+      (output, code) = execCmdEx(cmd)
     check code != 0
     check "nimfoot: more than 15 TRM rewrites" in output
 
@@ -34,7 +47,10 @@ import nimfoot/cap_counter
     # The tempfile is outside the tests dir; pass --path:src explicitly
     # because config.nims' `--path:"../src"` is relative to tests/.
     let cmd = "nim check --hints:off --warnings:off --path:src " & tmp
-    let (output, code) = execCmdEx(cmd)
+    var output: string
+    var code: int
+    {.noRewrite.}:
+      (output, code) = execCmdEx(cmd)
     if code != 0:
       echo output
     check code == 0

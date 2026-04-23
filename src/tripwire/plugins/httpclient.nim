@@ -56,10 +56,18 @@ method realize*(r: HttpMockResponse): Response {.base.} =
     headers: (if r.headers.isNil: newHttpHeaders() else: r.headers),
     bodyStream: newStringStream(r.body))
 
-method realize*(r: HttpAsyncMockResponse): Future[AsyncResponse] {.base.} =
+method realize*(r: HttpAsyncMockResponse): asyncdispatch.Future[AsyncResponse]
+    {.base.} =
   ## Async counterpart. `AsyncResponse.body` is also unexported; we set
   ## only the fields we can construct and let the stdlib's `body()`
   ## future lazily materialize the body string.
+  ##
+  ## `Future` is qualified as `asyncdispatch.Future` because
+  ## `tripwire/futures` re-exports `chronos` (which also defines `Future`)
+  ## under `-d:chronos`. Without the qualifier, Nim reports an ambiguous
+  ## identifier error in the chronos matrix cell. The async httpclient
+  ## path is intrinsically tied to std/asyncdispatch's `AsyncResponse`,
+  ## so `asyncdispatch.Future` is the correct Future flavor here.
   let ar = AsyncResponse(version: "1.1", status: $r.status,
     headers: (if r.headers.isNil: newHttpHeaders() else: r.headers))
   makeCompletedFuture(ar, "httpclient.request")
@@ -87,7 +95,7 @@ template requestSyncTRM*{request(c, url, httpMethod, body, headers, multipart)}(
 template requestAsyncTRM*{request(c, url, httpMethod, body, headers, multipart)}(
     c: AsyncHttpClient, url: string, httpMethod: HttpMethod = HttpGet,
     body: string = "", headers: HttpHeaders = nil,
-    multipart: MultipartData = nil): Future[AsyncResponse] =
+    multipart: MultipartData = nil): asyncdispatch.Future[AsyncResponse] =
   tripwirePluginIntercept(
     httpclientPluginInstance,
     "request",
@@ -112,7 +120,7 @@ template requestSyncUriTRM*{request(c, url, httpMethod, body, headers, multipart
 template requestAsyncUriTRM*{request(c, url, httpMethod, body, headers, multipart)}(
     c: AsyncHttpClient, url: Uri, httpMethod: HttpMethod = HttpGet,
     body: string = "", headers: HttpHeaders = nil,
-    multipart: MultipartData = nil): Future[AsyncResponse] =
+    multipart: MultipartData = nil): asyncdispatch.Future[AsyncResponse] =
   tripwirePluginIntercept(
     httpclientPluginInstance,
     "request",

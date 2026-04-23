@@ -3,8 +3,17 @@
 ## Plugin authors call `tripwireInterceptBody` inside every TRM body.
 ## It encapsulates the required sequence: cap-count, guard, mock lookup,
 ## timeline record, spy-or-raise.
-import std/[tables, options]
+import std/[tables, options, deques]
 import ./[types, errors, timeline, sandbox, verify, cap_counter]
+
+proc nfCollectMockFingerprints*(v: Verifier, pluginName: string): seq[string] =
+  ## Collect argFingerprints of mocks currently queued for `pluginName`.
+  ## Exposed so TRM combinators (whose `{.dirty.}` expansion must not force
+  ## every caller to import `std/deques`) can call it as a real proc.
+  result = @[]
+  if pluginName in v.mockQueues:
+    for m in v.mockQueues[pluginName].mocks:
+      result.add(m.argFingerprint)
 
 # ---- Defense 3: real cap counter (replaces A7 stub) ---------------------
 export cap_counter.tripwireCountRewrite, cap_counter.TripwireCapThreshold
@@ -38,7 +47,7 @@ template tripwireInterceptBody*(plugin: Plugin, procName: string,
   bind tripwireCountRewrite, currentVerifier, newLeakedInteractionDefect,
     newPostTestInteractionDefect, getThreadId, instantiationInfo,
     newUnmockedInteractionDefect, popMatchingMock, record, fingerprintOf,
-    supportsPassthrough, passthroughFor, realize
+    supportsPassthrough, passthroughFor, realize, nfCollectMockFingerprints
   tripwireCountRewrite()
   let nfVerifier {.inject.} = currentVerifier()
   if nfVerifier.isNil:
@@ -58,6 +67,7 @@ template tripwireInterceptBody*(plugin: Plugin, procName: string,
       spyBody
     else:
       raise newUnmockedInteractionDefect(plugin.name, procName, fingerprint,
-        (file: nfSite.filename, line: nfSite.line, column: nfSite.column))
+        (file: nfSite.filename, line: nfSite.line, column: nfSite.column),
+        nil, nfCollectMockFingerprints(nfVerifier, plugin.name))
   else:
     responseType(nfMockOpt.get.response).realize()

@@ -4,7 +4,7 @@
 ##   TripwireDefect -> Defect       (verification failures; unswallowable)
 ##   TripwireError  -> CatchableError (API misuse; recoverable)
 
-import std/tables
+import std/[tables, editdistance]
 import ./types
 import ./plugin_base
 
@@ -54,25 +54,54 @@ const FFIScopeFooter* = "\n(tripwire intercepts Nim source calls only. " &
   "FFI ({.importc.}, {.dynlib.}, {.header.}) is not intercepted in v0. " &
   "See docs/concepts.md#scope.)"
 
+# ---- Nearest-mock hints --------------------------------------------------
+
+proc nearestMockHints*(actual: string, candidates: openArray[string],
+                       maxDistance: int = 1): seq[string] =
+  ## Returns candidates whose Levenshtein distance from `actual` is within
+  ## (0, maxDistance]. Exact matches (distance 0) are suppressed because
+  ## they would have matched upstream in `popMatchingMock` and never
+  ## reached the unmocked-interaction path. Order is input (insertion)
+  ## order — matches the registration order preserved by MockQueue.
+  ## Uses `std/editdistance.editDistance` (Unicode-aware) so fingerprints
+  ## containing URLs or non-ASCII identifiers compare correctly.
+  result = @[]
+  for c in candidates:
+    let d = editDistance(actual, c)
+    if d > 0 and d <= maxDistance:
+      result.add(c)
+
 # ---- Constructors --------------------------------------------------------
 
 proc newUnmockedInteractionDefect*(pluginName, procName, fingerprint: string,
     site: tuple[file: string, line, column: int],
-    plugin: Plugin = nil): ref UnmockedInteractionDefect =
+    plugin: Plugin = nil,
+    candidates: openArray[string] = []): ref UnmockedInteractionDefect =
   ## If `plugin` is provided, the header uses `plugin.formatInteraction` for
   ## a verbose rendering; otherwise it falls back to `<plugin>.<proc>`.
+  ##
+  ## If `candidates` is non-empty, each fingerprint within edit distance 1
+  ## of `fingerprint` is appended to the message as a "Did you mean:" hint
+  ## block and stored on `nearestMockHints`. Additive — the field is
+  ## always present and empty when no near-matches exist.
   let header =
     if plugin != nil:
       let synth = Interaction(plugin: plugin, procName: procName)
       "unmocked interaction: " & plugin.formatInteraction(synth)
     else:
       "unmocked interaction: " & pluginName & "." & procName
+  let hints = nearestMockHints(fingerprint, candidates)
+  var hintBlock = ""
+  if hints.len > 0:
+    hintBlock = "\n  Did you mean:"
+    for h in hints:
+      hintBlock.add("\n    - " & h)
   let msg = header &
     " at " & site.file & ":" & $site.line & ":" & $site.column &
-    "\n  fingerprint: " & fingerprint & FFIScopeFooter
+    "\n  fingerprint: " & fingerprint & hintBlock & FFIScopeFooter
   result = (ref UnmockedInteractionDefect)(msg: msg,
     pluginName: pluginName, procName: procName, fingerprint: fingerprint,
-    site: site)
+    site: site, nearestMockHints: hints)
 
 proc newUnassertedInteractionsDefect*(verifierName: string,
     interactions: seq[Interaction]): ref UnassertedInteractionsDefect =

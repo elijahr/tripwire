@@ -4,6 +4,7 @@
 
 import ./test_types
 import ./test_errors
+import ./test_hints
 import ./test_plugin_base
 import ./test_registry
 import ./test_timeline

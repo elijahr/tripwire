@@ -17,7 +17,7 @@
 ##   `nimfootInterceptBody` (from ../intercept): the latter declares
 ##   `respType: typedesc`, which silently breaks TRM pattern matching
 ##   in Nim 2.2.6. See plugin_intercept.nim for the analysis.
-import std/[httpclient, streams, asyncdispatch, tables, options]
+import std/[httpclient, streams, asyncdispatch, uri, tables, options]
 import ../[types, registry, timeline, sandbox, verify, intercept, futures]
 import ./plugin_intercept
 
@@ -43,7 +43,7 @@ proc fingerprintHttpRequest*(url: string, httpMethod: HttpMethod,
   " hdr=" & (if headers.isNil: "nil" else: $headers) &
   " mp=" & (if multipart.isNil: "nil" else: "multipart")
 
-method realize*(r: HttpMockResponse): Response =
+method realize*(r: HttpMockResponse): Response {.base.} =
   ## Build a Response that mirrors what the real httpclient would produce.
   ## `body` is read lazily from `bodyStream` via the `httpclient.body()`
   ## getter, so we set only `bodyStream` (the `body` field is not
@@ -54,7 +54,7 @@ method realize*(r: HttpMockResponse): Response =
     headers: (if r.headers.isNil: newHttpHeaders() else: r.headers),
     bodyStream: newStringStream(r.body))
 
-method realize*(r: HttpAsyncMockResponse): Future[AsyncResponse] =
+method realize*(r: HttpAsyncMockResponse): Future[AsyncResponse] {.base.} =
   ## Async counterpart. `AsyncResponse.body` is also unexported; we set
   ## only the fields we can construct and let the stdlib's `body()`
   ## future lazily materialize the body string.
@@ -78,5 +78,43 @@ template requestSyncTRM*{request(c, url, httpMethod, body, headers, multipart)}(
     "request",
     fingerprintHttpRequest(url, httpMethod, body, headers, multipart),
     HttpMockResponse):
+    {.noRewrite.}:
+      request(c, url, httpMethod, body, headers, multipart)
+
+# ---- Async request TRM ---------------------------------------------------
+template requestAsyncTRM*{request(c, url, httpMethod, body, headers, multipart)}(
+    c: AsyncHttpClient, url: string, httpMethod: HttpMethod = HttpGet,
+    body: string = "", headers: HttpHeaders = nil,
+    multipart: MultipartData = nil): Future[AsyncResponse] =
+  nimfootPluginIntercept(
+    httpclientPluginInstance,
+    "request",
+    fingerprintHttpRequest(url, httpMethod, body, headers, multipart),
+    HttpAsyncMockResponse):
+    {.noRewrite.}:
+      request(c, url, httpMethod, body, headers, multipart)
+
+# ---- Uri-overload TRMs (fingerprint the Uri as its $uri form) -----------
+template requestSyncUriTRM*{request(c, url, httpMethod, body, headers, multipart)}(
+    c: HttpClient, url: Uri, httpMethod: HttpMethod = HttpGet,
+    body: string = "", headers: HttpHeaders = nil,
+    multipart: MultipartData = nil): Response =
+  nimfootPluginIntercept(
+    httpclientPluginInstance,
+    "request",
+    fingerprintHttpRequest($url, httpMethod, body, headers, multipart),
+    HttpMockResponse):
+    {.noRewrite.}:
+      request(c, url, httpMethod, body, headers, multipart)
+
+template requestAsyncUriTRM*{request(c, url, httpMethod, body, headers, multipart)}(
+    c: AsyncHttpClient, url: Uri, httpMethod: HttpMethod = HttpGet,
+    body: string = "", headers: HttpHeaders = nil,
+    multipart: MultipartData = nil): Future[AsyncResponse] =
+  nimfootPluginIntercept(
+    httpclientPluginInstance,
+    "request",
+    fingerprintHttpRequest($url, httpMethod, body, headers, multipart),
+    HttpAsyncMockResponse):
     {.noRewrite.}:
       request(c, url, httpMethod, body, headers, multipart)

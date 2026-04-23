@@ -65,3 +65,11 @@ import nimfoot/integration_unittest
 
 export types, errors, timeline, sandbox, verify, intercept, nfmacros,
        config, futures, integration_unittest
+
+# ---- Defense 2 Part 3 — FFI audit hook ---------------------------------
+# Opt-in transitive FFI scan. v0 ships a stub that emits a hint; real
+# pragma scanning lands in v0.1. Kept outside the main export list so
+# that consumers who set `-d:nimfootAuditFFI` see the hint but don't
+# bring a no-op symbol into their namespace.
+when defined(nimfootAuditFFI):
+  import ./nimfoot/audit_ffi

@@ -39,5 +39,10 @@ import ./test_self_three_guarantees
 import ./test_docs_presence
 # Defense 2 Part 3 FFI audit: real scoped scanner (replaces the v0 stub).
 import ./test_audit_ffi
+# WI1 v0.2 audit_ffi auto-discovery test pack (design §5.2, §5.3, §5.5).
+import ./audit_ffi/test_auto_projectpath
+import ./audit_ffi/test_auto_transitive_optin
+import ./audit_ffi/test_nimble_parser_limits
+import ./audit_ffi/test_stdlib_not_scanned
 # test_nimble_manifest.nim deliberately excluded — it shells out to `nimble tasks`
 # which, when invoked under `nimble test`, creates a recursive-invocation loop.

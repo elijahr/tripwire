@@ -68,10 +68,18 @@ proc uniqueDriverPath(dir: string, prefix: string): string =
   ## runs do not collide.
   dir / (prefix & "_" & $getTime().toUnix() & "_" & $rand(high(int))) & ".nim"
 
-proc runNim(defines: seq[string], target: string): tuple[output: string, code: int] =
+template runNim(defines: seq[string], target: string): tuple[output: string, code: int] =
   ## Drive `nim c --compileOnly --hints:on` against `target` with the
   ## supplied define flags. `--hints:on` is required so the audit's
   ## `{.hint.}` emission appears in captured output.
+  ##
+  ## Template (not proc) so its body inlines at each callsite. Callers
+  ## MUST wrap the template invocation in `{.noRewrite.}:` so the
+  ## inlined `execCmdEx(cmd)` call falls under the caller's noRewrite
+  ## scope and the osproc plugin's `execCmdExTRM` is suppressed.
+  ## Defense 3's 15-rewrite cap (cap_counter.nim) would otherwise trip
+  ## in the aggregate `tests/all_tests.nim` compile, where many tests
+  ## pool their TRM rewrites into one compilation unit.
   var defs = ""
   for d in defines:
     defs.add " -d:" & d
@@ -79,8 +87,7 @@ proc runNim(defines: seq[string], target: string): tuple[output: string, code: i
     defs & " " & quoteShell(target) & " 2>&1"
   var output: string
   var code: int
-  {.noRewrite.}:
-    (output, code) = execCmdEx(cmd)
+  (output, code) = execCmdEx(cmd)
   (output, code)
 
 proc extractIntAfter(output: string, prefix: string): int =
@@ -106,7 +113,10 @@ suite "audit_ffi transitive opt-in (Task 1.4)":
     # `.nimble`. The transitive block is compiled OUT at the
     # `when defined(tripwireAuditFFITransitive):` gate, so the
     # placeholder must appear verbatim.
-    let (output, code) = runNim(@["tripwireAuditFFI"], AuditTarget)
+    var output: string
+    var code: int
+    {.noRewrite.}:
+      (output, code) = runNim(@["tripwireAuditFFI"], AuditTarget)
     if code != 0: echo output
     check code == 0
     # Task-1.2 placeholder must be present.
@@ -127,8 +137,11 @@ suite "audit_ffi transitive opt-in (Task 1.4)":
     let driverPath = uniqueDriverPath(RepoRoot, "audit_transitive_driver")
     writeFile(driverPath, "import tripwire/audit_ffi\n")
     try:
-      let (output, code) = runNim(
-        @["tripwireAuditFFI", "tripwireAuditFFITransitive"], driverPath)
+      var output: string
+      var code: int
+      {.noRewrite.}:
+        (output, code) = runNim(
+          @["tripwireAuditFFI", "tripwireAuditFFITransitive"], driverPath)
       if code != 0: echo output
       check code == 0
       # Task-1.4 aggregate header present (Task-1.2 placeholder absent).
@@ -171,8 +184,11 @@ suite "audit_ffi transitive opt-in (Task 1.4)":
     let driverPath = uniqueDriverPath(tmpDir, "driver")
     writeFile(driverPath, "import tripwire/audit_ffi\n")
     try:
-      let (output, code) = runNim(
-        @["tripwireAuditFFI", "tripwireAuditFFITransitive"], driverPath)
+      var output: string
+      var code: int
+      {.noRewrite.}:
+        (output, code) = runNim(
+          @["tripwireAuditFFI", "tripwireAuditFFITransitive"], driverPath)
       if code != 0: echo output
       check code == 0
       # Warning MUST fire: mentions the missing-nimble condition and
@@ -206,11 +222,14 @@ suite "audit_ffi transitive opt-in (Task 1.4)":
     let driverPath = uniqueDriverPath(tmpDir, "driver")
     writeFile(driverPath, "import tripwire/audit_ffi\n")
     try:
-      let (output, code) = runNim(
-        @["tripwireAuditFFI",
-          "tripwireAuditFFITransitive",
-          "tripwireAuditFFIExtraRequires:parsetoml"],
-        driverPath)
+      var output: string
+      var code: int
+      {.noRewrite.}:
+        (output, code) = runNim(
+          @["tripwireAuditFFI",
+            "tripwireAuditFFITransitive",
+            "tripwireAuditFFIExtraRequires:parsetoml"],
+          driverPath)
       if code != 0: echo output
       check code == 0
       # parsetoml appears in the aggregate despite stub.nimble having

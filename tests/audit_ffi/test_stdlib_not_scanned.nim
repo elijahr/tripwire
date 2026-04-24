@@ -83,10 +83,17 @@ proc uniqueTmpDir(prefix: string): string =
   createDir(p)
   p
 
-proc runNim(defines: seq[string], target: string): tuple[output: string, code: int] =
+template runNim(defines: seq[string], target: string): tuple[output: string, code: int] =
   ## Drive `nim c --compileOnly --hints:on` against `target` with the
   ## supplied define flags. `--hints:on` is required so the audit's
   ## `{.hint.}` emission lands in captured output.
+  ##
+  ## Template (not proc) so its body inlines at each callsite. Callers
+  ## MUST wrap the template invocation in `{.noRewrite.}:` so the
+  ## inlined `execCmdEx(cmd)` call falls under the caller's noRewrite
+  ## scope and the osproc plugin's `execCmdExTRM` is suppressed.
+  ## Defense 3's 15-rewrite cap (cap_counter.nim) would otherwise trip
+  ## in the aggregate `tests/all_tests.nim` compile.
   var defs = ""
   for d in defines:
     defs.add " -d:" & d
@@ -94,16 +101,20 @@ proc runNim(defines: seq[string], target: string): tuple[output: string, code: i
     defs & " " & quoteShell(target) & " 2>&1"
   var output: string
   var code: int
-  {.noRewrite.}:
-    (output, code) = execCmdEx(cmd)
+  (output, code) = execCmdEx(cmd)
   (output, code)
 
-proc compileDriverWithTestHook(driverPath: string,
-                               extraDefines: seq[string] = @[]): tuple[output: string, code: int] =
+template compileDriverWithTestHook(driverPath: string,
+                                   extraDefines: seq[string] = @[]): tuple[output: string, code: int] =
   ## Compile a driver that reaches into the internal CT helpers via
   ## `-d:tripwireAuditFFITestHook`. Used only by the `requires "nim"`
   ## parser/merge tests where the driver calls `parseNimbleRequires`
   ## or `mergeExtraRequires` directly and asserts at CT via `doAssert`.
+  ##
+  ## Template (see `runNim` above for the full rationale): callers MUST
+  ## wrap template invocations in `{.noRewrite.}:` to suppress the
+  ## osproc TRM and keep the aggregate test's TRM-rewrite count under
+  ## Defense 3's 15-rewrite cap.
   var defs = " -d:tripwireAuditFFI -d:tripwireAuditFFITransitive -d:tripwireAuditFFITestHook"
   for d in extraDefines:
     defs.add " -d:" & d
@@ -111,8 +122,7 @@ proc compileDriverWithTestHook(driverPath: string,
     defs & " " & quoteShell(driverPath) & " 2>&1"
   var output: string
   var code: int
-  {.noRewrite.}:
-    (output, code) = execCmdEx(cmd)
+  (output, code) = execCmdEx(cmd)
   (output, code)
 
 proc extractAuditReport(output: string): string =
@@ -169,8 +179,11 @@ suite "audit_ffi stdlib-never-scanned guard (Task 1.5)":
     let driverPath = tmpDir / "driver.nim"
     writeFile(driverPath, "import tripwire/audit_ffi\n")
     try:
-      let (output, code) = runNim(
-        @["tripwireAuditFFI", "tripwireAuditFFITransitive"], driverPath)
+      var output: string
+      var code: int
+      {.noRewrite.}:
+        (output, code) = runNim(
+          @["tripwireAuditFFI", "tripwireAuditFFITransitive"], driverPath)
       if code != 0: echo output
       check code == 0
       # Bracket the assertion set with a sanity check that the audit
@@ -217,8 +230,11 @@ static:
   echo "NIM_LIB_PATH=" & p
 """)
     try:
-      let (output, code) = runNim(
-        @["tripwireAuditFFI", "tripwireAuditFFITransitive"], driverPath)
+      var output: string
+      var code: int
+      {.noRewrite.}:
+        (output, code) = runNim(
+          @["tripwireAuditFFI", "tripwireAuditFFITransitive"], driverPath)
       if code != 0: echo output
       check code == 0
       # Extract NimLibPath from the driver's CT echo.
@@ -286,7 +302,10 @@ static:
     let driverPath = tmpDir / "driver.nim"
     writeFile(driverPath, driverBody)
     try:
-      let (output, code) = compileDriverWithTestHook(driverPath)
+      var output: string
+      var code: int
+      {.noRewrite.}:
+        (output, code) = compileDriverWithTestHook(driverPath)
       if code != 0: echo output
       check code == 0
     finally:
@@ -323,8 +342,11 @@ static:
     let driverPath = tmpDir / "driver.nim"
     writeFile(driverPath, driverBody)
     try:
-      let (output, code) = compileDriverWithTestHook(
-        driverPath, @["tripwireAuditFFIExtraRequires:\"nim,parsetoml\""])
+      var output: string
+      var code: int
+      {.noRewrite.}:
+        (output, code) = compileDriverWithTestHook(
+          driverPath, @["tripwireAuditFFIExtraRequires:\"nim,parsetoml\""])
       if code != 0: echo output
       check code == 0
       # CT-echo assertion: the `nim` filter must surface to the

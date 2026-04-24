@@ -8,9 +8,9 @@
 ##           hint whose body references the project path
 ##           (`querySetting(projectPath)`, i.e. the directory of
 ##           `audit_ffi.nim` itself when it's the compile target).
-##           The emission MUST NOT mention `TRIPWIRE_FFI_` — v0.2 has
-##           eliminated that env-var contract (WI1 v0.1 baseline note,
-##           §5.6 breaking change).
+##           The emission MUST NOT mention the v0.1 env-var contract
+##           — v0.2 has eliminated the env-var mechanism (WI1 v0.1
+##           baseline note, design §5.6 breaking change).
 ##
 ##   Case B: F3 fallback. Design §5.2 lines 848-853 spec an empty
 ##           `projectPath` triggering a `{.warning.}` and a
@@ -40,9 +40,10 @@
 ## because `nim check` skips `staticExec` (compiler/vmops.nim ~L282),
 ## and the audit's shell-driven scan lives inside `staticExec`.
 ##
-## The `auditCmdNoEnv` template deliberately does NOT prepend an
-## `env TRIPWIRE_FFI_SCAN_PATHS=...` clause — that is the load-bearing
-## contract being asserted: the scan runs WITHOUT any env var input.
+## The `auditCmdNoEnv` template deliberately does NOT prepend any
+## `env VAR=...` clause for the removed v0.1 env-var contract — that
+## is the load-bearing assertion: the scan runs WITHOUT any env var
+## input (design §5.6).
 
 import std/[unittest, osproc, strutils, os]
 
@@ -57,9 +58,9 @@ const ExpectedProjectPath = RepoRoot / "src" / "tripwire"
 
 template auditCmdNoEnv(): string =
   ## Build the nim invocation line for the audit scan with NO env var
-  ## input. If any future code path re-introduces a
-  ## `TRIPWIRE_FFI_*` env-var fallback, this template's environment
-  ## will NOT set it, so the test captures only the
+  ## input. If any future code path re-introduces the removed env-var
+  ## mechanism (design §5.6), this template's environment will NOT
+  ## set any such variable, so the test captures only the
   ## querySetting-driven behavior.
   "nim c --compileOnly --hints:on --path:" & quoteShell(SrcPath) &
     " -d:tripwireAuditFFI " & quoteShell(AuditTarget) & " 2>&1"
@@ -67,7 +68,7 @@ template auditCmdNoEnv(): string =
 suite "audit_ffi auto-projectpath (Task 1.2)":
   test "direct scan uses querySetting(projectPath), NOT env var":
     # Case A happy path: querySetting(projectPath) auto-discovers the
-    # scan target. No TRIPWIRE_FFI_SCAN_PATHS is set in the test env.
+    # scan target. No v0.1 env-var is set in the test env (design §5.6).
     let cmd = auditCmdNoEnv()
     var output: string
     var code: int
@@ -86,10 +87,11 @@ suite "audit_ffi auto-projectpath (Task 1.2)":
     # isn't satisfied by the Nim compiler's own `proj: ...` path
     # echo in the hint preamble.
     check ("Direct FFI (paths: " & ExpectedProjectPath & ")") in output
-    # Negative assertion: v0.2 must not mention the retired env vars.
-    # A literal `TRIPWIRE_FFI_` substring would leak from either an
-    # accidentally preserved doc-comment mention or a regressed
-    # code path that still reads the env var.
+    # Negative assertion: v0.2 must not mention the retired v0.1
+    # env-var contract (design §5.6). The checked substring below is
+    # the common prefix of the removed env-var names; a match would
+    # leak from either an accidentally preserved doc-comment mention
+    # or a regressed code path that still reads the removed env vars.
     check "TRIPWIRE_FFI_" notin output
 
   test "report shape: direct section + transitive placeholder + grand total":

@@ -35,19 +35,25 @@ proc writeDriver(body: string): string =
   writeFile(path, body)
   path
 
-proc compileDriver(driverPath: string): tuple[output: string, code: int] =
+template compileDriver(driverPath: string): tuple[output: string, code: int] =
   ## Compile the driver with both transitive defines plus the test-hook
   ## define that re-exports the internal parser helpers so the driver
   ## can reach them. --compileOnly skips the C backend (we only need
   ## CT eval of the driver's asserts).
+  ##
+  ## Template (not proc) so its body inlines at each callsite. Callers
+  ## MUST wrap the template invocation in `{.noRewrite.}:` so the
+  ## inlined `execCmdEx(cmd)` call falls under the caller's noRewrite
+  ## scope and the osproc plugin's `execCmdExTRM` is suppressed.
+  ## Defense 3's 15-rewrite cap (cap_counter.nim) would otherwise trip
+  ## in the aggregate `tests/all_tests.nim` compile.
   let cmd = "nim c --compileOnly --hints:off --path:" & quoteShell(SrcPath) &
     " -d:tripwireAuditFFI -d:tripwireAuditFFITransitive" &
     " -d:tripwireAuditFFITestHook " &
     quoteShell(driverPath) & " 2>&1"
   var output: string
   var code: int
-  {.noRewrite.}:
-    (output, code) = execCmdEx(cmd)
+  (output, code) = execCmdEx(cmd)
   (output, code)
 
 # Each driver imports audit_ffi so the gated procs resolve. The import
@@ -84,7 +90,10 @@ static:
   doAssert got == @["foo", "bar"], "got=" & $got
 """
     let path = writeDriver(driver)
-    let (output, code) = compileDriver(path)
+    var output: string
+    var code: int
+    {.noRewrite.}:
+      (output, code) = compileDriver(path)
     if code != 0: echo output
     check code == 0
 
@@ -101,7 +110,10 @@ static:
   doAssert got == @["tab-sep", "no-space", "normal"], "got=" & $got
 """
     let path = writeDriver(driver)
-    let (output, code) = compileDriver(path)
+    var output: string
+    var code: int
+    {.noRewrite.}:
+      (output, code) = compileDriver(path)
     if code != 0: echo output
     check code == 0
 
@@ -117,7 +129,10 @@ static:
   doAssert got == @["first"], "got=" & $got
 """
     let path = writeDriver(driver)
-    let (output, code) = compileDriver(path)
+    var output: string
+    var code: int
+    {.noRewrite.}:
+      (output, code) = compileDriver(path)
     if code != 0: echo output
     check code == 0
 
@@ -132,7 +147,10 @@ static:
   doAssert got == @["alpha", "beta", "gamma"], "got=" & $got
 """
     let path = writeDriver(driver)
-    let (output, code) = compileDriver(path)
+    var output: string
+    var code: int
+    {.noRewrite.}:
+      (output, code) = compileDriver(path)
     if code != 0: echo output
     check code == 0
 
@@ -148,7 +166,10 @@ static:
   doAssert got == newSeq[string](), "got=" & $got
 """
     let path = writeDriver(driver)
-    let (output, code) = compileDriver(path)
+    var output: string
+    var code: int
+    {.noRewrite.}:
+      (output, code) = compileDriver(path)
     if code != 0: echo output
     check code == 0
 
@@ -165,7 +186,10 @@ static:
   doAssert got == @["other"], "got=" & $got
 """
     let path = writeDriver(driver)
-    let (output, code) = compileDriver(path)
+    var output: string
+    var code: int
+    {.noRewrite.}:
+      (output, code) = compileDriver(path)
     if code != 0: echo output
     check code == 0
 
@@ -184,7 +208,10 @@ static:
   doAssert got == @["dup", "Dup"], "got=" & $got
 """
     let path = writeDriver(driver)
-    let (output, code) = compileDriver(path)
+    var output: string
+    var code: int
+    {.noRewrite.}:
+      (output, code) = compileDriver(path)
     if code != 0: echo output
     check code == 0
 
@@ -219,7 +246,10 @@ static:
   doAssert got == @["foo", "qux"], "got=" & $got
 """
     let path = writeDriver(driver)
-    let (output, code) = compileDriver(path)
+    var output: string
+    var code: int
+    {.noRewrite.}:
+      (output, code) = compileDriver(path)
     if code != 0: echo output
     check code == 0
 
@@ -237,7 +267,10 @@ static:
   doAssert got.startsWith(fixtureDir), "got=" & got
 """
     let path = writeDriver(driver)
-    let (output, code) = compileDriver(path)
+    var output: string
+    var code: int
+    {.noRewrite.}:
+      (output, code) = compileDriver(path)
     if code != 0: echo output
     check code == 0
 
@@ -250,7 +283,10 @@ static:
   doAssert got == "", "got=" & got
 """
     let path = writeDriver(driver)
-    let (output, code) = compileDriver(path)
+    var output: string
+    var code: int
+    {.noRewrite.}:
+      (output, code) = compileDriver(path)
     if code != 0: echo output
     check code == 0
 
@@ -264,7 +300,10 @@ static:
   doAssert "pkgs2" in got, "expected pkgs2 preference, got=" & got
 """
     let path = writeDriver(driver)
-    let (output, code) = compileDriver(path)
+    var output: string
+    var code: int
+    {.noRewrite.}:
+      (output, code) = compileDriver(path)
     if code != 0: echo output
     check code == 0
 
@@ -278,7 +317,10 @@ static:
   doAssert "pkgs" in got and "pkgs2" notin got, "expected pkgs fallback, got=" & got
 """
     let path = writeDriver(driver)
-    let (output, code) = compileDriver(path)
+    var output: string
+    var code: int
+    {.noRewrite.}:
+      (output, code) = compileDriver(path)
     if code != 0: echo output
     check code == 0
 
@@ -290,6 +332,9 @@ static:
   doAssert got == "", "got=" & got
 """
     let path = writeDriver(driver)
-    let (output, code) = compileDriver(path)
+    var output: string
+    var code: int
+    {.noRewrite.}:
+      (output, code) = compileDriver(path)
     if code != 0: echo output
     check code == 0

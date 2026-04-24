@@ -76,12 +76,11 @@ suite "asyncCheckInSandbox: basic happy path":
 
   test "Future completes during drain; mock is consumed; sandbox exits cleanly":
     sandbox:
-      # RED: expectation registered for the WRONG arg (99) while the
-      # async body calls computeThing(7). Passthrough handles the (7)
-      # call (returns 14 from the real impl), but the (99) expectation
-      # is never consumed → verifyAll at sandbox exit raises
-      # UnusedMocksDefect. The GREEN commit flips 99 → 7.
-      mock.expect computeThing(99):
+      # Pre-authorize the mock BEFORE spawning the Future. The async
+      # body's TRM fires for computeThing(7) during the drain poll,
+      # matches this expectation, consumes the mock, and resolves the
+      # Future to 14 (the mock's respond value).
+      mock.expect computeThing(7):
         respond value: 14
 
       let v = currentVerifier()

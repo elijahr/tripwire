@@ -25,7 +25,6 @@ when defined(gcRefc) and compileOption("threads"):
            "refc thread-local heaps drop child mutations to the shared " &
            "ref Verifier. See v0.2 design §8 and docs/roadmap-v0.3.md.".}
 
-import std/os  # getThreadId
 # `./futures` re-exports asyncdispatch (except hasPendingOperations) and
 # provides tripwire's own `hasPendingOperations` wrapper that ORs in
 # chronos's pending count under `-d:chronosFutureTracking`. Importing
@@ -101,6 +100,7 @@ template runWithVerifier*(v: Verifier; body: untyped) =
     discard popVerifier()
 
 proc childEntry*(h: ThreadHandoff) {.thread, nimcall, gcsafe.} =
+  ## INTERNAL — referenced only via the withTripwireThread template; do not call directly
   ## Child-thread entry point used by `withTripwireThread`.
   ## Order matters: defensive stack check → chronos check → pushVerifier
   ## → body → popVerifier. The pushVerifier must happen AFTER the rejection
@@ -153,7 +153,7 @@ template withTripwireThread*(body: untyped) =
   GC_ref(h)
   var thr: Thread[ThreadHandoff]
   try:
-    createThread(thr, childEntry, h)
+    tripwireThread(thr, childEntry, h)
     joinThread(thr)
   finally:
     GC_unref(h)

@@ -93,3 +93,38 @@ suite "q1_async_leak port":
     check raised.testName == "q1_async_leak_repro"
     # Future body did run once waitFor drove it to completion.
     check counter == 1
+
+  test "asyncCheckInSandbox + explicit drain completes cleanly":
+    # GREEN shape: same spawn pattern as the RED test, but using
+    # `asyncCheckInSandbox(fut)` (which registers `fut` with
+    # `currentVerifier().futureRegistry`) followed by an explicit
+    # `drainPendingAsync(currentVerifier())` inside the sandbox body.
+    # Drain must run BEFORE sandbox exits so Task 4.6's wiring is not
+    # a precondition for this test. After Task 4.6 lands, the wrapping
+    # `test:` template (integration_unittest.nim) will drain for us and
+    # the explicit `drainPendingAsync` call below can be removed.
+    var counter = 0
+
+    proc drained(): Future[int] {.async.} =
+      await sleepAsync(20)
+      inc counter
+      return counter
+
+    sandbox:
+      let fut = drained()
+      asyncCheckInSandbox(fut)
+      # Explicit drain (Task 4.6 pre-wiring workaround; see file header).
+      drainPendingAsync(currentVerifier())
+      # By this point, drain has polled until the Future completed.
+      # Assert inside the body so the sandbox teardown sees a clean
+      # verifier (no timeline interactions, no mocks — verifyAll is a
+      # no-op).
+      check fut.finished
+      check not fut.failed
+      check counter == 1
+
+    # After sandbox exit: no leak, no pending ops. Compare to the RED
+    # test's `hasPendingOperations()` check — the whole point of the
+    # opt-in helper is that this must be false here.
+    check not hasPendingOperations()
+    check counter == 1

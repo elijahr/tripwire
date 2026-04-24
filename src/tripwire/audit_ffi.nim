@@ -34,7 +34,7 @@
 ##
 ## See `docs/design/v0.md` §11.2 Part 3 and Appendix B.
 when defined(tripwireAuditFFI):
-  import std/[strutils, os, compilesettings, algorithm]
+  import std/[strutils, os, compilesettings]
 
   const FFIPragmaRegex = """\{\.[[:space:]]*(importc|importcpp|importobjc|importjs)"""
     ## Anchored at the pragma-start delimiter `{.` so string literals
@@ -137,6 +137,8 @@ when defined(tripwireAuditFFI):
     ## files trip the parser's documented limits (multi-line requires,
     ## variable expansion) can supplement the auto-detected set
     ## without modifying their package metadata.
+    import std/algorithm
+
     const extraRequiresCSV {.strdefine: "tripwireAuditFFIExtraRequires".}: string = ""
 
     proc parseNimbleRequires(content: string): seq[string] {.compileTime.} =
@@ -273,6 +275,79 @@ when defined(tripwireAuditFFI):
             return matches[^1]
       ""
 
+    proc scanTransitive(): tuple[perPkg: string, total: int] {.compileTime.} =
+      ## Transitive-scope scan (design §5.3 / §5.4). Emits per-package
+      ## aggregate lines (pkg name + total FFI-pragma count across the
+      ## package's installed tree); no per-file breakdown. Grand
+      ## aggregate is the sum of per-package totals.
+      ##
+      ## Steps:
+      ##   1. Resolve projectDir via `querySetting(projectPath)` with
+      ##      the same F3 fallback as `scanProjectPath` (empty string
+      ##      -> `getCurrentDir()`).
+      ##   2. Locate the `.nimble` under projectDir via
+      ##      `findFirstNimble`. Missing `.nimble` returns ("", 0) so
+      ##      the caller can still render a (empty) transitive section
+      ##      alongside the direct scope. The missing-`.nimble`
+      ##      warning is fired by the module-level `when` guard below
+      ##      (not by this proc body) so that it only appears on the
+      ##      matching compile branch -- `{.warning.}` inside a proc
+      ##      fires at pragma-parse time unconditionally, which defeats
+      ##      conditional diagnostics.
+      ##   3. `staticRead` the `.nimble`.
+      ##   4. `parseNimbleRequires` -> seq of package names.
+      ##   5. `mergeExtraRequires` folds in the
+      ##      `-d:tripwireAuditFFIExtraRequires:"pkg1,pkg2"` escape hatch.
+      ##   6. For each pkg, `locatePackageDir(pkg, nimblePaths)` to find
+      ##      the installed dir. Not-found emits a CT `echo` diagnostic
+      ##      (not a pragma `{.warning.}`; see note above) and the pkg
+      ##      is skipped. The `nimblePaths` roots come from
+      ##      `querySettingSeq(nimblePaths)` so the scan respects the
+      ##      actual nimble install locations (system nimble, mise,
+      ##      vendored tool directories) without requiring
+      ##      `$HOME/.nimble` to be the authoritative root.
+      ##   7. `scanDir` each located dir; accumulate the per-pkg line
+      ##      `"  <pkgName>: <total>\n"` and the grand transitive total.
+      const projectPath = querySetting(SingleValueSetting.projectPath)
+      let projectDir =
+        when projectPath.len == 0:
+          getCurrentDir()
+        else:
+          projectPath
+      let nimblePath = findFirstNimble(projectDir)
+      if nimblePath.len == 0:
+        return ("", 0)
+      let content = staticRead(nimblePath)
+      let auto = parseNimbleRequires(content)
+      let final = mergeExtraRequires(auto)
+      const nimblePaths = querySettingSeq(MultipleValueSetting.nimblePaths)
+      var lines = ""
+      var grand = 0
+      for pkg in final:
+        let dir = locatePackageDir(pkg, nimblePaths)
+        if dir.len == 0:
+          echo "tripwire FFI transitive: package ", pkg,
+               " not found under nimblePaths; skipped."
+          continue
+        let (_, total) = scanDir(dir)
+        lines.add "  " & pkg & ": " & $total & "\n"
+        grand += total
+      (lines, grand)
+
+    const transitiveProjectPath = querySetting(SingleValueSetting.projectPath)
+    const transitiveProjectDir =
+      when transitiveProjectPath.len == 0: getCurrentDir()
+      else: transitiveProjectPath
+    const transitiveNimblePath = findFirstNimble(transitiveProjectDir)
+    when transitiveNimblePath.len == 0:
+      # Load-bearing `when` guard: `{.warning.}` is a pragma statement
+      # evaluated at parse time regardless of enclosing `if` control
+      # flow, so it MUST sit inside a static `when` that excludes the
+      # happy path. Users who see this warning know Task-1.4's
+      # transitive scan found no `.nimble` under projectPath and
+      # silently reverted to direct-scope coverage.
+      {.warning: "tripwire FFI transitive: no .nimble found at " & transitiveProjectDir & "; transitive scope skipped.".}
+
     when defined(tripwireAuditFFITestHook):
       ## Test-only re-export. Production builds do NOT export these
       ## helpers -- they are internal CT utilities. The test driver in
@@ -314,12 +389,24 @@ when defined(tripwireAuditFFI):
       r.add directParsed.perFile & "\n"
     r.add "  Direct total: " & $directParsed.total & "\n"
     r.add "\n"
-    # Transitive scope is Task 1.4's concern. Emit a placeholder so
-    # the report shape stays stable for v0.1 consumers that expect a
-    # transitive section followed by a grand total footer.
-    r.add "Transitive FFI: 0 (not scanned -- set -d:tripwireAuditFFITransitive to enable)\n"
-    r.add "\n"
-    r.add "Grand total: " & $directParsed.total & "\n"
+    # Transitive section: placeholder by default; real per-package
+    # aggregates when `-d:tripwireAuditFFITransitive` is set (Task 1.4,
+    # design §5.3 / §5.4). The two forms are controlled by a `when`
+    # branch so v0.1 consumers that grep for the placeholder keep
+    # working on default builds, while opt-in consumers get the real
+    # numbers.
+    when defined(tripwireAuditFFITransitive):
+      let transitive = scanTransitive()
+      r.add "Transitive FFI (per-package aggregate, opt-in via -d:tripwireAuditFFITransitive):\n"
+      if transitive.perPkg.len > 0:
+        r.add transitive.perPkg
+      r.add "  Transitive total: " & $transitive.total & "\n"
+      r.add "\n"
+      r.add "Grand total: " & $(directParsed.total + transitive.total) & "\n"
+    else:
+      r.add "Transitive FFI: 0 (not scanned -- set -d:tripwireAuditFFITransitive to enable)\n"
+      r.add "\n"
+      r.add "Grand total: " & $directParsed.total & "\n"
     r
 
   {.hint: ffiReport.}

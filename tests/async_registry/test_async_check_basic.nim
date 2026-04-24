@@ -16,18 +16,25 @@
 ## unittest-dirty-template TRM gotcha rationale).
 ##
 ## RED signal chosen: wrong-arg mock expectation. The RED version of
-## this file registers `mock.expect computeThing(99): respond value: 14`
+## this file registers `mock.expect computeThing(99): respond value: 99`
 ## while the async body calls `callComputeThing(7)`. MockPlugin's
 ## passthrough lets the (7) call fall through to the real impl
-## (`x * 2` → 14), so the Future still resolves and `check fut.read == 14`
-## still passes. But the expectation for (99) is never consumed, and
-## `verifyAll` at `sandbox:` exit raises `UnusedMocksDefect`. Flipping
-## the expect arg to `7` turns the test GREEN (the TRM intercepts,
-## consumes the mock, returns 14, and verifyAll sees a clean verifier).
+## (`x * 2` → 14), so the Future resolves to 14 (NOT the mocked 99).
+## But the expectation for (99) is never consumed, and `verifyAll` at
+## `sandbox:` exit raises `UnusedMocksDefect`. Flipping the expect arg
+## to `7` turns the test GREEN (the TRM intercepts, consumes the mock,
+## returns 99, and verifyAll sees a clean verifier).
 ## This signal was chosen over "delete the drain call" because deletion
 ## would leak a pending op to subsequent tests in an aggregated suite
 ## and would also trigger multiple overlapping failures — the wrong-arg
 ## approach produces a single, unambiguous `UnusedMocksDefect`.
+##
+## Respond value 99 (not 14) is deliberately chosen to be DISTINCT from
+## the real impl's output `computeThing(7) = 14`. If the TRM consumed
+## the mock but then silently fell through to the real impl, `fut.read`
+## would be 14 and the test would pass for the wrong reason. Using 99
+## makes "mock respond returned" vs "real impl output" directly
+## distinguishable on the Future result.
 ##
 ## Consumer-import requirement (design §4.1 line 724): modules that
 ## invoke `asyncCheckInSandbox` MUST also `import std/asyncdispatch`
@@ -79,9 +86,11 @@ suite "asyncCheckInSandbox: basic happy path":
       # Pre-authorize the mock BEFORE spawning the Future. The async
       # body's TRM fires for computeThing(7) during the drain poll,
       # matches this expectation, consumes the mock, and resolves the
-      # Future to 14 (the mock's respond value).
+      # Future to 99 (the mock's respond value — DISTINCT from the
+      # real impl's `7 * 2 = 14` so the assertion below can't pass on
+      # silent passthrough).
       mock.expect computeThing(7):
-        respond value: 14
+        respond value: 99
 
       let v = currentVerifier()
       let fut = asyncWorker()
@@ -92,9 +101,13 @@ suite "asyncCheckInSandbox: basic happy path":
       # `test:` template drains automatically).
       drainPendingAsync(currentVerifier())
 
-      # Post-drain: Future must be resolved and carry the mocked value.
+      # Post-drain: Future must be resolved and carry the MOCK's respond
+      # value (99), NOT the real impl's output (14). This assertion
+      # distinguishes "TRM intercepted + mock consumed" from "mock
+      # consumed but passthrough still ran real impl" (a latent bug
+      # shape that would produce 14 instead of 99).
       check fut.finished
-      check fut.read == 14
+      check fut.read == 99
 
       # Timeline must contain exactly the one TRM fire (for (7)).
       check v.timeline.entries.len == 1

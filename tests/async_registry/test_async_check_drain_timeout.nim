@@ -29,24 +29,48 @@ suite "drainPendingAsync timeout":
     # This file's absolute path — spawn-site diagnostic should include it.
     let thisFile = currentSourcePath()
     var raised: ref PendingAsyncDefect = nil
+    # Hold `fut` in the test's scope so we can complete it AFTER the drain
+    # raises. The dispatcher tracks a persistent pending-callback on every
+    # `asyncCheck` until the Future is finished; leaving it uncompleted
+    # across test boundaries (once this file is aggregated into
+    # all_tests.nim or this suite gains a second test) will pollute
+    # asyncdispatch's process-global state and make later `poll` /
+    # `waitFor` calls see a stale stuck op. Completing after the raise
+    # preserves the timeout signal (drain has already raised) while
+    # clearing the dispatcher callback.
+    var fut: Future[int]
     try:
       sandbox:
-        let fut = newFuture[int]("drain-timeout-probe")
-        # NEVER complete/fail — drainPendingAsync must time out.
+        fut = newFuture[int]("drain-timeout-probe")
+        # NEVER complete/fail before drain — drainPendingAsync must time out.
         asyncCheckInSandbox(fut)
         try:
           drainPendingAsync(currentVerifier())
         except PendingAsyncDefect as e:
           raised = e
-          # Drain the dispatcher-tracked asyncCheck so sandbox's
-          # implicit verifyAll doesn't see a stale queued callback.
-          # (asyncdispatch.poll is a no-op if nothing is pending.)
-          discard
     except PendingAsyncDefect as e:
       # Covers the case where PendingAsyncDefect escapes the sandbox
       # body instead of being caught inside it.
       raised = e
 
+    # Clear the dispatcher-tracked asyncCheck callback before test teardown
+    # so this test doesn't leak a pending op to any test that runs after it.
+    # Must happen after `check raised != nil` is gated — if the drain never
+    # raised, the test has already failed and cleanup is moot.
+    if not fut.isNil:
+      fut.complete(0)
+      # Drain the completion callback asyncCheck installed on the dispatcher.
+      # Guarded by hasPendingOperations() because poll() raises ValueError
+      # on an empty dispatcher.
+      if hasPendingOperations():
+        poll(timeout = 1)
+
     check raised != nil
     if raised != nil:
+      # Lock in the full diagnostic shape so a refactor that drops the
+      # "drainPendingAsync:" prefix, the "did not complete within" phrase,
+      # or the per-Future line:column component would regress here.
       check thisFile in raised.msg
+      check "drainPendingAsync:" in raised.msg
+      check "did not complete within" in raised.msg
+      check "Spawn sites:" in raised.msg

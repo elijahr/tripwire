@@ -1,29 +1,31 @@
 ## tripwire/audit_ffi.nim — Defense 2 Part 3 FFI pragma audit scanner.
 ##
-## When built with `-d:tripwireAuditFFI`, walks a configurable set of
-## filesystem paths at compile time and emits a `{.hint.}` report
-## enumerating every `{.importc.}`, `{.importcpp.}`, `{.importobjc.}`,
-## and `{.importjs.}` pragma it finds. The report distinguishes
+## When built with `-d:tripwireAuditFFI`, walks the project's source
+## tree at compile time and emits a `{.hint.}` report enumerating
+## every `{.importc.}`, `{.importcpp.}`, `{.importobjc.}`, and
+## `{.importjs.}` pragma it finds. The report distinguishes
 ##
-##   Direct FFI       — pragmas in the user's own source tree
-##                       (TRIPWIRE_FFI_SCAN_PATHS; default: "src")
-##   Transitive FFI   — pragmas in imported code outside the user's tree
-##                       (TRIPWIRE_FFI_TRANSITIVE_PATHS; default: empty)
+##   Direct FFI       — pragmas in the user's own source tree,
+##                       auto-discovered via
+##                       `querySetting(SingleValueSetting.projectPath)`.
+##   Transitive FFI   — pragmas in imported code outside the user's
+##                       tree. Opt-in via `-d:tripwireAuditFFITransitive`
+##                       (wired in Task 1.4; this module emits a
+##                       placeholder line when the define is absent).
 ##
-## Both path lists are comma-separated. If TRIPWIRE_FFI_TRANSITIVE_PATHS
-## is empty, the scanner reports "transitive FFI: 0 (not scanned — set
-## TRIPWIRE_FFI_TRANSITIVE_PATHS to include the Nim stdlib dir or a
-## nimble deps dir)" instead of silently reporting zero. This is an
-## honest Option-D scope per the v0 design doc Appendix B: a full
-## transitive macro-driven walk requires compiler-internal APIs that
-## are not stable across Nim versions.
+## v0.2 replaces the v0.1 env-var contract with compiler-driven
+## auto-discovery (design §5.2, §5.2.1; see CHANGELOG for the
+## migration note). The F3 fallback: if `projectPath` resolves
+## to an empty string, emit a compile-time warning and fall back
+## to `getCurrentDir()`. projectPath is always set under `nim c`;
+## the fallback is defensive only.
 ##
 ## Mechanism: `staticExec` drives a POSIX-portable `grep -rE` over the
-## supplied directories, piped through `awk` to count pragma occurrences
-## per file. The regex requires the pragma-start delimiter `{.` so
-## plain-text mentions of `importc` in comments and string literals are
-## not counted. Multi-pragma lines (`{.importc, dynlib.}`) count once
-## per FFI-pragma keyword on the line.
+## discovered directory, piped through `awk` to count pragma
+## occurrences per file. The regex requires the pragma-start delimiter
+## `{.` so plain-text mentions of `importc` in comments and string
+## literals are not counted. Multi-pragma lines (`{.importc, dynlib.}`)
+## count once per FFI-pragma keyword on the line.
 ##
 ## Defense 2 has three parts in the design:
 ##   Part 1: FFI-scope footer on every defect message (errors.nim).
@@ -32,7 +34,7 @@
 ##
 ## See `docs/design/v0.md` §11.2 Part 3 and Appendix B.
 when defined(tripwireAuditFFI):
-  import std/[strutils, os]
+  import std/[strutils, os, compilesettings]
 
   const FFIPragmaRegex = """\{\.[[:space:]]*(importc|importcpp|importobjc|importjs)"""
     ## Anchored at the pragma-start delimiter `{.` so string literals
@@ -115,42 +117,51 @@ when defined(tripwireAuditFFI):
         perFileLines.add "  " & short & ": 0"
     (perFileLines.join("\n"), total)
 
-  const
-    directPathsRaw {.used.} = staticExec("printenv TRIPWIRE_FFI_SCAN_PATHS")
-    transitivePathsRaw {.used.} = staticExec("printenv TRIPWIRE_FFI_TRANSITIVE_PATHS")
+  proc scanDir(dir: string): tuple[perFile: string, total: int] {.compileTime.} =
+    ## Compose `tripwireFfiScanCommand` + `staticExec` + `tripwireFfiParseReport`
+    ## into a single call for one directory. Caller owns the existence
+    ## guard (see `scanProjectPath` for the F3 empty-projectPath
+    ## fallback); if `dir` does not exist, `find` emits no lines and
+    ## the parser returns ("", 0) cleanly.
+    tripwireFfiParseReport(staticExec(tripwireFfiScanCommand(dir)))
 
-  const
-    directPaths = (if directPathsRaw.strip().len == 0: "src" else: directPathsRaw.strip())
-    transitivePaths = transitivePathsRaw.strip()
+  proc scanProjectPath(): tuple[dir: string, perFile: string, total: int] {.compileTime.} =
+    ## Scan the project's own source tree. Uses
+    ## `querySetting(SingleValueSetting.projectPath)` (design §5.2.1)
+    ## to pick up the directory containing the main compile target.
+    ## F3 fallback (design §5.2 lines 848-853): if projectPath is
+    ## empty, emit a compile-time warning and fall back to
+    ## `getCurrentDir()`. The warning surfaces the drift so users
+    ## can file an issue; the fallback keeps the build working.
+    ## Returns the scanned `dir` alongside the parse result so the
+    ## caller (the `{.hint.}` emission) can quote the exact path
+    ## without re-querying the setting.
+    const projectPath = querySetting(SingleValueSetting.projectPath)
+    when projectPath.len == 0:
+      {.warning: "tripwire FFI: querySetting(projectPath) returned empty; falling back to getCurrentDir(). This is unexpected under `nim c`; please report it at https://github.com/elijahr/tripwire/issues with your invocation.".}
+      let cwd = getCurrentDir()
+      let r = scanDir(cwd)
+      (cwd, r.perFile, r.total)
+    else:
+      let r = scanDir(projectPath)
+      (projectPath, r.perFile, r.total)
 
-  const
-    directRaw = staticExec(tripwireFfiScanCommand(directPaths))
-    transitiveRaw =
-      if transitivePaths.len == 0: ""
-      else: staticExec(tripwireFfiScanCommand(transitivePaths))
-
-  const
-    directParsed = tripwireFfiParseReport(directRaw)
-    transitiveParsed = tripwireFfiParseReport(transitiveRaw)
+  const directParsed = scanProjectPath()
 
   const ffiReport = block:
     var r = "\ntripwire FFI audit (Defense 2 Part 3)\n"
     r.add "=====================================\n"
-    r.add "Direct FFI (paths: " & directPaths & ")\n"
+    r.add "Direct FFI (paths: " & directParsed.dir & ")\n"
     if directParsed.perFile.len > 0:
       r.add directParsed.perFile & "\n"
     r.add "  Direct total: " & $directParsed.total & "\n"
     r.add "\n"
-    if transitivePaths.len == 0:
-      r.add "Transitive FFI: 0 (not scanned -- set TRIPWIRE_FFI_TRANSITIVE_PATHS " &
-        "to a comma-separated list of dirs, e.g. the Nim stdlib path, to enable)\n"
-    else:
-      r.add "Transitive FFI (paths: " & transitivePaths & ")\n"
-      if transitiveParsed.perFile.len > 0:
-        r.add transitiveParsed.perFile & "\n"
-      r.add "  Transitive total: " & $transitiveParsed.total & "\n"
+    # Transitive scope is Task 1.4's concern. Emit a placeholder so
+    # the report shape stays stable for v0.1 consumers that expect a
+    # transitive section followed by a grand total footer.
+    r.add "Transitive FFI: 0 (not scanned -- set -d:tripwireAuditFFITransitive to enable)\n"
     r.add "\n"
-    r.add "Grand total: " & $(directParsed.total + transitiveParsed.total) & "\n"
+    r.add "Grand total: " & $directParsed.total & "\n"
     r
 
   {.hint: ffiReport.}

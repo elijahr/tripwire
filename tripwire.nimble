@@ -80,10 +80,14 @@ task test, "Run the full test matrix":
   doAssert negBuild.exitCode != 0,
     "refc+threads negative build unexpectedly succeeded; F2 guard in " &
     "src/tripwire/threads.nim (lines 23-26) did not fire"
-  doAssert "tripwireThread requires --gc:orc" in negBuild.output,
+  # Match the full leading phrase so a future reorder (e.g.,
+  # "--gc:arc or --gc:orc") still satisfies the assertion. The stable
+  # semantic is "tripwireThread requires" + some GC list; both the
+  # current and the reordered forms include that phrase.
+  doAssert "tripwireThread requires --gc:orc or --gc:arc" in negBuild.output,
     "refc+threads negative build failed as expected, but the error " &
     "output did not contain the expected F2 message " &
-    "(\"tripwireThread requires --gc:orc\"). Output was:\n" &
+    "(\"tripwireThread requires --gc:orc or --gc:arc\"). Output was:\n" &
     negBuild.output
 
 task test_fast, "Run one config for quick iteration":

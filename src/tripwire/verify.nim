@@ -1,7 +1,13 @@
 ## tripwire/verify.nim — mock registration, popMatchingMock, verifyAll,
-## fingerprint helpers.
-import std/[tables, deques, options]
-import ./[types, timeline, sandbox, errors]
+## fingerprint helpers, drainPendingAsync (design §4.4).
+##
+## `./futures` is imported (rather than `std/asyncdispatch` directly) to
+## preserve the chronos-aware `hasPendingOperations` wrapper defined there
+## (design §9, §10). `futures` re-exports `std/asyncdispatch except
+## hasPendingOperations`, so `poll` is also available via the same import.
+## No circular import: `futures.nim` does not import `verify.nim`.
+import std/[tables, deques, options, monotimes, times, strutils]
+import ./[types, timeline, sandbox, errors, async_registry_types, futures]
 
 proc registerMock*(v: Verifier, pluginName: string, m: Mock) =
   if pluginName notin v.mockQueues:
@@ -54,3 +60,84 @@ proc fingerprintOf*(procName: string, renderedArgs: seq[string]): string =
   for a in renderedArgs:
     result.add('|')
     result.add(a)
+
+const tripwireAsyncDrainTimeoutMs* {.intdefine: "tripwireAsyncDrainTimeoutMs".}: int = 5000
+  ## Default drain timeout per verifier. Configurable at compile time via
+  ## `-d:tripwireAsyncDrainTimeoutMs:N`.
+
+proc drainPendingAsync*(v: Verifier) =
+  ## Drive the asyncdispatch dispatcher until every Future in
+  ## `v.futureRegistry` has completed or `tripwireAsyncDrainTimeoutMs`
+  ## has elapsed. Blocks on the current thread.
+  ##
+  ## STAYS SYNC. Uses `std/asyncdispatch.poll` with short internal
+  ## intervals (50ms default) to honor the cap.
+  ##
+  ## ASYNCDISPATCH-ONLY. Chronos Futures cannot be registered via
+  ## `asyncCheckInSandbox` in v0.2 (compile-time {.warning.}, §4.1);
+  ## therefore `v.futureRegistry` only holds asyncdispatch Futures,
+  ## which `std/asyncdispatch.poll` can drive. See §11 non-goals.
+  ##
+  ## Raises:
+  ##   - `PendingAsyncDefect` with per-Future spawn-site origin if timeout
+  ##     elapses before the registry drains. The defect message lists
+  ##     every remaining `RegisteredFuture.site` so the user can trace
+  ##     which spawn never completed.
+  ##   - any exception raised by a completing Future's failure handler,
+  ##     re-raised with the Future's spawn-site attached to the diagnostic.
+  if v.futureRegistry.len == 0:
+    return
+
+  let deadline = getMonoTime() + initDuration(
+    milliseconds = tripwireAsyncDrainTimeoutMs)
+
+  while getMonoTime() < deadline:
+    # Remove completed entries in-place; continue until all complete
+    # or we hit the deadline. Failed Futures raise on inspection; we
+    # wrap-and-rethrow with the spawn-site attached so the diagnostic
+    # points at the user's asyncCheckInSandbox call rather than at the
+    # drain loop.
+    var i = 0
+    while i < v.futureRegistry.len:
+      if v.futureRegistry[i].fut.finished:
+        if v.futureRegistry[i].fut.failed:
+          let entry = v.futureRegistry[i]
+          # Deviation from design §4.4 line 705: `readError` is generic
+          # over `Future[T]`, not available on `FutureBase`. `FutureBase`
+          # exposes the stored exception via the public `error*` field
+          # (see stdlib asyncfutures.nim line 30). Semantics match.
+          raise newPendingAsyncDefect(
+            "registered Future failed (spawned at " &
+            entry.site.filename & ":" & $entry.site.line & ":" &
+            $entry.site.column & ")",
+            parent = entry.fut.error)
+        v.futureRegistry.del(i)   # del is O(1) swap-remove; order doesn't matter for drain
+      else:
+        inc i
+    if v.futureRegistry.len == 0:
+      return
+
+    # Block-on-progress for a bounded slice, capped by remaining
+    # budget so the whole drain cannot overshoot
+    # tripwireAsyncDrainTimeoutMs by more than one poll iteration.
+    if hasPendingOperations():
+      let remainingMs = (deadline - getMonoTime()).inMilliseconds.int
+      if remainingMs <= 0:
+        break
+      poll(timeout = min(50, remainingMs))   # asyncdispatch.poll only; chronos is rejected upstream
+    else:
+      # Registry non-empty but dispatcher has nothing to progress ==
+      # a never-completing Future. Bail with diagnostic.
+      break
+
+  # Timeout or stuck. Raise with per-Future spawn-site diagnostics.
+  var sites: seq[string] = @[]
+  for entry in v.futureRegistry:
+    sites.add("  - " & entry.site.filename & ":" & $entry.site.line &
+              ":" & $entry.site.column)
+  raise newPendingAsyncDefect(
+    "drainPendingAsync: " & $v.futureRegistry.len &
+    " future(s) did not complete within " &
+    $tripwireAsyncDrainTimeoutMs & "ms. Spawn sites:\n" &
+    sites.join("\n"),
+    parent = nil)

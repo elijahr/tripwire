@@ -1,29 +1,31 @@
 ## tripwire/audit_ffi.nim — Defense 2 Part 3 FFI pragma audit scanner.
 ##
-## When built with `-d:tripwireAuditFFI`, walks a configurable set of
-## filesystem paths at compile time and emits a `{.hint.}` report
-## enumerating every `{.importc.}`, `{.importcpp.}`, `{.importobjc.}`,
-## and `{.importjs.}` pragma it finds. The report distinguishes
+## When built with `-d:tripwireAuditFFI`, walks the project's source
+## tree at compile time and emits a `{.hint.}` report enumerating
+## every `{.importc.}`, `{.importcpp.}`, `{.importobjc.}`, and
+## `{.importjs.}` pragma it finds. The report distinguishes
 ##
-##   Direct FFI       — pragmas in the user's own source tree
-##                       (TRIPWIRE_FFI_SCAN_PATHS; default: "src")
-##   Transitive FFI   — pragmas in imported code outside the user's tree
-##                       (TRIPWIRE_FFI_TRANSITIVE_PATHS; default: empty)
+##   Direct FFI       — pragmas in the user's own source tree,
+##                       auto-discovered via
+##                       `querySetting(SingleValueSetting.projectPath)`.
+##   Transitive FFI   — pragmas in imported code outside the user's
+##                       tree. Opt-in via `-d:tripwireAuditFFITransitive`
+##                       (wired in Task 1.4; this module emits a
+##                       placeholder line when the define is absent).
 ##
-## Both path lists are comma-separated. If TRIPWIRE_FFI_TRANSITIVE_PATHS
-## is empty, the scanner reports "transitive FFI: 0 (not scanned — set
-## TRIPWIRE_FFI_TRANSITIVE_PATHS to include the Nim stdlib dir or a
-## nimble deps dir)" instead of silently reporting zero. This is an
-## honest Option-D scope per the v0 design doc Appendix B: a full
-## transitive macro-driven walk requires compiler-internal APIs that
-## are not stable across Nim versions.
+## v0.2 replaces the v0.1 env-var contract with compiler-driven
+## auto-discovery (design §5.2, §5.2.1; see CHANGELOG for the
+## migration note). The F3 fallback: if `projectPath` resolves
+## to an empty string, emit a compile-time warning and fall back
+## to `getCurrentDir()`. projectPath is always set under `nim c`;
+## the fallback is defensive only.
 ##
 ## Mechanism: `staticExec` drives a POSIX-portable `grep -rE` over the
-## supplied directories, piped through `awk` to count pragma occurrences
-## per file. The regex requires the pragma-start delimiter `{.` so
-## plain-text mentions of `importc` in comments and string literals are
-## not counted. Multi-pragma lines (`{.importc, dynlib.}`) count once
-## per FFI-pragma keyword on the line.
+## discovered directory, piped through `awk` to count pragma
+## occurrences per file. The regex requires the pragma-start delimiter
+## `{.` so plain-text mentions of `importc` in comments and string
+## literals are not counted. Multi-pragma lines (`{.importc, dynlib.}`)
+## count once per FFI-pragma keyword on the line.
 ##
 ## Defense 2 has three parts in the design:
 ##   Part 1: FFI-scope footer on every defect message (errors.nim).
@@ -32,7 +34,7 @@
 ##
 ## See `docs/design/v0.md` §11.2 Part 3 and Appendix B.
 when defined(tripwireAuditFFI):
-  import std/[strutils, os]
+  import std/[strutils, os, compilesettings]
 
   const FFIPragmaRegex = """\{\.[[:space:]]*(importc|importcpp|importobjc|importjs)"""
     ## Anchored at the pragma-start delimiter `{.` so string literals
@@ -75,7 +77,12 @@ when defined(tripwireAuditFFI):
       " -type f -name '*.nim' -print0 2>/dev/null" &
       " | xargs -0 grep -cE " & quoteShell(FFIPragmaRegex) &
       " /dev/null 2>/dev/null" &
-      " | awk -F: 'BEGIN{sum=0} $1 != \"/dev/null\" {sum+=$2; print $0} END{print \"SUM:\"sum}'"
+      " | awk -F: 'BEGIN{sum=0} !/^\\/dev\\/null:/ {sum+=$NF; print $0} END{print \"SUM:\"sum}'"
+      # `$NF` (last field) — not `$2` — because paths may contain
+      # colons (e.g. Windows `C:\...\foo.nim:3` splits into 3 fields;
+      # the count is always the trailing field). The filter skips the
+      # `grep -c ... /dev/null` padding line that forces file:count
+      # output for single-file inputs.
 
   proc tripwireFfiParseReport(raw: string): tuple[perFile: string, total: int] {.compileTime.} =
     ## Parse the shell output into a pretty per-file block plus a grand
@@ -115,42 +122,369 @@ when defined(tripwireAuditFFI):
         perFileLines.add "  " & short & ": 0"
     (perFileLines.join("\n"), total)
 
-  const
-    directPathsRaw {.used.} = staticExec("printenv TRIPWIRE_FFI_SCAN_PATHS")
-    transitivePathsRaw {.used.} = staticExec("printenv TRIPWIRE_FFI_TRANSITIVE_PATHS")
+  proc scanDir(dir: string): tuple[perFile: string, total: int] {.compileTime.} =
+    ## Compose `tripwireFfiScanCommand` + `staticExec` + `tripwireFfiParseReport`
+    ## into a single call for one directory. Caller owns the existence
+    ## guard (see `scanProjectPath` for the F3 empty-projectPath
+    ## fallback); if `dir` does not exist, `find` emits no lines and
+    ## the parser returns ("", 0) cleanly.
+    tripwireFfiParseReport(staticExec(tripwireFfiScanCommand(dir)))
 
-  const
-    directPaths = (if directPathsRaw.strip().len == 0: "src" else: directPathsRaw.strip())
-    transitivePaths = transitivePathsRaw.strip()
+  when defined(tripwireAuditFFITransitive):
+    ## Task 1.3 scaffolding for Task 1.4's per-package transitive scan
+    ## (design §5.3, lines 900-1000). These helpers are gated behind
+    ## the opt-in transitive define so direct-scope builds (Task 1.2's
+    ## contract) are unaffected. The `{.hint.}` emission block below
+    ## remains Task 1.4's concern; only the parser utilities live here.
+    ##
+    ## The escape hatch `-d:tripwireAuditFFIExtraRequires:"pkg1,pkg2"`
+    ## is consumed by `mergeExtraRequires` -- users whose `.nimble`
+    ## files trip the parser's documented limits (multi-line requires,
+    ## variable expansion) can supplement the auto-detected set
+    ## without modifying their package metadata.
+    import std/algorithm
 
-  const
-    directRaw = staticExec(tripwireFfiScanCommand(directPaths))
-    transitiveRaw =
-      if transitivePaths.len == 0: ""
-      else: staticExec(tripwireFfiScanCommand(transitivePaths))
+    const extraRequiresCSV {.strdefine: "tripwireAuditFFIExtraRequires".}: string = ""
 
-  const
-    directParsed = tripwireFfiParseReport(directRaw)
-    transitiveParsed = tripwireFfiParseReport(transitiveRaw)
+    proc parseNimbleRequires(content: string): seq[string] {.compileTime.} =
+      ## Parse `requires "pkg"` / `requires "pkg >= 1.0"` lines from
+      ## the CONTENT of a `.nimble` file (not the path -- the caller
+      ## is responsible for `staticRead`). Returns package names only;
+      ## version bounds are stripped. Case-sensitive dedup.
+      ##
+      ## DOCUMENTED LIMITS (design §5.3 lines 913-931):
+      ##   - Multi-line `requires "pkg1",\n   "pkg2"` forms: ONLY the
+      ##     first package on the first line is captured. Continuation
+      ##     lines are silently skipped.
+      ##   - Variable expansion: any `requires` line containing `&`
+      ##     is skipped (the parser cannot resolve runtime values at
+      ##     scan time). Users supplement via -d:tripwireAuditFFIExtraRequires.
+      ##   - Conditional `requires` inside `when` / `if` blocks:
+      ##     INCLUDED regardless. Control flow is not evaluated --
+      ##     every quoted-pkg line is picked up.
+      ##   - `requires "nim"` / `requires "nim >= 2.0"`: SKIPPED. Nim
+      ##     itself is not a scannable dep; stdlib is forbidden (§5.5).
+      ##   - Trailing tokens after the first quoted pkg name are
+      ##     SILENTLY DROPPED. e.g. `requires "foo" "bar"` yields only
+      ##     `["foo"]`; any typos or stray tokens on the same line are
+      ##     lost. Use one `requires` line per package to be safe.
+      const kw = "requires"
+      result = @[]
+      for line in content.splitLines:
+        let s = line.strip()
+        if not s.startsWith(kw):
+          continue
+        # After the keyword require whitespace or an immediate quote.
+        # Rejects identifiers like `requiresX` while accepting tab-
+        # separated (`requires\t"pkg"`) and zero-space (`requires"pkg"`)
+        # forms, both of which are unusual but syntactically valid in
+        # `.nimble` files.
+        if s.len <= kw.len or
+           (s[kw.len] != ' ' and s[kw.len] != '\t' and s[kw.len] != '"'):
+          continue
+        # Variable-expansion guard (documented miss): `requires "foo" & ver`.
+        # Skip the line rather than return a malformed pkg name.
+        if '&' in s:
+          continue
+        let quoted = s.find('"')
+        if quoted < 0:
+          continue
+        let endQuote = s.find('"', quoted + 1)
+        if endQuote < 0:
+          continue
+        let spec = s[quoted + 1 ..< endQuote].strip()
+        if spec.len == 0:
+          continue
+        # Strip version bound. `spec` is of the form `pkg`,
+        # `pkg >= 1.0`, or the no-space variant `pkg>=1.0`. Split on
+        # whitespace AND on version-operator characters so the
+        # latter form also yields `pkg` (a bare package name cannot
+        # contain `<>=^`; those are reserved for the version
+        # constraint grammar per nimble-package-manager docs).
+        let pkgName = spec.split({' ', '\t', '>', '<', '=', '^'})[0].strip()
+        if pkgName.len == 0:
+          continue
+        if pkgName == "nim":
+          continue
+        # Case-sensitive dedup. `foo` and `Foo` remain distinct.
+        if pkgName notin result:
+          result.add(pkgName)
+
+    proc mergeExtraRequires(auto: seq[string]): seq[string] {.compileTime.} =
+      ## Union the auto-detected requires set with the CSV escape hatch
+      ## `-d:tripwireAuditFFIExtraRequires:"pkg1,pkg2"`. Dedup preserves
+      ## auto-set order; extras append in CSV order, each skipped if
+      ## already present in the auto set OR already appended from an
+      ## earlier extras slot.
+      result = auto
+      if extraRequiresCSV.len == 0:
+        return
+      for extra in extraRequiresCSV.split(','):
+        let pkg = extra.strip()
+        if pkg.len == 0:
+          continue
+        # §5.5 defense in depth: the parser already drops `requires "nim"`
+        # from auto-detected requires; the escape hatch MUST apply the
+        # same skip, otherwise a user setting -d:...ExtraRequires:"nim"
+        # would force a stdlib walk (thousands of FFI pragmas in posix,
+        # httpclient, dynlib, etc.) which §5.5 forbids. A silent drop
+        # would hide user intent, so we emit a CT notice so the operator
+        # who typed `nim` into the CSV learns their entry was ignored
+        # and why. The stdlib-guard regression test asserts this echo
+        # appears in the compile output.
+        if pkg == "nim":
+          echo "tripwire FFI transitive: \"nim\" in -d:tripwireAuditFFIExtraRequires ignored; stdlib scan forbidden by design §5.5."
+          continue
+        if pkg notin result:
+          result.add(pkg)
+
+    proc findFirstNimble(dir: string): string {.compileTime.} =
+      ## Return the absolute path to the lexicographically first
+      ## `*.nimble` file in `dir` (non-recursive; top-level only).
+      ## Returns "" if none. Used by Task 1.4's `scanTransitive` as a
+      ## fallback when the conventional `<pkgName>.nimble` path does
+      ## not resolve.
+      ##
+      ## Matches are collected and sorted so the result is deterministic
+      ## across filesystems (APFS vs ext4 yield different `walkDir`
+      ## orders).
+      if not dirExists(dir):
+        return ""
+      var matches: seq[string] = @[]
+      for kind, path in walkDir(dir, relative = false):
+        # Accept symlinks-to-files too: some projects symlink their
+        # `.nimble` into a deps tree (e.g. monorepo local installs).
+        if kind in {pcFile, pcLinkToFile} and path.endsWith(".nimble"):
+          matches.add(path)
+      matches.sort()
+      if matches.len > 0: matches[0] else: ""
+
+    proc isAllDigits(s: string): bool {.compileTime.} =
+      if s.len == 0: return false
+      for ch in s:
+        if ch notin {'0'..'9'}: return false
+      true
+
+    proc cmpVersion(a, b: string): int {.compileTime.} =
+      ## Compare version strings component-wise. Numeric components
+      ## compare as integers (so `1.10` > `1.9`); non-numeric components
+      ## fall back to byte compare. Shorter-prefix loses (`1.2 < 1.2.1`).
+      ## Used by `locatePackageDir` so nimble's `pkgname-X.Y.Z` /
+      ## `pkgname-X.Y.Z-hash` directory selection picks the highest
+      ## actual version instead of the lexicographic last.
+      let aParts = a.split('.')
+      let bParts = b.split('.')
+      let n = min(aParts.len, bParts.len)
+      for i in 0 ..< n:
+        let ap = aParts[i]
+        let bp = bParts[i]
+        if isAllDigits(ap) and isAllDigits(bp):
+          let ai = parseInt(ap)
+          let bi = parseInt(bp)
+          if ai < bi: return -1
+          if ai > bi: return 1
+        else:
+          if ap < bp: return -1
+          if ap > bp: return 1
+      cmp(aParts.len, bParts.len)
+
+    proc locatePackageDir(pkgName: string,
+                          roots: seq[string] = @[]): string {.compileTime.} =
+      ## Resolve an installed package name to its on-disk directory.
+      ## Search order (design §5.3 lines 982-1000):
+      ##   1. `<root>/pkgs2/<pkgName>-<version>-<hash>/`
+      ##   2. `<root>/pkgs/<pkgName>-<version>/`
+      ##   3. `<root>/<pkgName>/` (plain root; covers local installs)
+      ##
+      ## The `roots` parameter defaults to `[$HOME/.nimble]`. Task 1.4
+      ## will replace this default with `querySettingSeq(nimblePaths)`.
+      ## Tests inject a mock root to avoid touching the real `$HOME`.
+      ## Returns "" if no match is found under any root / subdir.
+      ##
+      ## Package name matching is case-insensitive (nimble package names
+      ## are case-insensitive; the on-disk directory preserves whichever
+      ## case the `.nimble` file declared). Version selection sorts by
+      ## `cmpVersion` (numeric component-wise) so `pkg-1.10` beats
+      ## `pkg-1.9` — lexicographic sort would pick the older version.
+      let searchRoots =
+        if roots.len > 0: roots
+        else: @[getHomeDir() / ".nimble"]
+      let needle = pkgName.toLowerAscii
+      for root in searchRoots:
+        for subdir in ["pkgs2", "pkgs", ""]:
+          let searchRoot = if subdir.len > 0: root / subdir else: root
+          if not dirExists(searchRoot):
+            continue
+          var matches: seq[string] = @[]
+          for kind, path in walkDir(searchRoot):
+            # Accept symlinks-to-dirs too: `nimble develop` installs
+            # typically symlink `<pkgs>/<pkgname>` at a working copy,
+            # which walkDir reports as pcLinkToDir. Excluding those
+            # would silently skip dev installs from the audit.
+            if kind notin {pcDir, pcLinkToDir}:
+              continue
+            let name = extractFilename(path).toLowerAscii
+            # Exact match OR `<needle>-<digit>...` prefix. Requiring
+            # the char after the dash to be a digit prevents spurious
+            # matches from sibling packages that share a name prefix
+            # (e.g. searching for `json` must NOT match
+            # `json-serialization-1.0.0`). Nimble package names cannot
+            # start with a digit; versions always do.
+            if name == needle or
+               (name.len > needle.len + 1 and
+                name[0 ..< needle.len] == needle and
+                name[needle.len] == '-' and
+                name[needle.len + 1] in {'0'..'9'}):
+              matches.add(path)
+          if matches.len > 0:
+            # Sort by version suffix using cmpVersion. For a bare match
+            # (no `-` suffix) the version string is empty and it sorts
+            # below any versioned match, which matches nimble's layout
+            # (bare `<root>/pkgName/` is a local/develop install and
+            # losing to a versioned sibling is the right fallback).
+            proc versionSuffix(p: string): string =
+              let n = extractFilename(p).toLowerAscii
+              if n.len > needle.len and n[needle.len] == '-':
+                n[needle.len + 1 .. ^1]
+              else:
+                ""
+            matches.sort(proc(a, b: string): int =
+              cmpVersion(versionSuffix(a), versionSuffix(b)))
+            return matches[^1]
+      ""
+
+    proc scanTransitive(): tuple[perPkg: string, total: int] {.compileTime.} =
+      ## Transitive-scope scan (design §5.3 / §5.4). Emits per-package
+      ## aggregate lines (pkg name + total FFI-pragma count across the
+      ## package's installed tree); no per-file breakdown. Grand
+      ## aggregate is the sum of per-package totals.
+      ##
+      ## Steps:
+      ##   1. Resolve projectDir via `querySetting(projectPath)` with
+      ##      the same F3 fallback as `scanProjectPath` (empty string
+      ##      -> `getCurrentDir()`).
+      ##   2. Locate the `.nimble` under projectDir via
+      ##      `findFirstNimble`. Missing `.nimble` returns ("", 0) so
+      ##      the caller can still render a (empty) transitive section
+      ##      alongside the direct scope. The missing-`.nimble`
+      ##      warning is fired by the module-level `when` guard below
+      ##      (not by this proc body) so that it only appears on the
+      ##      matching compile branch -- `{.warning.}` inside a proc
+      ##      fires at pragma-parse time unconditionally, which defeats
+      ##      conditional diagnostics.
+      ##   3. `staticRead` the `.nimble`.
+      ##   4. `parseNimbleRequires` -> seq of package names.
+      ##   5. `mergeExtraRequires` folds in the
+      ##      `-d:tripwireAuditFFIExtraRequires:"pkg1,pkg2"` escape hatch.
+      ##   6. For each pkg, `locatePackageDir(pkg, nimblePaths)` to find
+      ##      the installed dir. Not-found emits a CT `echo` diagnostic
+      ##      (not a pragma `{.warning.}`; see note above) and the pkg
+      ##      is skipped. The `nimblePaths` roots come from
+      ##      `querySettingSeq(nimblePaths)` so the scan respects the
+      ##      actual nimble install locations (system nimble, mise,
+      ##      vendored tool directories) without requiring
+      ##      `$HOME/.nimble` to be the authoritative root.
+      ##   7. `scanDir` each located dir; accumulate the per-pkg line
+      ##      `"  <pkgName>: <total>\n"` and the grand transitive total.
+      const projectPath = querySetting(SingleValueSetting.projectPath)
+      let projectDir =
+        when projectPath.len == 0:
+          getCurrentDir()
+        else:
+          projectPath
+      let nimblePath = findFirstNimble(projectDir)
+      if nimblePath.len == 0:
+        return ("", 0)
+      let content = staticRead(nimblePath)
+      let auto = parseNimbleRequires(content)
+      let final = mergeExtraRequires(auto)
+      const nimblePaths = querySettingSeq(MultipleValueSetting.nimblePaths)
+      var lines = ""
+      var grand = 0
+      for pkg in final:
+        let dir = locatePackageDir(pkg, nimblePaths)
+        if dir.len == 0:
+          echo "tripwire FFI transitive: package ", pkg,
+               " not found under nimblePaths; skipped."
+          continue
+        let (_, total) = scanDir(dir)
+        lines.add "  " & pkg & ": " & $total & "\n"
+        grand += total
+      (lines, grand)
+
+    const transitiveProjectPath = querySetting(SingleValueSetting.projectPath)
+    const transitiveProjectDir =
+      when transitiveProjectPath.len == 0: getCurrentDir()
+      else: transitiveProjectPath
+    const transitiveNimblePath = findFirstNimble(transitiveProjectDir)
+    when transitiveNimblePath.len == 0:
+      # Load-bearing `when` guard: `{.warning.}` is a pragma statement
+      # evaluated at parse time regardless of enclosing `if` control
+      # flow, so it MUST sit inside a static `when` that excludes the
+      # happy path. Users who see this warning know Task-1.4's
+      # transitive scan found no `.nimble` under projectPath and
+      # silently reverted to direct-scope coverage.
+      {.warning: "tripwire FFI transitive: no .nimble found at " & transitiveProjectDir & "; transitive scope skipped.".}
+
+    when defined(tripwireAuditFFITestHook):
+      ## Test-only re-export. Production builds do NOT export these
+      ## helpers -- they are internal CT utilities. The test driver in
+      ## `tests/audit_ffi/test_nimble_parser_limits.nim` compiles with
+      ## `-d:tripwireAuditFFITestHook` so it can `import tripwire/audit_ffi`
+      ## and reach the procs below. Keeping the exports conditional
+      ## preserves the right to change these signatures without a
+      ## public-API break.
+      export parseNimbleRequires, mergeExtraRequires, findFirstNimble, locatePackageDir
+
+  proc scanProjectPath(): tuple[dir: string, perFile: string, total: int] {.compileTime.} =
+    ## Scan the project's own source tree. Uses
+    ## `querySetting(SingleValueSetting.projectPath)` (design §5.2.1)
+    ## to pick up the directory containing the main compile target.
+    ## F3 fallback (design §5.2 lines 848-853): if projectPath is
+    ## empty, emit a compile-time warning and fall back to
+    ## `getCurrentDir()`. The warning surfaces the drift so users
+    ## can file an issue; the fallback keeps the build working.
+    ## Returns the scanned `dir` alongside the parse result so the
+    ## caller (the `{.hint.}` emission) can quote the exact path
+    ## without re-querying the setting.
+    const projectPath = querySetting(SingleValueSetting.projectPath)
+    when projectPath.len == 0:
+      {.warning: "tripwire FFI: querySetting(projectPath) returned empty; falling back to getCurrentDir(). This is unexpected under `nim c`; please report it at https://github.com/elijahr/tripwire/issues with your invocation.".}
+      let cwd = getCurrentDir()
+      let r = scanDir(cwd)
+      (cwd, r.perFile, r.total)
+    else:
+      let r = scanDir(projectPath)
+      (projectPath, r.perFile, r.total)
+
+  const directParsed = scanProjectPath()
 
   const ffiReport = block:
     var r = "\ntripwire FFI audit (Defense 2 Part 3)\n"
     r.add "=====================================\n"
-    r.add "Direct FFI (paths: " & directPaths & ")\n"
+    r.add "Direct FFI (paths: " & directParsed.dir & ")\n"
     if directParsed.perFile.len > 0:
       r.add directParsed.perFile & "\n"
     r.add "  Direct total: " & $directParsed.total & "\n"
     r.add "\n"
-    if transitivePaths.len == 0:
-      r.add "Transitive FFI: 0 (not scanned -- set TRIPWIRE_FFI_TRANSITIVE_PATHS " &
-        "to a comma-separated list of dirs, e.g. the Nim stdlib path, to enable)\n"
+    # Transitive section: placeholder by default; real per-package
+    # aggregates when `-d:tripwireAuditFFITransitive` is set (Task 1.4,
+    # design §5.3 / §5.4). The two forms are controlled by a `when`
+    # branch so v0.1 consumers that grep for the placeholder keep
+    # working on default builds, while opt-in consumers get the real
+    # numbers.
+    when defined(tripwireAuditFFITransitive):
+      let transitive = scanTransitive()
+      r.add "Transitive FFI (per-package aggregate, opt-in via -d:tripwireAuditFFITransitive):\n"
+      if transitive.perPkg.len > 0:
+        r.add transitive.perPkg
+      r.add "  Transitive total: " & $transitive.total & "\n"
+      r.add "\n"
+      r.add "Grand total: " & $(directParsed.total + transitive.total) & "\n"
     else:
-      r.add "Transitive FFI (paths: " & transitivePaths & ")\n"
-      if transitiveParsed.perFile.len > 0:
-        r.add transitiveParsed.perFile & "\n"
-      r.add "  Transitive total: " & $transitiveParsed.total & "\n"
-    r.add "\n"
-    r.add "Grand total: " & $(directParsed.total + transitiveParsed.total) & "\n"
+      r.add "Transitive FFI: 0 (not scanned -- set -d:tripwireAuditFFITransitive to enable)\n"
+      r.add "\n"
+      r.add "Grand total: " & $directParsed.total & "\n"
     r
 
   {.hint: ffiReport.}

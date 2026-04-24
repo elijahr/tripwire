@@ -1,6 +1,7 @@
 ## tripwire/sandbox.nim — Verifier type, thread-local stack, sandbox template.
 import std/[tables, monotimes]
 import ./[types, timeline]
+import ./async_registry_types
 
 type
   Verifier* = ref object
@@ -11,6 +12,7 @@ type
     generation*: int
     createdAt*: MonoTime
     active*: bool
+    futureRegistry*: seq[RegisteredFuture]
 
 proc newVerifier*(name: string = ""): Verifier =
   Verifier(name: name, timeline: Timeline(nextSeq: 0),
@@ -57,5 +59,18 @@ template sandbox*(body: untyped) =
     # in flight from body, don't re-run verifyAll — doing so would raise
     # UnassertedInteractionsDefect inside a `finally`, masking the
     # original (and more informative) failure.
+    if getCurrentException() == nil:
+      nfV.verifyAll()
+
+template sandbox*(name: static string, body: untyped) =
+  ## Named variant: labels the fresh verifier so error messages carry
+  ## the user-provided name. Semantics otherwise identical to
+  ## `sandbox*(body)`; see its docstring for first-violation-wins details.
+  bind popVerifier, pushVerifier, newVerifier, getCurrentException
+  let nfV = pushVerifier(newVerifier(name))
+  try:
+    body
+  finally:
+    discard popVerifier()
     if getCurrentException() == nil:
       nfV.verifyAll()

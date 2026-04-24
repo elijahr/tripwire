@@ -12,12 +12,29 @@ offending interaction.
 
 Nim adaptation of [bigfoot](https://github.com/axiomantic/bigfoot) (pytest).
 
-> **Alpha quality.** Tripwire is under active development. v0 shipped
-> April 2026 with the core three-guarantee machinery and three plugins
-> (MockPlugin, HttpClientPlugin, OsProcPlugin); it has not yet been
-> heavily exercised in real test suites. Expect rough edges. Bug
-> reports, feedback, and contributions are welcome — please open an
-> issue or PR.
+> **ALPHA** — tripwire is pre-1.0. Breaking changes may ship in any
+> minor release. Each release's CHANGELOG includes explicit migration
+> steps. v0.2 removes the `TRIPWIRE_FFI_*` environment variables
+> (config is now compile-define only) and the new `tripwire/threads`
+> module requires `--gc:orc` or `--gc:arc` (refc is rejected at
+> compile time); see [`CHANGELOG.md`](CHANGELOG.md) for the migration
+> recipe.
+
+## v0.2 new capabilities
+
+- `tripwireThread` / `withTripwireThread` — verifier-inheriting thread
+  primitives so child threads see the parent sandbox's mock queue and
+  timeline (design §3).
+- `asyncCheckInSandbox` — opt-in `asyncdispatch` Future registration;
+  `drainPendingAsync` on sandbox teardown raises `PendingAsyncDefect`
+  for any Future still in flight (design §4).
+- Scoped FFI auto-discovery — real `{.importc.}` / `{.importcpp.}` /
+  `{.importobjc.}` / `{.importjs.}` pragma scanner replacing the
+  env-var-driven v0 stub (Defense 2 Part 3, design §5).
+- Named sandbox overload — `sandbox "label": body` surfaces the label
+  in defect messages for faster triage (design §6.3).
+
+See [`CHANGELOG.md`](CHANGELOG.md) for the full migration recipe.
 
 ## !! SCOPE
 
@@ -26,28 +43,36 @@ Nim adaptation of [bigfoot](https://github.com/axiomantic/bigfoot) (pytest).
 intentional scope cut: the libc-level firewall (bigfoot's v3 layer)
 arrives in v0.2.
 
-An opt-in FFI *audit* (Defense 2 Part 3) ships in v0 via
-`-d:tripwireAuditFFI`. When set, tripwire scans the paths named in
-`TRIPWIRE_FFI_SCAN_PATHS` (default: `src`) at compile time and emits
-a `{.hint.}` listing every `{.importc.}`, `{.importcpp.}`,
+An opt-in FFI *audit* ships via `-d:tripwireAuditFFI`. When set,
+tripwire auto-scopes to the project path (via Nim's
+`std/compilesettings.querySetting(projectPath)`) at compile time and
+emits a `{.hint.}` listing every `{.importc.}`, `{.importcpp.}`,
 `{.importobjc.}`, and `{.importjs.}` pragma it finds, with per-file
-counts and a grand total. Set `TRIPWIRE_FFI_TRANSITIVE_PATHS` to
-include the Nim stdlib or a nimble deps dir for transitive coverage;
-if unset, the audit reports "transitive FFI: 0 (not scanned)" so the
-partial scope is visible. A fully macro-driven transitive walk that
-does not require user path configuration is tracked for v0.2.
+counts and a grand total. v0.2 replaced the v0.1
+`TRIPWIRE_FFI_SCAN_PATHS` / `TRIPWIRE_FFI_TRANSITIVE_PATHS` env vars
+with compile-time auto-discovery (Defense 2 Part 3, design §5). To
+extend the scan beyond the project to nimble-managed dependencies,
+set `-d:tripwireAuditFFITransitive` (which walks the nimble deps
+tree); the `-d:tripwireAuditFFIExtraRequires="pkg1,pkg2"` escape
+hatch adds extra package names to that walk and is a no-op unless
+`-d:tripwireAuditFFITransitive` is also set.
+See [`CHANGELOG.md`](CHANGELOG.md) for the v0.1 → v0.2 migration
+recipe.
 
 Every defect message includes an FFI-scope footer pointing at
 `docs/concepts.md#scope`; if your test reports `UnmockedInteraction`
 for a call you thought was mocked, re-check whether it crosses the
 Nim/FFI boundary.
 
-## Status: v0 (pre-release)
+## Status: v0.2 (pre-release)
 
-- Tracks A–H landed.
-- Matrix green on refc + orc across sync + unittest2 backends.
-- chronos cell opt-in (`-d:chronos`); requires the chronos package
-  in the consumer's `nimble requires`.
+- Tracks A–H landed in v0; v0.2 adds WI1-WI5 (see `CHANGELOG.md`).
+- Matrix green across 7 cells: refc + orc × sync + unittest2 (cells
+  1-4), standalone `test_osproc_arrays` under orc (cell 5),
+  orc+chronos opt-in (cell 6), arc+threads (cell 7), plus a
+  separate negative refc+threads build probe (F2 guard).
+- chronos cell opt-in (`TRIPWIRE_TEST_CHRONOS=1 nimble test`);
+  requires the chronos package in the consumer's `nimble requires`.
 
 See [`docs/quickstart.md`](docs/quickstart.md) for the full walkthrough.
 

@@ -73,7 +73,7 @@ template test*(name: string, body: untyped) =
   ## UnassertedInteractionsDefect raised inside a `finally`.
   bind pushVerifier, popVerifier, newVerifier, hasPendingOperations,
     newPendingAsyncDefect, verifyAllOnExit, addExitProc,
-    getCurrentException
+    getCurrentException, drainPendingAsync, poll
   if not exitHookRegistered:
     addExitProc(verifyAllOnExit)
     exitHookRegistered = true
@@ -81,6 +81,20 @@ template test*(name: string, body: untyped) =
     let nfV = pushVerifier(newVerifier(name))
     try:
       body
+      # Drain registered Futures (design §4.5): Futures registered via
+      # `asyncCheckInSandbox` block here until complete or the
+      # drain-timeout fires. Must run BEFORE the pending-ops gate so
+      # registered-and-completed Futures don't trip it.
+      drainPendingAsync(nfV)
+      # Flush any completion callbacks scheduled inside the drain loop
+      # (e.g. a Future that completed synchronously in the last poll
+      # and queued a continuation). `timeout = 0` returns immediately.
+      # Guarded by `hasPendingOperations()` because `asyncdispatch.poll`
+      # raises `ValueError` when the dispatcher has no handles/timers/
+      # callbacks registered (asyncdispatch.nim line 1402) — which is
+      # the common case when the test body didn't touch async at all.
+      if hasPendingOperations():
+        poll(timeout = 0)
       when not defined(tripwireAllowPendingAsync):
         if hasPendingOperations():
           raise newPendingAsyncDefect(name)

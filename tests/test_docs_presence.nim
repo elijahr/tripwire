@@ -36,3 +36,22 @@ suite "docs presence (H4/H5/H6)":
 
   test "spike #2 cap report exists":
     check fileExists(RepoRoot / "spike" / "cap" / "REPORT.md")
+
+  test "v0.3 roadmap exists and enumerates design section 11 non-goals":
+    # Task 5.6 (M7): a populated v0.3 roadmap anchored on design section 11.
+    # We do not parse markdown. We pin canonical section 11 non-goal labels
+    # (by the exact text used in the design doc) so accidental truncation or
+    # loss of the section 11 mapping fails the test.
+    let path = RepoRoot / "docs" / "roadmap-v0.3.md"
+    check fileExists(path)
+    let r = readFile(path)
+    # Sentinel: the doc must reference design section 11 explicitly.
+    check "\xC2\xA711" in r  # UTF-8 bytes for section sign + "11"
+    # Canonical section 11 non-goal labels: each must appear so the file
+    # is actually a roadmap, not an empty placeholder.
+    check "refc + threads" in r
+    check "Concurrent multi-spawn" in r
+    check "typestate" in r.toLowerAscii
+    check "chronos" in r.toLowerAscii
+    check "env var" in r.toLowerAscii or "env-var" in r.toLowerAscii
+    check "FFI" in r

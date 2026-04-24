@@ -7,8 +7,10 @@
 ## exception propagation, nested-sandbox, chronos rejection,
 ## nested-thread rejection).
 ##
-## TODO(Task 3.9): add the negative refc+threads build fixture and wire
-## the matrix cell; this file only covers the positive orc+threads path.
+## The negative refc+threads build fixture is
+## `tests/threads/test_refc_threads_rejected.nim`, driven by the nimble
+## `test` task's matrix cell #7 via gorgeEx (Task 3.9). This file only
+## covers the positive arc+threads compile surface.
 
 import std/unittest
 import tripwire/threads

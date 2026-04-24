@@ -1,5 +1,11 @@
 # Package
 
+# `std/strutils` is needed for the string `in` operator used by the
+# negative refc+threads build subtask in `task test` (design §8.1 F2,
+# Task 3.9). NimScript's default `in` only handles set/openArray
+# membership; string substring matching needs strutils.contains.
+import std/strutils
+
 version       = "0.0.1"
 author        = "elijahr <elijahr+tripwire@gmail.com>"
 description   = "Test mocking framework with three-guarantee enforcement"
@@ -14,21 +20,71 @@ requires "parsetoml >= 0.7.0"
 # Tasks
 
 task test, "Run the full test matrix":
-  # refc + sync
+  # Cell 1: refc + sync
   exec "nim c --gc:refc --define:tripwireActive --import:tripwire/auto -r tests/all_tests.nim"
-  # orc + sync
+  # Cell 2: orc + sync
   exec "nim c --gc:orc --define:tripwireActive --import:tripwire/auto -r tests/all_tests.nim"
-  # refc + unittest2
+  # Cell 3: refc + unittest2
   exec "nim c --gc:refc --define:tripwireActive --define:tripwireUnittest2 --import:tripwire/auto -r tests/all_tests.nim"
-  # orc + unittest2
+  # Cell 4: orc + unittest2
   exec "nim c --gc:orc --define:tripwireActive --define:tripwireUnittest2 --import:tripwire/auto -r tests/all_tests.nim"
-  # test_osproc_arrays.nim runs standalone — aggregating its wrappers into
-  # all_tests.nim pushes cap_counter's 15-rewrite cap (Defense 3).
+  # Cell 5: test_osproc_arrays.nim runs standalone — aggregating its
+  # wrappers into all_tests.nim pushes cap_counter's 15-rewrite cap
+  # (Defense 3).
   exec "nim c --gc:orc --define:tripwireActive -r tests/test_osproc_arrays.nim"
-  # orc + chronos — opt-in via env var because chronos isn't in `requires`.
-  # Set TRIPWIRE_TEST_CHRONOS=1 to enable; otherwise skip the chronos cell.
+  # Cell 6: orc + chronos — opt-in via env var because chronos isn't in
+  # `requires`. Set TRIPWIRE_TEST_CHRONOS=1 to enable; otherwise skip
+  # the chronos cell.
   if existsEnv("TRIPWIRE_TEST_CHRONOS"):
     exec "nim c --gc:orc --define:tripwireActive --define:chronos --import:tripwire/auto -r tests/all_tests.nim"
+  # Cell 7: arc + threads (v0.2 WI3, design §8.1, M-matrix). Runs the
+  # main all_tests.nim aggregate under --mm:arc --threads:on to exercise
+  # the v0.2 thread-safety amendment at the aggregate level, then runs
+  # each tests/threads/*.nim file directly to cover the thread primitive
+  # surface TODAY. The per-file invocations are redundant once Task 5.0.5
+  # (WI5) aggregates tests/threads/*.nim imports into tests/all_tests.nim;
+  # keep them here until that lands so cell #7 has meaningful thread
+  # coverage today.
+  #
+  # --mm:arc (NOT --gc:orc) because Nim 2.2.6's orc cycle collector
+  # SIGSEGVs during ref-Verifier teardown after a child thread has
+  # pushed/popped the shared verifier (see spike/threads/
+  # v02_gc_safety_REPORT.md Addendum). Design §8.1 lists arc and orc as
+  # co-equal supported memory managers; arc is selected here to unblock
+  # the matrix cell given 2.2.6's orc issue. The impl plan's literal
+  # spec cited orc; this nimble task reflects the pragmatic choice made
+  # in the spike report addendum.
+  exec "nim c --mm:arc --threads:on --define:tripwireActive --define:tripwireUnittest2 --import:tripwire/auto -r tests/all_tests.nim"
+  # Per-file thread tests — pending Task 5.0.5 aggregation. Each runs
+  # under --mm:arc --threads:on for the same reason as the aggregate
+  # invocation above.
+  for threadTest in [
+    "tests/threads/test_tripwire_thread_primitives_compile.nim",
+    "tests/threads/test_tripwire_thread_basic.nim",
+    "tests/threads/test_tripwire_thread_multi.nim",
+    "tests/threads/test_tripwire_thread_exception.nim",
+    "tests/threads/test_tripwire_thread_nested_sandbox.nim",
+    "tests/threads/test_tripwire_thread_nested_sandbox_spawn.nim",
+    "tests/threads/test_tripwire_thread_reject_chronos.nim",
+    "tests/threads/test_tripwire_thread_reject_nested.nim",
+  ]:
+    exec "nim c --mm:arc --threads:on --define:tripwireActive --import:tripwire/auto -r " & threadTest
+  # Negative refc+threads build subtask (design §8.1 F2, M-matrix). Uses
+  # `nim check` (front-end type-check only) via gorgeEx so the
+  # {.error.} at src/tripwire/threads.nim lines 23-26 fires without
+  # triggering C codegen. Asserts exit code != 0 AND the expected error
+  # text appears in stderr/output.
+  let negBuild = gorgeEx(
+    "nim check --gc:refc --threads:on --define:tripwireActive " &
+    "tests/threads/test_refc_threads_rejected.nim")
+  doAssert negBuild.exitCode != 0,
+    "refc+threads negative build unexpectedly succeeded; F2 guard in " &
+    "src/tripwire/threads.nim (lines 23-26) did not fire"
+  doAssert "tripwireThread requires --gc:orc" in negBuild.output,
+    "refc+threads negative build failed as expected, but the error " &
+    "output did not contain the expected F2 message " &
+    "(\"tripwireThread requires --gc:orc\"). Output was:\n" &
+    negBuild.output
 
 task test_fast, "Run one config for quick iteration":
   exec "nim c --gc:orc --define:tripwireActive --import:tripwire/auto -r tests/all_tests.nim"

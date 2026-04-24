@@ -1,6 +1,7 @@
 ## tripwire/sandbox.nim — Verifier type, thread-local stack, sandbox template.
 import std/[tables, monotimes]
 import ./[types, timeline]
+import ./async_registry_types
 
 type
   Verifier* = ref object
@@ -11,6 +12,7 @@ type
     generation*: int
     createdAt*: MonoTime
     active*: bool
+    futureRegistry*: seq[RegisteredFuture]
 
 proc newVerifier*(name: string = ""): Verifier =
   Verifier(name: name, timeline: Timeline(nextSeq: 0),

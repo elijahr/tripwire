@@ -117,6 +117,33 @@ static:
     if code != 0: echo output
     check code == 0
 
+  test "parseNimbleRequires strips version bound with no space between pkg and operator":
+    # Regression guard: `requires "pkg>=1.0"` (no space) must yield
+    # `pkg`, not `pkg>=1.0`. Splitting only on whitespace would
+    # include the operator in the name and break `locatePackageDir`.
+    # The parser additionally splits on `<>=^` so both the spaced
+    # and no-space forms are handled.
+    let content = """
+requires "alpha>=1.0"
+requires "beta <= 2.3"
+requires "gamma<3.0"
+requires "delta^=1.2"
+requires "epsilon"
+"""
+    let driver = DriverHeader & "\nconst content = " & tripleQuote(content) & """
+
+static:
+  let got = parseNimbleRequires(content)
+  doAssert got == @["alpha", "beta", "gamma", "delta", "epsilon"], "got=" & $got
+"""
+    let path = writeDriver(driver)
+    var output: string
+    var code: int
+    {.noRewrite.}:
+      (output, code) = compileDriver(path)
+    if code != 0: echo output
+    check code == 0
+
   test "parseNimbleRequires MISSES continuation lines of multi-line requires (documented limit)":
     # `multiline.nimble` has `requires "first >= 1.0",\n  "second >= 2.0",\n  "third"`.
     # Only `first` is captured. `second` and `third` are on continuation

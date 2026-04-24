@@ -195,9 +195,13 @@ when defined(tripwireAuditFFI):
         let spec = s[quoted + 1 ..< endQuote].strip()
         if spec.len == 0:
           continue
-        # Strip version bound. `spec` is of the form `pkg` or
-        # `pkg >= 1.0` -- split on whitespace and keep the first token.
-        let pkgName = spec.split({' ', '\t'})[0].strip()
+        # Strip version bound. `spec` is of the form `pkg`,
+        # `pkg >= 1.0`, or the no-space variant `pkg>=1.0`. Split on
+        # whitespace AND on version-operator characters so the
+        # latter form also yields `pkg` (a bare package name cannot
+        # contain `<>=^`; those are reserved for the version
+        # constraint grammar per nimble-package-manager docs).
+        let pkgName = spec.split({' ', '\t', '>', '<', '=', '^'})[0].strip()
         if pkgName.len == 0:
           continue
         if pkgName == "nim":

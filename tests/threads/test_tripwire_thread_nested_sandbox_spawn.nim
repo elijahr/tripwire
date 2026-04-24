@@ -137,7 +137,9 @@ suite "withTripwireThread: grandchild-spawn from inner sandbox (E8)":
     # currentVerifier() returns at the spawn site inside A's inner
     # sandbox). It must NOT land on parentV.timeline.
     proc grandBody() {.gcsafe.} =
-      doAssert callGrand(7) == 700
+      # Sentinel 9700 distinct from real-impl result 7*100=700 — a TRM
+      # fall-through would return 700 and hide the miss.
+      doAssert callGrand(7) == 9700
 
     # Child A body: opens an inner sandbox, registers grandCall's mock
     # on the inner verifier, spawns grandchild B from INSIDE the inner
@@ -158,8 +160,10 @@ suite "withTripwireThread: grandchild-spawn from inner sandbox (E8)":
         # Register grandCall's mock on the INNER verifier. B will fire
         # grandCall; since B inherits innerV (see §3.7.1 E8), the TRM
         # fires against innerV and consumes this expectation.
+        # Sentinel 9700 — real impl produces 7*100=700, so this value
+        # cannot come from a fall-through.
         mock.expect grandCall(7):
-          respond value: 700
+          respond value: 9700
 
         # Spawn grandchild B from INSIDE the inner sandbox. At this
         # spawn site, `currentVerifier()` returns innerV (top of A's
@@ -200,9 +204,10 @@ suite "withTripwireThread: grandchild-spawn from inner sandbox (E8)":
       # fire outerCall anywhere on the child or grandchild — grandCall
       # is the only interaction fired on the grandchild, and it must
       # land on innerV (not parentV).
+      # Sentinel 9010 distinct from real-impl result 1*10=10.
       mock.expect outerCall(1):
-        respond value: 10
-      check callOuter(1) == 10
+        respond value: 9010
+      check callOuter(1) == 9010
 
       # Consume the parent interaction before spawning so that when we
       # later check parentV.timeline.entries.len == 1 (only the outerCall,

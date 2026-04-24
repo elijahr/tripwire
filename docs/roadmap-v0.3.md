@@ -9,6 +9,15 @@ wishlist — if an item lacks a shippable rationale it is marked with a placehol
 > Scope note: this file is an early-authored roadmap (per impl plan Task 5.6).
 > It freezes the deferral surface at v0.2 cut time so users who hit a `{.error.}`
 > or `{.warning.}` guard have a single pointer to the v0.3 design workstream.
+>
+> Citation note: section references labeled "v0.2 design doc §N" (e.g.
+> §8 GC-safety, §11 Non-goals, §12 Open questions, §13 Rejected alternatives)
+> point to the v0.2 design planning artifact at
+> `~/.local/spellbook/docs/Users-eek-Development-tripwire/plans/2026-04-23-tripwire-v0.2-design.md`,
+> not to the in-repo `docs/design/v0.md` (which is the v0 design and uses a
+> different section numbering). The v0.2 design artifact was not shipped
+> in-tree; an in-repo v0.2 design doc is itself a v0.3 roadmap item
+> (see §16 below).
 
 ---
 
@@ -296,6 +305,23 @@ user demand." v0.2 integrates with `std/unittest` only.
 
 **v0.3 target.** [rationale TK — deferred pending user demand signal.
 See v0.2 design §11.]
+
+---
+
+## 16. Ship a v0.2 design doc in the repo tree
+
+**Status (v0.2).** The v0.2 design work lives only as a planning artifact
+at `~/.local/spellbook/docs/Users-eek-Development-tripwire/plans/2026-04-23-tripwire-v0.2-design.md`.
+The in-repo `docs/design/v0.md` is the v0 doc and does not reflect the
+v0.2 thread-safety amendment, async registry, or FFI auto-discovery.
+Roadmap entries above reference the planning artifact by its section
+numbering; readers following the "§11" / "§12" / "§13" citations who
+only have the repo in front of them will not find those sections.
+
+**v0.3 target.** Ship `docs/design/v0.2.md` (or fold v0.2 amendments
+into `docs/design/v0.md` with a clear v0-vs-v0.2 section delineation).
+Until then, roadmap citations remain anchored to the out-of-repo planning
+artifact (see preamble citation note).
 
 ---
 

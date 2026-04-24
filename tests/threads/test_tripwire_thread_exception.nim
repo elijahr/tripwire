@@ -125,8 +125,10 @@ suite "withTripwireThread: exception propagation":
     # at sandbox.nim:55-61).
     expect ValueError:
       sandbox:
+        # Sentinel 999 distinct from real-impl result 7*2=14 — if the TRM
+        # ever falls through, the return would collide with the real value.
         mock.expect computeOnThread(7):
-          respond value: 14
+          respond value: 999
         withTripwireThread:
           childBody()
         # Control never reaches here — ValueError is in flight. Sandbox's
@@ -153,8 +155,10 @@ suite "withTripwireThread: exception propagation":
 
     sandbox:
       let v = currentVerifier()
+      # Sentinel 1001 distinct from real-impl result 11*2=22 — avoids
+      # green-mirage collision if the TRM ever fell through.
       mock.expect computeOnThread(11):
-        respond value: 22
+        respond value: 1001
       try:
         withTripwireThread:
           childBody()

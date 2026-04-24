@@ -28,9 +28,9 @@ Nim adaptation of [bigfoot](https://github.com/axiomantic/bigfoot) (pytest).
 - `asyncCheckInSandbox` — opt-in `asyncdispatch` Future registration;
   `drainPendingAsync` on sandbox teardown raises `PendingAsyncDefect`
   for any Future still in flight (design §4).
-- Scoped FFI auto-discovery — real `{.importc.}` / `{.dynlib.}` /
-  `{.header.}` pragma scanner replacing the env-var-driven v0 stub
-  (Defense 2 Part 3, design §5).
+- Scoped FFI auto-discovery — real `{.importc.}` / `{.importcpp.}` /
+  `{.importobjc.}` / `{.importjs.}` pragma scanner replacing the
+  env-var-driven v0 stub (Defense 2 Part 3, design §5).
 - Named sandbox overload — `sandbox "label": body` surfaces the label
   in defect messages for faster triage (design §6.3).
 
@@ -50,9 +50,12 @@ emits a `{.hint.}` listing every `{.importc.}`, `{.importcpp.}`,
 `{.importobjc.}`, and `{.importjs.}` pragma it finds, with per-file
 counts and a grand total. v0.2 replaced the v0.1
 `TRIPWIRE_FFI_SCAN_PATHS` / `TRIPWIRE_FFI_TRANSITIVE_PATHS` env vars
-with compile-time auto-discovery (Defense 2 Part 3, design §5); to
-extend the scan beyond the project to nimble-managed dependencies or
-specific stdlib modules, use `-d:tripwireAuditFFIExtraRequires=...`.
+with compile-time auto-discovery (Defense 2 Part 3, design §5). To
+extend the scan beyond the project to nimble-managed dependencies,
+set `-d:tripwireAuditFFITransitive` (which walks the nimble deps
+tree); the `-d:tripwireAuditFFIExtraRequires="pkg1,pkg2"` escape
+hatch adds extra package names to that walk and is a no-op unless
+`-d:tripwireAuditFFITransitive` is also set.
 See [`CHANGELOG.md`](CHANGELOG.md) for the v0.1 → v0.2 migration
 recipe.
 
@@ -64,9 +67,10 @@ Nim/FFI boundary.
 ## Status: v0.2 (pre-release)
 
 - Tracks A–H landed in v0; v0.2 adds WI1-WI5 (see `CHANGELOG.md`).
-- Matrix green across 7 cells: refc + orc × sync + unittest2,
-  orc+chronos opt-in, arc+threads (cell #7), and a negative
-  refc+threads build probe (F2 guard).
+- Matrix green across 7 cells: refc + orc × sync + unittest2 (cells
+  1-4), standalone `test_osproc_arrays` under orc (cell 5),
+  orc+chronos opt-in (cell 6), arc+threads (cell 7), plus a
+  separate negative refc+threads build probe (F2 guard).
 - chronos cell opt-in (`TRIPWIRE_TEST_CHRONOS=1 nimble test`);
   requires the chronos package in the consumer's `nimble requires`.
 

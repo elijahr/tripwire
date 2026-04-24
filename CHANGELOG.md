@@ -21,7 +21,8 @@ compile-time guards and explicit migration recipes.
   `--gc:refc --threads:on`. Rationale: refc's thread-local heaps
   silently drop child-thread mutations to the shared `ref Verifier`,
   which breaks the "parent sees child interactions" invariant. The
-  nimble matrix enforces this via a negative-build probe (F2 guard,
+  nimble matrix enforces this via a standalone negative-build probe
+  (F2 guard, `gorgeEx`-driven, separate from the arc+threads positive
   cell #7). Non-threaded sandbox use under `--gc:refc` remains fully
   supported. refc+threads is a v0.3 investigation
   (see `spike/threads/v02_gc_safety_REPORT.md`).
@@ -54,11 +55,12 @@ nim c -r -d:tripwireAuditFFI mytest.nim
 nim c -r -d:tripwireAuditFFI -d:tripwireAuditFFITransitive mytest.nim
 ```
 
-For ad-hoc audits outside the default project scope, extend via
-`-d:tripwireAuditFFIExtraRequires:"pkg1,pkg2"` (nimble-managed
-dependencies) or use the transitive scan toggle
-`-d:tripwireAuditFFITransitive`. See `src/tripwire/audit_ffi.nim`
-for the scanner's scope rules.
+For ad-hoc audits outside the default project scope, enable the
+transitive scan toggle `-d:tripwireAuditFFITransitive`. The
+`-d:tripwireAuditFFIExtraRequires:"pkg1,pkg2"` define adds extra
+nimble packages to the transitive walk and is a no-op unless
+`-d:tripwireAuditFFITransitive` is also set. See
+`src/tripwire/audit_ffi.nim` for the scanner's scope rules.
 
 ### Added
 - **`tripwire/threads`** — worker-thread TRM interception with
@@ -80,9 +82,9 @@ for the scanner's scope rules.
   are rejected at compile time with a diagnostic (chronos registration
   deferred to v0.3).
 - **`drainPendingAsync(v)`** in `tripwire/verify` — sync proc that
-  runs `poll(0)` until every registered Future has completed or
-  `tripwireAsyncDrainTimeoutMs` elapses. Exposes per-Future spawn-site
-  diagnostics when drain times out.
+  loops `poll(timeout = 50)` until every registered Future has
+  completed or `tripwireAsyncDrainTimeoutMs` elapses. Exposes
+  per-Future spawn-site diagnostics when drain times out.
 - **`-d:tripwireAsyncDrainTimeoutMs:N`** (intdefine) — drain-loop
   timeout in milliseconds. Default 5000.
 - **`-d:tripwireAuditFFITransitive`** — opt-in transitive FFI scope
@@ -112,14 +114,14 @@ for the scanner's scope rules.
 
 ### Changed
 - **`integration_unittest.test` teardown ordering.** The per-test
-  template body now runs `drainPendingAsync(v)` →
-  `hasPendingOperations()` (guard) → `poll(0)` →
-  `hasPendingOperations()` (gate) → `verifyAll()` at teardown. The
-  guard before `poll(0)` prevents `ValueError` on an empty
-  dispatcher; the gate after is the user-visible
-  `PendingAsyncDefect` raise site. Users who never call
-  `asyncCheckInSandbox` see no behavioral change (the registry stays
-  empty; drain is a no-op).
+  template body now runs `drainPendingAsync(v)` (internal drain loop
+  uses `poll(timeout = 50)`) → `hasPendingOperations()` (guard) →
+  `poll(timeout = 0)` → `hasPendingOperations()` (gate) →
+  `verifyAll()` at teardown. The guard before the final
+  `poll(timeout = 0)` prevents `ValueError` on an empty dispatcher;
+  the gate after is the user-visible `PendingAsyncDefect` raise site.
+  Users who never call `asyncCheckInSandbox` see no behavioral change
+  (the registry stays empty; drain is a no-op).
 
 ### Deferred to v0.3
 - **Env-var replacements.** `TRIPWIRE_FFI_SCAN_PATHS` and

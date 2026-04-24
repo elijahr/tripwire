@@ -134,7 +134,9 @@ suite "withTripwireThread: nested sandbox (E6)":
       # Child's verifierStack at entry: [parent] (len 1). Parent verifier
       # is the top. outerCall TRM resolves against parent.
       doAssert verifierStack.len == 1
-      doAssert callOuter(1) == 10
+      # Sentinel 9001 distinct from real-impl result 1*10=10 — if the TRM
+      # falls through, the collision would hide a missed intercept.
+      doAssert callOuter(1) == 9001
 
       # Open an inner sandbox on the child thread. sandbox pushes a
       # fresh verifier. Child's stack: [parent, inner] (len 2). Inner
@@ -146,9 +148,10 @@ suite "withTripwireThread: nested sandbox (E6)":
 
         # Register a mock on the INNER verifier. innerCall TRM resolves
         # against inner because currentVerifier() is inner here.
+        # Sentinel 9007 distinct from real-impl result 7*100=700.
         mock.expect innerCall(7):
-          respond value: 700
-        doAssert callInner(7) == 700
+          respond value: 9007
+        doAssert callInner(7) == 9007
 
         # The innerCall interaction must be on the inner verifier's
         # timeline, NOT the parent's. Consume it here so inner
@@ -168,7 +171,8 @@ suite "withTripwireThread: nested sandbox (E6)":
       doAssert verifierStack.len == 1
 
       # Post-inner-sandbox: outerCall TRM resolves against parent again.
-      doAssert callOuter(2) == 20
+      # Sentinel 9002 distinct from real-impl result 2*10=20.
+      doAssert callOuter(2) == 9002
 
     sandbox:
       let parentV = currentVerifier()
@@ -178,10 +182,12 @@ suite "withTripwireThread: nested sandbox (E6)":
       # mutation while the child is running. innerCall is NOT registered
       # on the parent — it's registered inside the inner sandbox on the
       # child, where it resolves against the inner verifier.
+      # Sentinels 9001 / 9002 — neither can be produced by real impl
+      # (outerCall(x) = x*10 → 10 / 20).
       mock.expect outerCall(1):
-        respond value: 10
+        respond value: 9001
       mock.expect outerCall(2):
-        respond value: 20
+        respond value: 9002
 
       withTripwireThread:
         childBody()

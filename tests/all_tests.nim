@@ -4,6 +4,7 @@
 
 import ./test_types
 import ./test_errors
+import ./test_errors_facade  # Task 2.4: compile-time gate for facade re-exports
 import ./test_hints
 import ./test_plugin_base
 import ./test_registry

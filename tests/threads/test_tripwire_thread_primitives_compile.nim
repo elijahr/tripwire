@@ -26,13 +26,14 @@ suite "tripwire/threads: compile surface":
     check h.isNil
 
   test "tripwireThread symbol is callable at this signature":
-    # We do NOT actually expect the stub to succeed; we only need the
-    # symbol to resolve and typecheck at the intended call site so the
-    # bind list and generic instantiation compile.
-    when false:
+    # Elaborate the call site via `compiles()` so the typechecker resolves
+    # the symbol and generic instantiation without actually spawning a
+    # thread at runtime. This catches bind-list / signature drift that a
+    # `when false:` gate would silently hide.
+    proc compileOnly_tripwireThread() =
       var thr: Thread[int]
       tripwireThread(thr, noopWorker, 0)
-    check true  # purely a compile-surface assertion
+    check compiles(compileOnly_tripwireThread())
 
   test "runWithVerifier template compiles at a call site":
     # We invoke it at runtime too so the stub raises during RED; the
@@ -45,10 +46,14 @@ suite "tripwire/threads: compile surface":
     check ran
 
   test "withTripwireThread template compiles at a call site":
-    when false:
+    # Elaborate the template body via `compiles()` so the typechecker
+    # expands `withTripwireThread` with a real (non-dead) body. This
+    # would catch a parameter-name collision with `ThreadHandoff.body`
+    # that a `when false:` gate hid.
+    proc compileOnly_withTripwireThread() =
       withTripwireThread:
-        discard
-    check true
+        echo "unreachable"
+    check compiles(compileOnly_withTripwireThread())
 
   test "childEntry symbol is referenceable":
     let p: proc(h: ThreadHandoff) {.thread, nimcall, gcsafe.} = childEntry

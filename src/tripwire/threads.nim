@@ -122,7 +122,7 @@ proc childEntry*(h: ThreadHandoff) {.thread, nimcall, gcsafe.} =
   finally:
     discard popVerifier()
 
-template withTripwireThread*(body: untyped) =
+template withTripwireThread*(threadBody: untyped) =
   ## Canonical ergonomic wrapper:
   ## 1. captures `currentVerifier()` on the parent
   ## 2. spawns a new thread via `tripwireThread`
@@ -149,7 +149,7 @@ template withTripwireThread*(body: untyped) =
     raise newLeakedInteractionDefect(getThreadId(), instantiationInfo())
   let h = ThreadHandoff(
     verifier: parentV,
-    body: proc() {.gcsafe.} = body)
+    body: proc() {.gcsafe.} = threadBody)
   GC_ref(h)
   var thr: Thread[ThreadHandoff]
   try:

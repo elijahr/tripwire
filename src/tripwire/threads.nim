@@ -37,8 +37,16 @@ type
     ## MUST be heap-allocated (ref object) so the child can safely dereference
     ## after the parent's stack frame where it was constructed has progressed.
     verifier*: Verifier         ## ref Verifier — inherited parent state
-    body*: proc() {.gcsafe.}    ## closure capturing the user body.
-    capturedExc*: ref Exception ## any exception raised by `body` or by
+    body*: proc() {.gcsafe.}    ## Closure capturing the user body.
+                                ## Intentionally `{.gcsafe.}` only (no
+                                ## `thread`/`nimcall`): the closure is invoked
+                                ## from inside `childEntry` (which is itself
+                                ## `{.thread, nimcall, gcsafe.}`) rather than
+                                ## being passed as a proc pointer to
+                                ## `createThread`. The calling-convention
+                                ## requirement applies to the entry proc, not
+                                ## to nested closures.
+    capturedExc*: ref Exception ## Any exception raised by `body` or by
                                 ## childEntry's rejection checks; the parent
                                 ## re-raises this AFTER joinThread. Required
                                 ## because Nim 2.2.6's joinThread does NOT
@@ -50,14 +58,11 @@ type
                                 ## propagation" guarantee (E1) and the
                                 ## §3.6 rejection defects (chronos / nested)
                                 ## would never reach the parent.
-                                ## Intentionally `{.gcsafe.}` only (no `thread`
-                                ## / `nimcall`): the closure is invoked from
-                                ## inside `childEntry` (which is itself
-                                ## `{.thread, nimcall, gcsafe.}`) rather than
-                                ## being passed as a proc pointer to
-                                ## `createThread`. The calling-convention
-                                ## requirement applies to the entry proc, not
-                                ## to nested closures.
+                                ## Single-writer / single-reader: child writes
+                                ## during its lifetime, parent reads post-join
+                                ## (joinThread is a happens-before barrier),
+                                ## so non-atomic refcounts under `--mm:arc`
+                                ## are safe — no concurrent refcount mutation.
 
 proc tripwireThread*[T](
     thr: var Thread[T],

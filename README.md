@@ -61,12 +61,14 @@ Every defect message includes an FFI-scope footer pointing at
 for a call you thought was mocked, re-check whether it crosses the
 Nim/FFI boundary.
 
-## Status: v0 (pre-release)
+## Status: v0.2 (pre-release)
 
-- Tracks A–H landed.
-- Matrix green on refc + orc across sync + unittest2 backends.
-- chronos cell opt-in (`-d:chronos`); requires the chronos package
-  in the consumer's `nimble requires`.
+- Tracks A–H landed in v0; v0.2 adds WI1-WI5 (see `CHANGELOG.md`).
+- Matrix green across 7 cells: refc + orc × sync + unittest2,
+  orc+chronos opt-in, arc+threads (cell #7), and a negative
+  refc+threads build probe (F2 guard).
+- chronos cell opt-in (`TRIPWIRE_TEST_CHRONOS=1 nimble test`);
+  requires the chronos package in the consumer's `nimble requires`.
 
 See [`docs/quickstart.md`](docs/quickstart.md) for the full walkthrough.
 

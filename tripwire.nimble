@@ -6,7 +6,7 @@
 # membership; string substring matching needs strutils.contains.
 import std/strutils
 
-version       = "0.0.1"
+version       = "0.2.0"
 author        = "elijahr <elijahr+tripwire@gmail.com>"
 description   = "Test mocking framework with three-guarantee enforcement"
 license       = "MIT"

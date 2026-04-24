@@ -7,6 +7,30 @@
 ##   - `withTripwireThread` — canonical ergonomic wrapper
 ##   - `childEntry`         — child-thread entry used by `withTripwireThread`
 ##
+## **Safety invariants (v0.2 contract):**
+##
+## 1. **Parent blocks during child execution.** `withTripwireThread`
+##    joins on the child before the parent's sandbox body continues.
+##    The parent and child never mutate the shared `Verifier`
+##    (including `futureRegistry` and `timeline`) concurrently under
+##    this contract. Concurrent multi-spawn of `tripwireThread` is
+##    explicitly a §11 non-goal, tracked as v0.3 roadmap item 4.
+##
+## 2. **Thread-body closure captures are the caller's responsibility.**
+##    The `body` passed to `withTripwireThread` is compiled as a
+##    closure; captured local variables cross the thread boundary.
+##    Under ARC/ORC this is only safe for deeply-immutable captures
+##    or captures the user has independently guarded (e.g. a `Lock`
+##    or atomic). tripwire does not inject synchronisation around
+##    user-captured state — the thread wrapper's job is limited to
+##    verifier inheritance. This matches the hazard surface of
+##    `system.createThread` and `std/threadpool.spawn`.
+##
+## 3. **No chronos on worker threads.** Fires
+##    `ChronosOnWorkerThreadDefect` on child entry if a chronos
+##    dispatcher is detected (design §3.6, F4). Deferred to v0.3
+##    roadmap item 11.
+##
 ## Design citations: v0.2 design §3.2 (this module's code), §3.3 (handoff
 ## sequence), §3.6 (rejection order), §8.1 (GC-safety & refc decision
 ## recorded in spike/threads/v02_gc_safety_REPORT.md).

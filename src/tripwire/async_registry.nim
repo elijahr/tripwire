@@ -106,6 +106,14 @@ template asyncCheckInSandbox*[T](futArg: Future[T]): untyped =
   # compile-time pragma; we cannot emit it conditional on a runtime count.
   # Instead we write a line to stderr once per verifier when the count
   # crosses the threshold.
+  # Equality (not `>=`) is the "warn once" mechanism: under v0.2's
+  # single-dispatcher async contract, `asyncCheckInSandbox` always
+  # appends from the asyncdispatch event loop's single thread, so
+  # `.len` increments monotonically by 1 per call. The transition
+  # from N-1 to N fires exactly once per verifier. `>=` would
+  # re-fire on every subsequent call until teardown. Concurrent
+  # appends from multiple threads are excluded by the same contract
+  # (see tripwire/threads.nim's "Safety invariants" header).
   if v.futureRegistry.len == tripwireFutureRegistryWarnThreshold:
     stderr.writeLine(
       "tripwire: futureRegistry has " &

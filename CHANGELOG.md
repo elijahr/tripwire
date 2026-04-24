@@ -6,6 +6,129 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.2.0] - UNRELEASED
+
+Second release. Adds worker-thread TRM interception, opt-in
+sandboxed-async spawn registry, compile-time FFI audit auto-scope,
+and a named-sandbox overload. Two breaking changes, both with
+compile-time guards and explicit migration recipes.
+
+### Breaking
+
+- **`tripwire/threads` requires `--gc:orc` or `--gc:arc`.** The new
+  worker-thread module (`tripwireThread`, `withTripwireThread`,
+  `runWithVerifier`) is rejected at compile time under
+  `--gc:refc --threads:on`. Rationale: refc's thread-local heaps
+  silently drop child-thread mutations to the shared `ref Verifier`,
+  which breaks the "parent sees child interactions" invariant. The
+  nimble matrix enforces this via a negative-build probe (F2 guard,
+  cell #7). Non-threaded sandbox use under `--gc:refc` remains fully
+  supported. refc+threads is a v0.3 investigation
+  (see `spike/threads/v02_gc_safety_REPORT.md`).
+- **FFI audit env vars removed.** `TRIPWIRE_FFI_SCAN_PATHS` and
+  `TRIPWIRE_FFI_TRANSITIVE_PATHS` are gone. The scanner now
+  auto-detects direct scope via
+  `std/compilesettings.querySetting(SingleValueSetting.projectPath)`,
+  and transitive scope is opt-in via `-d:tripwireAuditFFITransitive`
+  (per-package aggregates for direct `.nimble` requires). Migration
+  recipe below.
+
+### Migration recipe
+
+FFI-audit callers must drop the env-var form and move to compile
+defines. `TRIPWIRE_CONFIG` (config-file locator) is unchanged.
+
+```bash
+# Direct scope — before (v0.1):
+export TRIPWIRE_FFI_SCAN_PATHS="src"
+nim c -r -d:tripwireAuditFFI mytest.nim
+
+# Direct scope — after (v0.2):
+nim c -r -d:tripwireAuditFFI mytest.nim
+
+# Transitive scope — before (v0.1):
+export TRIPWIRE_FFI_TRANSITIVE_PATHS="/usr/lib/nim"
+nim c -r -d:tripwireAuditFFI mytest.nim
+
+# Transitive scope — after (v0.2):
+nim c -r -d:tripwireAuditFFI -d:tripwireAuditFFITransitive mytest.nim
+```
+
+For ad-hoc stdlib audits outside a build, see the shell one-liner in
+`docs/quickstart.md` under "FFI audit."
+
+### Added
+- **`tripwire/threads`** — worker-thread TRM interception with
+  parent-verifier inheritance. Canonical form `withTripwireThread do:
+  body` pushes the parent `Verifier` onto the child thread's
+  verifier stack via `runWithVerifier`. Low-level building blocks:
+  `tripwireThread` (raw spawn wrapper), `ThreadHandoff` (heap-allocated
+  parent-to-child handoff record), `childEntry` (rejection-check entry
+  proc). Runtime rejections: `ChronosOnWorkerThreadDefect` if a
+  chronos dispatcher has pending work on the child;
+  `NestedTripwireThreadDefect` if `tripwireThread` fires from inside
+  another `tripwireThread` block; `LeakedInteractionDefect` if there
+  is no active parent verifier.
+- **`tripwire/async_registry`** — opt-in sandboxed-async spawn
+  registry. `asyncCheckInSandbox(fut)` registers a Future on the
+  current verifier so leak detection is scoped to the sandbox (plain
+  `asyncCheck` cross-contaminates across tests). `withAsyncSandbox do:
+  body` wraps a sandbox with the registry attached. chronos Futures
+  are rejected at compile time with a diagnostic (chronos registration
+  deferred to v0.3).
+- **`drainPendingAsync(v)`** in `tripwire/verify` — sync proc that
+  runs `poll(0)` until every registered Future has completed or
+  `tripwireAsyncDrainTimeoutMs` elapses. Exposes per-Future spawn-site
+  diagnostics when drain times out.
+- **`-d:tripwireAsyncDrainTimeoutMs:N`** (intdefine) — drain-loop
+  timeout in milliseconds. Default 5000.
+- **`-d:tripwireAuditFFITransitive`** — opt-in transitive FFI scope
+  with per-package aggregation from `.nimble` requires. Default-off.
+- **`template sandbox*(name: static string, body: untyped)`** — named
+  overload. The user-provided label propagates to `Verifier.name` and
+  embeds in `UnassertedInteractionsDefect` / `UnusedMocksDefect`
+  messages. Semantics otherwise identical to the unnamed form. Both
+  overloads disambiguate cleanly: `sandbox: body` (unnamed),
+  `sandbox "label": body` (named).
+- **FFI audit scope** — direct scope now auto-detects from
+  `querySetting(projectPath)`; transitive scope aggregates per
+  `.nimble` package under the opt-in define above. Replaces the v0.1
+  env-var contract.
+- **New defect types:** `ChronosOnWorkerThreadDefect`,
+  `NestedTripwireThreadDefect`. New `PendingAsyncDefect(msg, parent)`
+  overload for drain-loop diagnostic paths (carries the underlying
+  exception as `parent`).
+- **Matrix cell #7 — arc+threads.** `tripwire.nimble` adds
+  `--mm:arc --threads:on` cell exercising the new threads module.
+  (arc rather than orc because Nim 2.2.6's orc cycle collector still
+  has issues under `--threads:on`.)
+- **Compile-time rejection of refc+threads** — nimble F2 guard
+  asserts that `nim check --gc:refc --threads:on -d:tripwireActive`
+  exits non-zero with the string
+  `tripwireThread requires --gc:orc or --gc:arc` in stderr.
+
+### Changed
+- **`integration_unittest.test` teardown ordering.** The per-test
+  template body now runs `drainPendingAsync(v)` → `poll(0)` →
+  `hasPendingOperations()` → `verifyAll()` at teardown. Users who
+  never call `asyncCheckInSandbox` see no behavioral change (the
+  registry stays empty; drain is a no-op).
+
+### Deferred to v0.3
+- **Env-var replacements.** `TRIPWIRE_FFI_SCAN_PATHS` and
+  `TRIPWIRE_FFI_TRANSITIVE_PATHS` remain removed; richer override
+  hooks (if any) will land alongside the libc-level firewall work.
+- **chronos Future registration.** `asyncCheckInSandbox` currently
+  emits a compile-time warning for chronos Futures and accepts only
+  `std/asyncdispatch.Future[T]`. Full chronos registration is
+  deferred.
+- **Parameterized `withX(args) do: body` form.** Both
+  `withTripwireThread` and `withAsyncSandbox` ship as bare-body
+  forms only; no user-threaded argument surface yet.
+- **Typestate internal layer.** v0.2 does not land the
+  `-d:tripwireInternalTypestate` instrumentation; the probe is
+  carried to v0.3. See `docs/roadmap-v0.3.md`.
+
 ## [0.0.1] - 2026-04-23
 
 Initial release. Tripwire is the Nim port of

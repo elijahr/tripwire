@@ -28,5 +28,11 @@ jobs:
       - name: Install dependencies
         run: nimble install -y -d
 
+      - name: Install optional test backends
+        # unittest2 is the backend for matrix cells 3, 4, 7 (selected via
+        # -d:tripwireUnittest2). It is intentionally NOT in `requires`
+        # because consumers using std/unittest do not need it.
+        run: nimble install -y unittest2
+
       - name: Run tests
         run: nimble test

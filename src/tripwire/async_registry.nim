@@ -43,6 +43,13 @@
 import std/[asyncfutures, asyncdispatch]
 import ./[sandbox, errors, async_registry_types]
 
+const tripwireFutureRegistryWarnThreshold* {.intdefine.}: int = 10_000
+  ## Stderr diagnostic fires once per verifier when the
+  ## `futureRegistry` reaches this size. Override with
+  ## `-d:tripwireFutureRegistryWarnThreshold=N` to tune sensitivity
+  ## for applications with legitimately high async fan-out or to
+  ## catch leaks earlier in tighter environments.
+
 template asyncCheckInSandbox*[T](futArg: Future[T]): untyped =
   ## Register ``futArg`` with the current verifier's ``futureRegistry``
   ## AND call ``asyncCheck`` under the hood so the dispatcher tracks
@@ -99,10 +106,12 @@ template asyncCheckInSandbox*[T](futArg: Future[T]): untyped =
   # compile-time pragma; we cannot emit it conditional on a runtime count.
   # Instead we write a line to stderr once per verifier when the count
   # crosses the threshold.
-  if v.futureRegistry.len == 10_000:
+  if v.futureRegistry.len == tripwireFutureRegistryWarnThreshold:
     stderr.writeLine(
-      "tripwire: futureRegistry has 10,000 entries on verifier '" &
-      v.name & "' — consider whether all spawns are intended.")
+      "tripwire: futureRegistry has " &
+      $tripwireFutureRegistryWarnThreshold &
+      " entries on verifier '" & v.name &
+      "' — consider whether all spawns are intended.")
   asyncCheck(futArg)  # dispatcher sees it; plain asyncCheck semantics preserved
 
 when defined(chronos):

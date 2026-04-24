@@ -117,9 +117,14 @@ proc drainPendingAsync*(v: Verifier) =
     if v.futureRegistry.len == 0:
       return
 
-    # Block-on-progress for a bounded slice.
+    # Block-on-progress for a bounded slice, capped by remaining
+    # budget so the whole drain cannot overshoot
+    # tripwireAsyncDrainTimeoutMs by more than one poll iteration.
     if hasPendingOperations():
-      poll(timeout = 50)    # asyncdispatch.poll only; chronos is rejected upstream
+      let remainingMs = (deadline - getMonoTime()).inMilliseconds.int
+      if remainingMs <= 0:
+        break
+      poll(timeout = min(50, remainingMs))   # asyncdispatch.poll only; chronos is rejected upstream
     else:
       # Registry non-empty but dispatcher has nothing to progress ==
       # a never-completing Future. Bail with diagnostic.

@@ -214,6 +214,18 @@ when defined(tripwireAuditFFI):
         let pkg = extra.strip()
         if pkg.len == 0:
           continue
+        # §5.5 defense in depth: the parser already drops `requires "nim"`
+        # from auto-detected requires; the escape hatch MUST apply the
+        # same skip, otherwise a user setting -d:...ExtraRequires:"nim"
+        # would force a stdlib walk (thousands of FFI pragmas in posix,
+        # httpclient, dynlib, etc.) which §5.5 forbids. A silent drop
+        # would hide user intent, so we emit a CT notice so the operator
+        # who typed `nim` into the CSV learns their entry was ignored
+        # and why. The stdlib-guard regression test asserts this echo
+        # appears in the compile output.
+        if pkg == "nim":
+          echo "tripwire FFI transitive: \"nim\" in -d:tripwireAuditFFIExtraRequires ignored; stdlib scan forbidden by design §5.5."
+          continue
         if pkg notin result:
           result.add(pkg)
 

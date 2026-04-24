@@ -46,3 +46,65 @@ suite "errors":
     except Defect:
       caught = false
     check caught == false
+
+suite "WI2 defect types (design §2.3, §3.6)":
+  test "ChronosOnWorkerThreadDefect construction":
+    let d = newChronosOnWorkerThreadDefect(42,
+      (filename: "x.nim", line: 10, column: 5))
+    check d of ChronosOnWorkerThreadDefect
+    check d of TripwireDefect
+    check d of Defect
+    check "tripwireThread rejected" in d.msg
+    check "chronos on worker thread" in d.msg
+    check "on thread 42" in d.msg
+    check "x.nim:10" in d.msg
+    check FFIScopeFooter in d.msg
+
+  test "NestedTripwireThreadDefect construction":
+    let d = newNestedTripwireThreadDefect(7,
+      (filename: "nested.nim", line: 99, column: 3))
+    check d of NestedTripwireThreadDefect
+    check d of TripwireDefect
+    check d of Defect
+    check "tripwireThread rejected" in d.msg
+    check "nested tripwire thread" in d.msg
+    check "on thread 7" in d.msg
+    check "nested.nim:99" in d.msg
+    check FFIScopeFooter in d.msg
+
+  test "Chronos and Nested defects have distinct reason strings":
+    ## Guards against copy-paste swap of the reason portion.
+    let c = newChronosOnWorkerThreadDefect(1,
+      (filename: "a.nim", line: 1, column: 1))
+    let n = newNestedTripwireThreadDefect(1,
+      (filename: "a.nim", line: 1, column: 1))
+    check "chronos on worker thread" in c.msg
+    check "nested tripwire thread" notin c.msg
+    check "nested tripwire thread" in n.msg
+    check "chronos on worker thread" notin n.msg
+
+  test "newPendingAsyncDefect(msg, parent) overload — nil parent":
+    let d = newPendingAsyncDefect("custom drain-loop msg", nil)
+    check d of PendingAsyncDefect
+    check d of TripwireDefect
+    check "custom drain-loop msg" in d.msg
+    check d.msg.endsWith(FFIScopeFooter)
+    check d.parent == nil
+
+  test "newPendingAsyncDefect(msg, parent) overload — carries parent":
+    let p: ref Exception = newException(IOError, "upstream")
+    let d = newPendingAsyncDefect("drain failed", p)
+    check d of PendingAsyncDefect
+    check "drain failed" in d.msg
+    check d.msg.endsWith(FFIScopeFooter)
+    check d.parent == p
+
+  test "newPendingAsyncDefect(testName) one-arg form unchanged (regression)":
+    ## Pins the v0.1 message format byte-for-byte. Any change to the
+    ## one-arg form MUST fail this assertion.
+    let d = newPendingAsyncDefect("my_test_case")
+    let expected = "test 'my_test_case' ended with pending async operations." &
+      "\nUse `waitFor` to drain futures, or -d:tripwireAllowPendingAsync to" &
+      " suppress." & FFIScopeFooter
+    check d.msg == expected
+    check d.testName == "my_test_case"

@@ -45,6 +45,13 @@ type
     containerType*: string
     site*: tuple[file: string, line, column: int]
 
+  ChronosOnWorkerThreadDefect* = object of TripwireDefect
+    ## Raised when a chronos import lands on a tripwireThread-wrapped
+    ## worker. WI3 (threads) gate; see design chunk-2 brief, §2.3.
+  NestedTripwireThreadDefect* = object of TripwireDefect
+    ## Raised when a tripwireThread block fires from within another
+    ## tripwireThread. WI3 (threads) gate; see design chunk-2 brief, §2.3.
+
   TripwireError* = object of CatchableError
 
   AssertionInsideSandboxError* = object of TripwireError
@@ -137,6 +144,33 @@ proc newPendingAsyncDefect*(testName: string): ref PendingAsyncDefect =
     "\nUse `waitFor` to drain futures, or -d:tripwireAllowPendingAsync to" &
     " suppress." & FFIScopeFooter
   result = (ref PendingAsyncDefect)(msg: msg, testName: testName)
+
+proc newPendingAsyncDefect*(msg: string,
+    parent: ref Exception): ref PendingAsyncDefect =
+  ## Drain-loop diagnostic overload (WI4). Stores `msg` verbatim (the
+  ## caller composes it) and carries `parent` so rethrow chains compose
+  ## correctly (design §4.4). `FFIScopeFooter` is appended, matching
+  ## every other defect constructor in this file. `testName` is left
+  ## empty — this overload is not a per-test wrap.
+  ##
+  ## NB: `parent` has no default. Callers wanting a detached defect must
+  ## pass `nil` explicitly. This keeps the one-arg form
+  ## `newPendingAsyncDefect(testName)` unambiguous; without the explicit
+  ## second arg the compiler would not know which overload to pick.
+  let fullMsg = msg & FFIScopeFooter
+  result = (ref PendingAsyncDefect)(msg: fullMsg, parent: parent)
+
+proc newChronosOnWorkerThreadDefect*(threadId: int,
+    site: tuple[filename: string, line: int, column: int]): ref ChronosOnWorkerThreadDefect =
+  let msg = "tripwireThread rejected: chronos on worker thread on thread " &
+    $threadId & " at " & site.filename & ":" & $site.line & FFIScopeFooter
+  result = (ref ChronosOnWorkerThreadDefect)(msg: msg)
+
+proc newNestedTripwireThreadDefect*(threadId: int,
+    site: tuple[filename: string, line: int, column: int]): ref NestedTripwireThreadDefect =
+  let msg = "tripwireThread rejected: nested tripwire thread on thread " &
+    $threadId & " at " & site.filename & ":" & $site.line & FFIScopeFooter
+  result = (ref NestedTripwireThreadDefect)(msg: msg)
 
 proc newUnmockableContainerDefect*(procName, containerType: string,
     site: tuple[filename: string, line: int, column: int]): ref UnmockableContainerDefect =

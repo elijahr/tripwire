@@ -61,3 +61,16 @@ template sandbox*(body: untyped) =
     # original (and more informative) failure.
     if getCurrentException() == nil:
       nfV.verifyAll()
+
+template sandbox*(name: static string, body: untyped) =
+  ## Named variant: labels the fresh verifier so error messages carry
+  ## the user-provided name. Semantics otherwise identical to
+  ## `sandbox*(body)`; see its docstring for first-violation-wins details.
+  bind popVerifier, pushVerifier, newVerifier, getCurrentException
+  let nfV = pushVerifier(newVerifier(name))
+  try:
+    body
+  finally:
+    discard popVerifier()
+    if getCurrentException() == nil:
+      nfV.verifyAll()

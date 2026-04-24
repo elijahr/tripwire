@@ -10,6 +10,7 @@ import ./test_plugin_base
 import ./test_registry
 import ./test_timeline
 import ./test_sandbox
+import ./test_sandbox_named
 import ./test_verifier
 import ./test_context
 import ./test_intercept

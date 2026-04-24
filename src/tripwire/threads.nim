@@ -107,8 +107,10 @@ proc childEntry*(h: ThreadHandoff) {.thread, nimcall, gcsafe.} =
   ## INTERNAL — referenced only via the withTripwireThread template; do not call directly
   ## Child-thread entry point used by `withTripwireThread`.
   ## Order matters: defensive stack check → chronos check → pushVerifier
-  ## → body → popVerifier. The pushVerifier must happen AFTER the rejection
-  ## checks so that a rejected child never contaminates verifierStack.
+  ## → body → raw verifierStack.pop(). The pushVerifier must happen AFTER
+  ## the rejection checks so that a rejected child never contaminates
+  ## verifierStack. The pop is the raw stack op, NOT popVerifier(), because
+  ## h.verifier is borrowed from the parent (see finally below).
   # Defensive: a fresh thread's verifierStack should be empty by
   # language semantics ({.threadvar.} is zero-initialized per thread).
   # A non-empty stack indicates a nested tripwireThread invocation.
@@ -147,10 +149,9 @@ template withTripwireThread*(threadBody: untyped) =
   ##     on entry (§3.6)
   ##   - `LeakedInteractionDefect` if there is no active parent verifier
   ##   - any exception raised by `body` (re-raised after joinThread)
-  bind currentVerifier, pushVerifier, popVerifier,
-       newLeakedInteractionDefect, hasPendingOperations,
+  bind currentVerifier, newLeakedInteractionDefect,
        ThreadHandoff, childEntry, tripwireThread,
-       GC_ref, GC_unref, createThread, joinThread, Thread,
+       GC_ref, GC_unref, joinThread, Thread,
        getThreadId, instantiationInfo
   let parentV = currentVerifier()
   if parentV.isNil:

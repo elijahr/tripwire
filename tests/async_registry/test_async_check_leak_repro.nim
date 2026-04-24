@@ -25,9 +25,20 @@
 ## invoke `asyncCheckInSandbox` MUST also `import std/asyncdispatch`
 ## so that `Future[T]` resolves at the call site, even though the
 ## template `bind`s `asyncCheck` from the library module.
+##
+## Chronos-aware pending-ops wrapper: this test imports
+## `tripwire/futures` so the inline `hasPendingOperations()` call at
+## the sandbox-exit honesty check resolves to tripwire's chronos-aware
+## wrapper (src/tripwire/futures.nim lines 41-53), NOT the plain
+## `std/asyncdispatch.hasPendingOperations`. Without this import the
+## name would bind to the stdlib proc and miss chronos pending work
+## under `-d:chronos -d:chronosFutureTracking`. Task 4.6's
+## `integration_unittest.test:` wiring uses the same wrapper; keeping
+## parity here ensures the inline honesty check in this reproducer
+## tracks the real invariant.
 
 import std/[unittest, asyncdispatch]
-import tripwire/[sandbox, verify, async_registry, errors]
+import tripwire/[sandbox, verify, async_registry, errors, futures]
 
 suite "q1_async_leak port":
   setup:
@@ -58,13 +69,16 @@ suite "q1_async_leak port":
     sandbox:
       fut = leaker()
       asyncCheck fut   # plain asyncCheck — the leak vector
-      # body returns immediately; fut is still pending
+      # body returns immediately; fut is still pending.
+      # Do NOT reduce sleepAsync(20) to 0 or remove it — the body must
+      # yield so `sandbox:` pops before `fut` completes. Without a yield,
+      # `fut` resolves synchronously and the leak becomes unobservable.
 
     # After sandbox exit: the leak must still be observable. This is the
     # v0.1 behavior that v0.2 preserves for plain asyncCheck (the opt-in
     # `asyncCheckInSandbox` is the safe path).
     var raised: ref PendingAsyncDefect = nil
-    if hasPendingOperations():
+    if futures.hasPendingOperations():
       raised = newPendingAsyncDefect("q1_async_leak_repro")
 
     # Clean up the dispatcher's pending callback so this test does not
@@ -126,5 +140,5 @@ suite "q1_async_leak port":
     # After sandbox exit: no leak, no pending ops. Compare to the RED
     # test's `hasPendingOperations()` check — the whole point of the
     # opt-in helper is that this must be false here.
-    check not hasPendingOperations()
+    check not futures.hasPendingOperations()
     check counter == 1

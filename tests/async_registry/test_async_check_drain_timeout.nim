@@ -100,34 +100,16 @@ suite "drainPendingAsync timeout":
     # leaving uncompleted dispatcher callbacks pollutes process-global
     # asyncdispatch state for tests that run after this one once
     # all_tests.nim aggregation lands — Task 5.0.5).
-    #
-    # NOTE on variable naming: `asyncCheckInSandbox` is a template whose
-    # parameter is named `fut`, and its body uses `fut:` as an object
-    # constructor field for `RegisteredFuture`. Nim's hygienic template
-    # substitution renames BOTH the parameter usage AND the field name
-    # if the caller uses a different identifier — so `asyncCheckInSandbox(fut1)`
-    # expands to `RegisteredFuture(fut1: FutureBase(fut1), ...)`, which
-    # fails with "undeclared field: 'fut1'". We sidestep that by using
-    # the single name `fut` inside scoped blocks (matching the parameter
-    # name makes substitution a no-op on the field) and capturing each
-    # Future into `futs: seq[Future[int]]` for post-drain cleanup.
-    var futs: seq[Future[int]] = @[]
+    let fut1 = newFuture[int]("drain-timeout-probe-1")
+    let fut2 = newFuture[int]("drain-timeout-probe-2")
+    let fut3 = newFuture[int]("drain-timeout-probe-3")
     var expectedSite1, expectedSite2, expectedSite3: string
     try:
       sandbox:
         let v = currentVerifier()
-        block:
-          let fut = newFuture[int]("drain-timeout-probe-1")
-          asyncCheckInSandbox(fut)                                    # site 1
-          futs.add(fut)
-        block:
-          let fut = newFuture[int]("drain-timeout-probe-2")
-          asyncCheckInSandbox(fut)                                    # site 2
-          futs.add(fut)
-        block:
-          let fut = newFuture[int]("drain-timeout-probe-3")
-          asyncCheckInSandbox(fut)                                    # site 3
-          futs.add(fut)
+        asyncCheckInSandbox(fut1)                                     # site 1
+        asyncCheckInSandbox(fut2)                                     # site 2
+        asyncCheckInSandbox(fut3)                                     # site 3
 
         # Snapshot the 3 site markers BEFORE drain clears the registry.
         # Format must mirror the "  - filename:line:column" string that
@@ -154,9 +136,10 @@ suite "drainPendingAsync timeout":
     # before teardown — otherwise stale pending ops leak into subsequent
     # tests when this file is aggregated into all_tests.nim (Task 5.0.5).
     # Complete-then-poll mirrors the cleanup in the single-Future test.
-    for fut in futs:
-      if not fut.isNil: fut.complete(0)
-    if hasPendingOperations():
+    fut1.complete(0)
+    fut2.complete(0)
+    fut3.complete(0)
+    while hasPendingOperations():
       poll(timeout = 1)
 
     check raised != nil

@@ -3,13 +3,16 @@
 ##
 ## Exposes two templates:
 ##
-## * ``asyncCheckInSandbox*[T](fut: Future[T])`` — register an
+## * ``asyncCheckInSandbox*[T](futArg: Future[T])`` — register an
 ##   asyncdispatch ``Future[T]`` with the current verifier's
 ##   ``futureRegistry`` and call ``asyncCheck`` so the dispatcher
 ##   tracks it too. Raises ``LeakedInteractionDefect`` when no
 ##   verifier is on the stack (consistent with TRM-fires-outside-a-
 ##   sandbox semantics). Chronos Futures are rejected at compile
 ##   time via ``{.warning.}``; see §11 non-goals.
+##   (Parameter is ``futArg``, not ``fut``, to avoid a Nim
+##   template-hygiene collision with the ``RegisteredFuture.fut``
+##   field name — see the template's doc block.)
 ##
 ## * ``withAsyncSandbox*(body: untyped)`` — pure readability shim
 ##   around a group of ``asyncCheckInSandbox`` calls.
@@ -34,8 +37,8 @@
 import std/[asyncfutures, asyncdispatch]
 import ./[sandbox, errors, async_registry_types]
 
-template asyncCheckInSandbox*[T](fut: Future[T]): untyped =
-  ## Register ``fut`` with the current verifier's ``futureRegistry``
+template asyncCheckInSandbox*[T](futArg: Future[T]): untyped =
+  ## Register ``futArg`` with the current verifier's ``futureRegistry``
   ## AND call ``asyncCheck`` under the hood so the dispatcher tracks
   ## the Future too.
   ##
@@ -59,16 +62,25 @@ template asyncCheckInSandbox*[T](fut: Future[T]): untyped =
   ## ``asyncCheckInSandbox`` MUST ``import std/asyncdispatch``
   ## (for type-level ``Future[T]`` resolution at the consumer's call
   ## site, even though this module ``bind``s ``asyncCheck``).
+  ##
+  ## Implementation note: the template parameter is named ``futArg``
+  ## rather than ``fut`` to avoid a Nim template-hygiene collision with
+  ## ``RegisteredFuture.fut`` (the object-constructor field name).
+  ## When the parameter name matches the field name, Nim's hygienic
+  ## substitution causes the construction ``RegisteredFuture(fut: ...)``
+  ## to fail to parse at callers that pass an identifier other than
+  ## ``fut``. Renaming the parameter sidesteps this and lets callers use
+  ## any identifier.
   mixin currentVerifier
   bind RegisteredFuture, FutureBase, newLeakedInteractionDefect,
        getThreadId, instantiationInfo, asyncCheck, stderr
   # Deviation from design §4.1 line 577: the literal `when defined(chronos)
-  # and fut is chronos.Future[T]` does not compile — Nim's `when` evaluates
+  # and futArg is chronos.Future[T]` does not compile — Nim's `when` evaluates
   # both operands of `and`, so `chronos.Future` must parse even when
   # `-d:chronos` is absent. We nest the `when`s instead (matching the
   # established idiom in `futures.nim:51-53`); behavior is identical.
   when defined(chronos):
-    when fut is chronos.Future[T]:
+    when futArg is chronos.Future[T]:
       {.warning: "asyncCheckInSandbox does not support chronos Futures in v0.2. " &
                  "Use `discard waitFor fut` inside the sandbox body, or asyncdispatch. " &
                  "See v0.2 design §11 non-goals and docs/roadmap-v0.3.md.".}
@@ -79,20 +91,20 @@ template asyncCheckInSandbox*[T](fut: Future[T]): untyped =
         raise newLeakedInteractionDefect(
           getThreadId(), instantiationInfo())
       v.futureRegistry.add RegisteredFuture(
-        fut: FutureBase(fut),
+        fut: FutureBase(futArg),
         site: instantiationInfo(fullPaths = true))
       if v.futureRegistry.len == 10_000:
         stderr.writeLine(
           "tripwire: futureRegistry has 10,000 entries on verifier '" &
           v.name & "' — consider whether all spawns are intended.")
-      asyncCheck(fut)
+      asyncCheck(futArg)
   else:
     let v = currentVerifier()
     if v.isNil:
       raise newLeakedInteractionDefect(
         getThreadId(), instantiationInfo())
     v.futureRegistry.add RegisteredFuture(
-      fut: FutureBase(fut),
+      fut: FutureBase(futArg),
       site: instantiationInfo(fullPaths = true))
     # Runtime diagnostic for pathological registries. NOTE: `{.hint.}` is a
     # compile-time pragma; we cannot emit it conditional on a runtime count.
@@ -102,7 +114,7 @@ template asyncCheckInSandbox*[T](fut: Future[T]): untyped =
       stderr.writeLine(
         "tripwire: futureRegistry has 10,000 entries on verifier '" &
         v.name & "' — consider whether all spawns are intended.")
-    asyncCheck(fut)  # dispatcher sees it; plain asyncCheck semantics preserved
+    asyncCheck(futArg)  # dispatcher sees it; plain asyncCheck semantics preserved
 
 template withAsyncSandbox*(body: untyped) =
   ## Ergonomic block scope for a group of ``asyncCheckInSandbox``

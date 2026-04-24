@@ -12,12 +12,29 @@ offending interaction.
 
 Nim adaptation of [bigfoot](https://github.com/axiomantic/bigfoot) (pytest).
 
-> **Alpha quality.** Tripwire is under active development. v0 shipped
-> April 2026 with the core three-guarantee machinery and three plugins
-> (MockPlugin, HttpClientPlugin, OsProcPlugin); it has not yet been
-> heavily exercised in real test suites. Expect rough edges. Bug
-> reports, feedback, and contributions are welcome — please open an
-> issue or PR.
+> **ALPHA** — tripwire is pre-1.0. Breaking changes may ship in any
+> minor release. Each release's CHANGELOG includes explicit migration
+> steps. v0.2 removes the `TRIPWIRE_FFI_*` environment variables
+> (config is now compile-define only) and the new `tripwire/threads`
+> module requires `--gc:orc` or `--gc:arc` (refc is rejected at
+> compile time); see [`CHANGELOG.md`](CHANGELOG.md) for the migration
+> recipe.
+
+## v0.2 new capabilities
+
+- `tripwireThread` / `withTripwireThread` — verifier-inheriting thread
+  primitives so child threads see the parent sandbox's mock queue and
+  timeline (design §3).
+- `asyncCheckInSandbox` — opt-in `asyncdispatch` Future registration;
+  `drainPendingAsync` on sandbox teardown raises `PendingAsyncDefect`
+  for any Future still in flight (design §4).
+- Scoped FFI auto-discovery — real `{.importc.}` / `{.dynlib.}` /
+  `{.header.}` pragma scanner replacing the env-var-driven v0 stub
+  (Defense 2 Part 3, design §5).
+- Named sandbox overload — `sandbox "label": body` surfaces the label
+  in defect messages for faster triage (design §6.3).
+
+See [`CHANGELOG.md`](CHANGELOG.md) for the full migration recipe.
 
 ## !! SCOPE
 

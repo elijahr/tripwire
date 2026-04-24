@@ -46,12 +46,19 @@
 ##     (see `newChronosOnWorkerThreadDefect` at
 ##     src/tripwire/errors.nim lines 163-167).
 ##   - The user body ("should never run") is NEVER executed — proven by
-##     a flag that stays false AND by the parent verifier's timeline
-##     staying empty (the body would have fired `callOuter` to record
-##     an interaction; its absence proves body never ran).
-##   - Because `pushVerifier` was never called on the child, the parent
-##     verifier's timeline stays empty AND its stack invariants are
-##     undisturbed — the rejection is atomic w.r.t. verifier state.
+##     the `bodyRan` flag staying false. This is the authoritative
+##     ordering-check: the `bodyRan = true` assignment is the ONLY
+##     observable side-effect of the body, so its absence proves the
+##     rejection fired BEFORE `h.body()` was invoked.
+##   - The parent verifier's timeline is empty — a consistency check
+##     that no interaction (from the rejection path itself, from the
+##     unrun body, or from any incidental TRM) leaked onto the shared
+##     timeline. This is NOT a discriminator for "pushVerifier ran vs
+##     didn't run" (the body fires no TRM, so the timeline would be
+##     empty either way); the ordering contract is gated by `bodyRan`.
+##     Code-review correctness of the pushVerifier-BEFORE-body ordering
+##     is verified by reading `childEntry` at src/tripwire/threads.nim
+##     lines 123-154.
 ##
 ## Compile (mirrors test_tripwire_thread_basic.nim's arc rationale):
 ##
@@ -202,9 +209,13 @@ suite "withTripwireThread: chronos rejection (F4; design §3.6 lines 432-450)":
       # (bad-news) drops the site segment entirely — surfaces here.
       check " at ???:0" in defectMsg
 
-      # pushVerifier was never called on the child, so no interaction
-      # could have landed on the parent verifier. An empty timeline is
-      # the structural proof that childEntry bailed BEFORE pushVerifier.
+      # Consistency check: no interaction leaked to the parent timeline.
+      # The body fires no TRM, so this assertion does NOT discriminate
+      # between "pushVerifier ran" vs "pushVerifier didn't run" — the
+      # authoritative ordering proof is `check not bodyRan` above. This
+      # line still has value as a guard against a future refactor that
+      # (incorrectly) records something against the parent verifier
+      # from inside the rejection path itself.
       check parentV.timeline.entries.len == 0
 
       # FFIScopeFooter is appended verbatim by every defect constructor

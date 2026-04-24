@@ -252,7 +252,9 @@ when defined(tripwireAuditFFI):
         return ""
       var matches: seq[string] = @[]
       for kind, path in walkDir(dir, relative = false):
-        if kind == pcFile and path.endsWith(".nimble"):
+        # Accept symlinks-to-files too: some projects symlink their
+        # `.nimble` into a deps tree (e.g. monorepo local installs).
+        if kind in {pcFile, pcLinkToFile} and path.endsWith(".nimble"):
           matches.add(path)
       matches.sort()
       if matches.len > 0: matches[0] else: ""
@@ -315,7 +317,11 @@ when defined(tripwireAuditFFI):
             continue
           var matches: seq[string] = @[]
           for kind, path in walkDir(searchRoot):
-            if kind != pcDir:
+            # Accept symlinks-to-dirs too: `nimble develop` installs
+            # typically symlink `<pkgs>/<pkgname>` at a working copy,
+            # which walkDir reports as pcLinkToDir. Excluding those
+            # would silently skip dev installs from the audit.
+            if kind notin {pcDir, pcLinkToDir}:
               continue
             let name = extractFilename(path).toLowerAscii
             # Exact match OR `<needle>-<digit>...` prefix. Requiring

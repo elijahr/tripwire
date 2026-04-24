@@ -12,6 +12,11 @@ tests/test_*
 !tests/test_*.nim
 !tests/test_*/
 
+# Nested test binaries (e.g. tests/audit_ffi/test_*)
+tests/**/test_*
+!tests/**/test_*.nim
+!tests/**/test_*/
+
 # OS
 .DS_Store
 

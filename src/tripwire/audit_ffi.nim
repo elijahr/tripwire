@@ -34,7 +34,7 @@
 ##
 ## See `docs/design/v0.md` §11.2 Part 3 and Appendix B.
 when defined(tripwireAuditFFI):
-  import std/[strutils, os, compilesettings]
+  import std/[strutils, os, compilesettings, algorithm]
 
   const FFIPragmaRegex = """\{\.[[:space:]]*(importc|importcpp|importobjc|importjs)"""
     ## Anchored at the pragma-start delimiter `{.` so string literals
@@ -124,6 +124,164 @@ when defined(tripwireAuditFFI):
     ## fallback); if `dir` does not exist, `find` emits no lines and
     ## the parser returns ("", 0) cleanly.
     tripwireFfiParseReport(staticExec(tripwireFfiScanCommand(dir)))
+
+  when defined(tripwireAuditFFITransitive):
+    ## Task 1.3 scaffolding for Task 1.4's per-package transitive scan
+    ## (design §5.3, lines 900-1000). These helpers are gated behind
+    ## the opt-in transitive define so direct-scope builds (Task 1.2's
+    ## contract) are unaffected. The `{.hint.}` emission block below
+    ## remains Task 1.4's concern; only the parser utilities live here.
+    ##
+    ## The escape hatch `-d:tripwireAuditFFIExtraRequires:"pkg1,pkg2"`
+    ## is consumed by `mergeExtraRequires` -- users whose `.nimble`
+    ## files trip the parser's documented limits (multi-line requires,
+    ## variable expansion) can supplement the auto-detected set
+    ## without modifying their package metadata.
+    const extraRequiresCSV {.strdefine: "tripwireAuditFFIExtraRequires".}: string = ""
+
+    proc parseNimbleRequires(content: string): seq[string] {.compileTime.} =
+      ## Parse `requires "pkg"` / `requires "pkg >= 1.0"` lines from
+      ## the CONTENT of a `.nimble` file (not the path -- the caller
+      ## is responsible for `staticRead`). Returns package names only;
+      ## version bounds are stripped. Case-sensitive dedup.
+      ##
+      ## DOCUMENTED LIMITS (design §5.3 lines 913-931):
+      ##   - Multi-line `requires "pkg1",\n   "pkg2"` forms: ONLY the
+      ##     first package on the first line is captured. Continuation
+      ##     lines are silently skipped.
+      ##   - Variable expansion: any `requires` line containing `&`
+      ##     is skipped (the parser cannot resolve runtime values at
+      ##     scan time). Users supplement via -d:tripwireAuditFFIExtraRequires.
+      ##   - Conditional `requires` inside `when` / `if` blocks:
+      ##     INCLUDED regardless. Control flow is not evaluated --
+      ##     every quoted-pkg line is picked up.
+      ##   - `requires "nim"` / `requires "nim >= 2.0"`: SKIPPED. Nim
+      ##     itself is not a scannable dep; stdlib is forbidden (§5.5).
+      ##   - Trailing tokens after the first quoted pkg name are
+      ##     SILENTLY DROPPED. e.g. `requires "foo" "bar"` yields only
+      ##     `["foo"]`; any typos or stray tokens on the same line are
+      ##     lost. Use one `requires` line per package to be safe.
+      const kw = "requires"
+      result = @[]
+      for line in content.splitLines:
+        let s = line.strip()
+        if not s.startsWith(kw):
+          continue
+        # After the keyword require whitespace or an immediate quote.
+        # Rejects identifiers like `requiresX` while accepting tab-
+        # separated (`requires\t"pkg"`) and zero-space (`requires"pkg"`)
+        # forms, both of which are unusual but syntactically valid in
+        # `.nimble` files.
+        if s.len <= kw.len or
+           (s[kw.len] != ' ' and s[kw.len] != '\t' and s[kw.len] != '"'):
+          continue
+        # Variable-expansion guard (documented miss): `requires "foo" & ver`.
+        # Skip the line rather than return a malformed pkg name.
+        if '&' in s:
+          continue
+        let quoted = s.find('"')
+        if quoted < 0:
+          continue
+        let endQuote = s.find('"', quoted + 1)
+        if endQuote < 0:
+          continue
+        let spec = s[quoted + 1 ..< endQuote].strip()
+        if spec.len == 0:
+          continue
+        # Strip version bound. `spec` is of the form `pkg` or
+        # `pkg >= 1.0` -- split on whitespace and keep the first token.
+        let pkgName = spec.split({' ', '\t'})[0].strip()
+        if pkgName.len == 0:
+          continue
+        if pkgName == "nim":
+          continue
+        # Case-sensitive dedup. `foo` and `Foo` remain distinct.
+        if pkgName notin result:
+          result.add(pkgName)
+
+    proc mergeExtraRequires(auto: seq[string]): seq[string] {.compileTime.} =
+      ## Union the auto-detected requires set with the CSV escape hatch
+      ## `-d:tripwireAuditFFIExtraRequires:"pkg1,pkg2"`. Dedup preserves
+      ## auto-set order; extras append in CSV order, each skipped if
+      ## already present in the auto set OR already appended from an
+      ## earlier extras slot.
+      result = auto
+      if extraRequiresCSV.len == 0:
+        return
+      for extra in extraRequiresCSV.split(','):
+        let pkg = extra.strip()
+        if pkg.len == 0:
+          continue
+        if pkg notin result:
+          result.add(pkg)
+
+    proc findFirstNimble(dir: string): string {.compileTime.} =
+      ## Return the absolute path to the lexicographically first
+      ## `*.nimble` file in `dir` (non-recursive; top-level only).
+      ## Returns "" if none. Used by Task 1.4's `scanTransitive` as a
+      ## fallback when the conventional `<pkgName>.nimble` path does
+      ## not resolve.
+      ##
+      ## Matches are collected and sorted so the result is deterministic
+      ## across filesystems (APFS vs ext4 yield different `walkDir`
+      ## orders).
+      if not dirExists(dir):
+        return ""
+      var matches: seq[string] = @[]
+      for kind, path in walkDir(dir, relative = false):
+        if kind == pcFile and path.endsWith(".nimble"):
+          matches.add(path)
+      matches.sort()
+      if matches.len > 0: matches[0] else: ""
+
+    proc locatePackageDir(pkgName: string,
+                          roots: seq[string] = @[]): string {.compileTime.} =
+      ## Resolve an installed package name to its on-disk directory.
+      ## Search order (design §5.3 lines 982-1000):
+      ##   1. `<root>/pkgs2/<pkgName>-<version>-<hash>/`
+      ##   2. `<root>/pkgs/<pkgName>-<version>/`
+      ##   3. `<root>/<pkgName>/` (plain root; covers local installs)
+      ##
+      ## The `roots` parameter defaults to `[$HOME/.nimble]`. Task 1.4
+      ## will replace this default with `querySettingSeq(nimblePaths)`.
+      ## Tests inject a mock root to avoid touching the real `$HOME`.
+      ## Returns "" if no match is found under any root / subdir.
+      ##
+      ## Version selection is best-effort: within a given subdir layer,
+      ## matches are collected and sorted; the lexicographically LAST
+      ## match wins. For semver-style names like `pkg-1.0` vs `pkg-2.0`
+      ## this approximates "newest version". `walkDir` order is
+      ## filesystem-dependent, so sorting is required for deterministic
+      ## cross-OS behavior.
+      let searchRoots =
+        if roots.len > 0: roots
+        else: @[getHomeDir() / ".nimble"]
+      for root in searchRoots:
+        for subdir in ["pkgs2", "pkgs", ""]:
+          let searchRoot = if subdir.len > 0: root / subdir else: root
+          if not dirExists(searchRoot):
+            continue
+          var matches: seq[string] = @[]
+          for kind, path in walkDir(searchRoot):
+            if kind != pcDir:
+              continue
+            let name = extractFilename(path)
+            if name == pkgName or name.startsWith(pkgName & "-"):
+              matches.add(path)
+          if matches.len > 0:
+            matches.sort()
+            return matches[^1]
+      ""
+
+    when defined(tripwireAuditFFITestHook):
+      ## Test-only re-export. Production builds do NOT export these
+      ## helpers -- they are internal CT utilities. The test driver in
+      ## `tests/audit_ffi/test_nimble_parser_limits.nim` compiles with
+      ## `-d:tripwireAuditFFITestHook` so it can `import tripwire/audit_ffi`
+      ## and reach the procs below. Keeping the exports conditional
+      ## preserves the right to change these signatures without a
+      ## public-API break.
+      export parseNimbleRequires, mergeExtraRequires, findFirstNimble, locatePackageDir
 
   proc scanProjectPath(): tuple[dir: string, perFile: string, total: int] {.compileTime.} =
     ## Scan the project's own source tree. Uses

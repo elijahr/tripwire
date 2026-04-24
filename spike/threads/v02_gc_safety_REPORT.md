@@ -41,3 +41,42 @@ backing §8.1's compile-time `{.error.}` for `--gc:refc --threads:on`.
 nim c --gc:orc  --threads:on -r spike/threads/v02_gc_safety.nim
 nim c --gc:refc --threads:on -r spike/threads/v02_gc_safety.nim
 ```
+
+## Addendum (Task 3.3): orc cycle-collector crash with the Verifier graph
+
+The probe above only exercises a flat `SharedCounter` ref and confirms orc
+preserves the across-thread-shared mutation. During Task 3.3 implementation
+the broader Verifier ref graph (Verifier -> seq[Mock] -> closures, plus the
+unittest dirty-template's destructor rundown of the test scope) hit a
+distinct orc failure mode: a SIGSEGV inside `orc.nim:unregisterCycle` /
+`rememberCycle`, called from `nimDecRefIsLastCyclicStatic` during cycle
+collection of the Verifier graph after a child thread had pushed/popped
+the shared `ref Verifier` on its own verifierStack. The check-level
+assertions inside `tests/threads/test_tripwire_thread_basic.nim` complete
+successfully; the crash fires during destructor rundown before unittest
+can flush the per-test result, so the test appears to abort rather than
+report `[OK]`.
+
+Empirical evidence:
+```
+[Suite] withTripwireThread: happy path
+Traceback (most recent call last)
+.../orc.nim(553) nimDecRefIsLastCyclicStatic
+.../orc.nim(509) rememberCycle
+.../orc.nim(157) unregisterCycle
+SIGSEGV: Illegal storage access. (Attempt to read from nil?)
+```
+
+`--mm:arc` (and `--mm:atomicArc`) avoid the cycle collector entirely and
+run the same test green. Design §8.1 already lists `--gc:orc` and
+`--gc:arc` as co-equal supported memory managers, so Task 3.3 selects
+`--mm:arc` to unblock WI3. Matrix cell #7 (Task 3.9) selects the same GC
+for the same reason. The orc path remains design-supported; investigating
+whether this is a Nim 2.2.6 bug or a tripwire ref-graph shape problem is
+deferred (no v0.2 metric depends on it).
+
+Reproducer for the Task-3.3 crash:
+```
+nim c --gc:orc --threads:on -d:tripwireActive --import:tripwire/auto \
+  -r tests/threads/test_tripwire_thread_basic.nim
+```

@@ -314,7 +314,17 @@ when defined(tripwireAuditFFI):
             if kind != pcDir:
               continue
             let name = extractFilename(path).toLowerAscii
-            if name == needle or name.startsWith(needle & "-"):
+            # Exact match OR `<needle>-<digit>...` prefix. Requiring
+            # the char after the dash to be a digit prevents spurious
+            # matches from sibling packages that share a name prefix
+            # (e.g. searching for `json` must NOT match
+            # `json-serialization-1.0.0`). Nimble package names cannot
+            # start with a digit; versions always do.
+            if name == needle or
+               (name.len > needle.len + 1 and
+                name[0 ..< needle.len] == needle and
+                name[needle.len] == '-' and
+                name[needle.len + 1] in {'0'..'9'}):
               matches.add(path)
           if matches.len > 0:
             # Sort by version suffix using cmpVersion. For a bare match

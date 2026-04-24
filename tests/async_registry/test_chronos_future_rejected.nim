@@ -22,15 +22,15 @@
 ## WITHOUT ``-d:chronos``; it only shells out for the probe.
 ##
 ## Chronos availability: the test queries ``nimble path chronos`` at
-## runtime and skips cleanly when chronos is not installed. Cell #5
-## (orc+chronos; ``TRIPWIRE_TEST_CHRONOS=1``) runs it with chronos
-## installed and the substantive assertion path executes.
-##
-## ``tests/all_tests.nim`` is NOT modified in this task per impl plan
-## line 857 (aggregation owned by WI5 Task 5.0.5).
+## runtime and skips cleanly when chronos is not installed. Cell #6
+## (orc+chronos; ``TRIPWIRE_TEST_CHRONOS=1`` in ``tripwire.nimble``)
+## runs it with chronos installed and the substantive assertion path
+## executes once ``tests/all_tests.nim`` aggregates this file (deferred
+## to WI5 Task 5.0.5 per impl plan line 92 — aggregation owned by a
+## single file owner to avoid parallel-work merge conflicts).
 ##
 ## Design citations: §4.1 (async registry surface), §11 (chronos non-
-## goal), §9 (cell #5 chronos-rejected anchor).
+## goal), §9 (cell #6 chronos-rejected anchor).
 
 import std/[unittest, strutils, osproc, os]
 

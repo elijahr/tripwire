@@ -73,10 +73,14 @@ std_ut.suite "plain asyncCheck regression guard":
         # === end body ===
 
         # Post-§4.5 ordering: drain first (no-op here — empty
-        # registry), then one poll flush (no-op for a still-sleeping
-        # Future), then the gate.
+        # registry), then one guarded poll flush, then the gate.
+        # The poll must be guarded by `hasPendingOperations()` because
+        # `asyncdispatch.poll` raises `ValueError` on an empty
+        # dispatcher — the real template at integration_unittest.nim:96
+        # applies the same guard for the same reason.
         drainPendingAsync(nfV)
-        poll(timeout = 0)
+        if futures.hasPendingOperations():
+          poll(timeout = 0)
         if futures.hasPendingOperations():
           raise newPendingAsyncDefect(testName)
       finally:

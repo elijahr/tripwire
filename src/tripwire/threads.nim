@@ -38,6 +38,18 @@ type
     ## after the parent's stack frame where it was constructed has progressed.
     verifier*: Verifier         ## ref Verifier — inherited parent state
     body*: proc() {.gcsafe.}    ## closure capturing the user body.
+    capturedExc*: ref Exception ## any exception raised by `body` or by
+                                ## childEntry's rejection checks; the parent
+                                ## re-raises this AFTER joinThread. Required
+                                ## because Nim 2.2.6's joinThread does NOT
+                                ## propagate child exceptions: `threadProcWrapDispatch`
+                                ## catches unhandled exceptions and calls
+                                ## `threadTrouble` -> `rawQuit(1)`, killing
+                                ## the entire process. Without explicit
+                                ## marshaling, design §3.5's "exception
+                                ## propagation" guarantee (E1) and the
+                                ## §3.6 rejection defects (chronos / nested)
+                                ## would never reach the parent.
                                 ## Intentionally `{.gcsafe.}` only (no `thread`
                                 ## / `nimcall`): the closure is invoked from
                                 ## inside `childEntry` (which is itself
@@ -110,27 +122,37 @@ proc childEntry*(h: ThreadHandoff) {.thread, nimcall, gcsafe.} =
   ## → body → raw verifierStack.pop(). The pushVerifier must happen AFTER
   ## the rejection checks so that a rejected child never contaminates
   ## verifierStack. The pop is the raw stack op, NOT popVerifier(), because
-  ## h.verifier is borrowed from the parent (see finally below).
-  # Defensive: a fresh thread's verifierStack should be empty by
-  # language semantics ({.threadvar.} is zero-initialized per thread).
-  # A non-empty stack indicates a nested tripwireThread invocation.
-  if verifierStack.len > 0:
-    raise newNestedTripwireThreadDefect(
-      getThreadId(), instantiationInfo())
-  # Chronos / dispatcher detection BEFORE pushVerifier and BEFORE body.
-  # See §3.6 Rejection 1.
-  if hasPendingOperations():
-    raise newChronosOnWorkerThreadDefect(
-      getThreadId(), instantiationInfo())
-  discard pushVerifier(h.verifier)
+  ## h.verifier is borrowed from the parent (see runWithVerifier).
+  ## ALL exceptions (including Defects from rejection checks) are captured
+  ## into h.capturedExc and re-raised by the parent after joinThread —
+  ## see ThreadHandoff.capturedExc for why this is required.
   try:
-    h.body()
-  finally:
-    # Raw stack pop — see runWithVerifier above. popVerifier() retires the
-    # verifier; here `h.verifier` is borrowed from the parent's sandbox, so
-    # retiring it would break subsequent withTripwireThread blocks in the
-    # same parent sandbox (design §3.5 multi-child pattern).
-    discard verifierStack.pop()
+    # Defensive: a fresh thread's verifierStack should be empty by
+    # language semantics ({.threadvar.} is zero-initialized per thread).
+    # A non-empty stack indicates a nested tripwireThread invocation.
+    if verifierStack.len > 0:
+      raise newNestedTripwireThreadDefect(
+        getThreadId(), instantiationInfo())
+    # Chronos / dispatcher detection BEFORE pushVerifier and BEFORE body.
+    # See §3.6 Rejection 1.
+    if hasPendingOperations():
+      raise newChronosOnWorkerThreadDefect(
+        getThreadId(), instantiationInfo())
+    discard pushVerifier(h.verifier)
+    try:
+      h.body()
+    finally:
+      # Raw stack pop — see runWithVerifier above. popVerifier() retires the
+      # verifier; here `h.verifier` is borrowed from the parent's sandbox, so
+      # retiring it would break subsequent withTripwireThread blocks in the
+      # same parent sandbox (design §3.5 multi-child pattern).
+      discard verifierStack.pop()
+  except Exception as e:
+    # Marshal to parent for re-raise after joinThread. Must be the OUTERMOST
+    # try, including the rejection checks above, so chronos / nested defects
+    # also surface on the parent (design §3.6 rejections E4, F4). Without
+    # this catch, Nim's threadProcWrapDispatch would call rawQuit(1).
+    h.capturedExc = e
 
 template withTripwireThread*(threadBody: untyped) =
   ## Canonical ergonomic wrapper:
@@ -164,5 +186,12 @@ template withTripwireThread*(threadBody: untyped) =
   try:
     tripwireThread(thr, childEntry, h)
     joinThread(thr)
+    # Re-raise any exception captured by childEntry. joinThread is a
+    # synchronization barrier — h.capturedExc is fully written by the
+    # child before joinThread returns. See ThreadHandoff.capturedExc
+    # for why marshaling is required (Nim 2.2.6's joinThread does NOT
+    # propagate child exceptions on its own).
+    if not h.capturedExc.isNil:
+      raise h.capturedExc
   finally:
     GC_unref(h)

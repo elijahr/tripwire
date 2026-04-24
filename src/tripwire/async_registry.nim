@@ -8,8 +8,14 @@
 ##   ``futureRegistry`` and call ``asyncCheck`` so the dispatcher
 ##   tracks it too. Raises ``LeakedInteractionDefect`` when no
 ##   verifier is on the stack (consistent with TRM-fires-outside-a-
-##   sandbox semantics). Chronos Futures are rejected at compile
-##   time via ``{.warning.}``; see §11 non-goals.
+##   sandbox semantics). A sibling overload (active only under
+##   ``-d:chronos``) accepts ``chronos.Future[T]`` and emits a
+##   compile-time ``{.warning.}`` instead of registering — chronos
+##   Futures are a §11 non-goal in v0.2. The two overloads are split
+##   because the asyncdispatch signature strictly binds
+##   ``asyncdispatch.Future``; a single template would raise a hard
+##   type-mismatch error on chronos Futures before any inner ``when``
+##   branch could fire the warning.
 ##   (Parameter is ``futArg``, not ``fut``, to avoid a Nim
 ##   template-hygiene collision with the ``RegisteredFuture.fut``
 ##   field name — see the template's doc block.)
@@ -74,47 +80,48 @@ template asyncCheckInSandbox*[T](futArg: Future[T]): untyped =
   mixin currentVerifier
   bind RegisteredFuture, FutureBase, newLeakedInteractionDefect,
        getThreadId, instantiationInfo, asyncCheck, stderr
-  # Deviation from design §4.1 line 577: the literal `when defined(chronos)
-  # and futArg is chronos.Future[T]` does not compile — Nim's `when` evaluates
-  # both operands of `and`, so `chronos.Future` must parse even when
-  # `-d:chronos` is absent. We nest the `when`s instead (matching the
-  # established idiom in `futures.nim:51-53`); behavior is identical.
-  when defined(chronos):
-    when futArg is chronos.Future[T]:
-      {.warning: "asyncCheckInSandbox does not support chronos Futures in v0.2. " &
-                 "Use `discard waitFor fut` inside the sandbox body, or asyncdispatch. " &
-                 "See v0.2 design §11 non-goals and docs/roadmap-v0.3.md.".}
-      discard  # no registration, no asyncCheck — chronos dispatcher handles it
-    else:
-      let v = currentVerifier()
-      if v.isNil:
-        raise newLeakedInteractionDefect(
-          getThreadId(), instantiationInfo())
-      v.futureRegistry.add RegisteredFuture(
-        fut: FutureBase(futArg),
-        site: instantiationInfo(fullPaths = true))
-      if v.futureRegistry.len == 10_000:
-        stderr.writeLine(
-          "tripwire: futureRegistry has 10,000 entries on verifier '" &
-          v.name & "' — consider whether all spawns are intended.")
-      asyncCheck(futArg)
-  else:
-    let v = currentVerifier()
-    if v.isNil:
-      raise newLeakedInteractionDefect(
-        getThreadId(), instantiationInfo())
-    v.futureRegistry.add RegisteredFuture(
-      fut: FutureBase(futArg),
-      site: instantiationInfo(fullPaths = true))
-    # Runtime diagnostic for pathological registries. NOTE: `{.hint.}` is a
-    # compile-time pragma; we cannot emit it conditional on a runtime count.
-    # Instead we write a line to stderr once per verifier when the count
-    # crosses the threshold.
-    if v.futureRegistry.len == 10_000:
-      stderr.writeLine(
-        "tripwire: futureRegistry has 10,000 entries on verifier '" &
-        v.name & "' — consider whether all spawns are intended.")
-    asyncCheck(futArg)  # dispatcher sees it; plain asyncCheck semantics preserved
+  # Asyncdispatch-Future path. The chronos-Future path is a separate
+  # overload defined below under `when defined(chronos)`; it emits a
+  # compile-time `{.warning.}` and performs no registration. Keeping the
+  # two paths as distinct overloads avoids dead-branch `when` inside a
+  # hot template AND sidesteps the original problem where the
+  # `futArg: Future[T]` signature bound strictly to `asyncdispatch.Future`
+  # and rejected `chronos.Future` with a type-mismatch error BEFORE any
+  # inner `when` branch could fire the warning (see Task 4.7, 2026-04-24).
+  let v = currentVerifier()
+  if v.isNil:
+    raise newLeakedInteractionDefect(
+      getThreadId(), instantiationInfo())
+  v.futureRegistry.add RegisteredFuture(
+    fut: FutureBase(futArg),
+    site: instantiationInfo(fullPaths = true))
+  # Runtime diagnostic for pathological registries. NOTE: `{.hint.}` is a
+  # compile-time pragma; we cannot emit it conditional on a runtime count.
+  # Instead we write a line to stderr once per verifier when the count
+  # crosses the threshold.
+  if v.futureRegistry.len == 10_000:
+    stderr.writeLine(
+      "tripwire: futureRegistry has 10,000 entries on verifier '" &
+      v.name & "' — consider whether all spawns are intended.")
+  asyncCheck(futArg)  # dispatcher sees it; plain asyncCheck semantics preserved
+
+when defined(chronos):
+  import chronos as chronosmod
+
+  template asyncCheckInSandbox*[T](futArg: chronosmod.Future[T]): untyped =
+    ## Chronos-Future overload. Emits a compile-time ``{.warning.}``
+    ## directing users to chronos's native ``waitFor`` pattern and
+    ## performs NO registration (the chronos dispatcher tracks its own
+    ## Futures). Defined as a separate overload rather than a `when`
+    ## branch inside the asyncdispatch template because the
+    ## `futArg: Future[T]` signature on the primary template binds
+    ## strictly to ``asyncdispatch.Future`` — a `chronos.Future` argument
+    ## would raise a "type mismatch" error BEFORE any inner `when` could
+    ## see it. See design §11 (chronos non-goal) and §4.1.
+    {.warning: "asyncCheckInSandbox does not support chronos Futures in v0.2. " &
+               "Use `discard waitFor fut` inside the sandbox body, or asyncdispatch. " &
+               "See v0.2 design §11 non-goals and docs/roadmap-v0.3.md.".}
+    discard futArg  # no registration, no asyncCheck — chronos dispatcher handles it
 
 template withAsyncSandbox*(body: untyped) =
   ## Ergonomic block scope for a group of ``asyncCheckInSandbox``

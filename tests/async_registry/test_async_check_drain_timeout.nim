@@ -74,3 +74,101 @@ suite "drainPendingAsync timeout":
       check "drainPendingAsync:" in raised.msg
       check "did not complete within" in raised.msg
       check "Spawn sites:" in raised.msg
+
+  test "multiple never-completing Futures list ALL spawn sites (Task 4.5, E7)":
+    # Task 4.5 (impl plan lines 810-826, design §4.4 lines 720-729):
+    # when >1 registered Future is stuck, the PendingAsyncDefect message
+    # must enumerate ALL un-drained spawn sites, not just the first.
+    # drainPendingAsync builds `sites: seq[string]` by iterating
+    # `v.futureRegistry` and joining; this test pins that contract so a
+    # refactor that breaks out after the first entry would regress here.
+    #
+    # RED phase note: against current impl (verify.nim lines 129-132,
+    # Task 4.2 GREEN), this test passes immediately — the design already
+    # enumerates all sites. Per impl plan line 822 this is therefore a
+    # REGRESSION GUARD rather than a new RED→GREEN pair. The commit
+    # message calls that out explicitly.
+    #
+    # We capture the EXACT file:line:column markers straight out of
+    # `v.futureRegistry` after registration (format must match the
+    # "  - filename:line:column" lines built inside drainPendingAsync),
+    # so the assertion is tight to the actual origin and not a brittle
+    # hand-maintained literal.
+    var raised: ref PendingAsyncDefect = nil
+    # Hold the Futures in the test scope so we can complete them AFTER
+    # the drain raises (same rationale as the single-Future test above:
+    # leaving uncompleted dispatcher callbacks pollutes process-global
+    # asyncdispatch state for tests that run after this one once
+    # all_tests.nim aggregation lands — Task 5.0.5).
+    #
+    # NOTE on variable naming: `asyncCheckInSandbox` is a template whose
+    # parameter is named `fut`, and its body uses `fut:` as an object
+    # constructor field for `RegisteredFuture`. Nim's hygienic template
+    # substitution renames BOTH the parameter usage AND the field name
+    # if the caller uses a different identifier — so `asyncCheckInSandbox(fut1)`
+    # expands to `RegisteredFuture(fut1: FutureBase(fut1), ...)`, which
+    # fails with "undeclared field: 'fut1'". We sidestep that by using
+    # the single name `fut` inside scoped blocks (matching the parameter
+    # name makes substitution a no-op on the field) and capturing each
+    # Future into `futs: seq[Future[int]]` for post-drain cleanup.
+    var futs: seq[Future[int]] = @[]
+    var expectedSite1, expectedSite2, expectedSite3: string
+    try:
+      sandbox:
+        let v = currentVerifier()
+        block:
+          let fut = newFuture[int]("drain-timeout-probe-1")
+          asyncCheckInSandbox(fut)                                    # site 1
+          futs.add(fut)
+        block:
+          let fut = newFuture[int]("drain-timeout-probe-2")
+          asyncCheckInSandbox(fut)                                    # site 2
+          futs.add(fut)
+        block:
+          let fut = newFuture[int]("drain-timeout-probe-3")
+          asyncCheckInSandbox(fut)                                    # site 3
+          futs.add(fut)
+
+        # Snapshot the 3 site markers BEFORE drain clears the registry.
+        # Format must mirror the "  - filename:line:column" string that
+        # drainPendingAsync joins into `Spawn sites:\n...`.
+        check v.futureRegistry.len == 3
+        expectedSite1 = "  - " & v.futureRegistry[0].site.filename & ":" &
+                        $v.futureRegistry[0].site.line & ":" &
+                        $v.futureRegistry[0].site.column
+        expectedSite2 = "  - " & v.futureRegistry[1].site.filename & ":" &
+                        $v.futureRegistry[1].site.line & ":" &
+                        $v.futureRegistry[1].site.column
+        expectedSite3 = "  - " & v.futureRegistry[2].site.filename & ":" &
+                        $v.futureRegistry[2].site.line & ":" &
+                        $v.futureRegistry[2].site.column
+
+        try:
+          drainPendingAsync(currentVerifier())
+        except PendingAsyncDefect as e:
+          raised = e
+    except PendingAsyncDefect as e:
+      raised = e
+
+    # Clear dispatcher-tracked asyncCheck callbacks from all 3 Futures
+    # before teardown — otherwise stale pending ops leak into subsequent
+    # tests when this file is aggregated into all_tests.nim (Task 5.0.5).
+    # Complete-then-poll mirrors the cleanup in the single-Future test.
+    for fut in futs:
+      if not fut.isNil: fut.complete(0)
+    if hasPendingOperations():
+      poll(timeout = 1)
+
+    check raised != nil
+    if raised != nil:
+      # Assert that ALL THREE spawn-site markers appear in the message.
+      # The count of "  - " prefixes in the Spawn sites block must be 3,
+      # and each of the captured file:line:column strings must be present.
+      check expectedSite1 in raised.msg
+      check expectedSite2 in raised.msg
+      check expectedSite3 in raised.msg
+      # Count guard: if a future refactor emits duplicate or extra site
+      # lines, this pins the exact tally to 3. `count` comes from strutils.
+      check raised.msg.count("  - ") == 3
+      # The count prefix in the message header must report 3 futures.
+      check "3 future(s) did not complete within" in raised.msg

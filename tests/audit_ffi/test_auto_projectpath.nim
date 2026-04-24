@@ -12,20 +12,19 @@
 ##           — v0.2 has eliminated the env-var mechanism (WI1 v0.1
 ##           baseline note, design §5.6 breaking change).
 ##
-##   Case B: F3 fallback. Design §5.2 lines 848-853 spec an empty
-##           `projectPath` triggering a `{.warning.}` and a
-##           `scanDir(getCurrentDir())` fallback. Forcing an empty
-##           `projectPath` at compile time is not achievable via `nim
-##           c` invocation (the compiler always sets `projectPath` to
-##           the directory of the main compile target; there is no
-##           CLI knob to clear it). We therefore exercise F3
-##           INDIRECTLY by asserting the report shape invariants that
-##           both the happy path AND the fallback path MUST satisfy:
-##           a `Direct FFI` header line and a `Direct total:` line.
-##           If F3's implementation diverges from the happy path's
-##           emission shape, those invariants break; if they stay in
-##           sync (as the design requires), Case A's check on shape
-##           also transitively validates the F3 emission path.
+##   Case B: Emission shape contract. Pins the v0.1-compatible report
+##           structure (Direct FFI header, `Direct total:` line,
+##           Transitive placeholder, Grand total footer) so future
+##           changes can't silently break consumers that grep the
+##           build log. This case does NOT exercise the F3
+##           empty-projectPath branch in `scanProjectPath`: F3 is
+##           unreachable under regular `nim c` invocation because the
+##           compiler always resolves `querySetting(projectPath)` to
+##           the main compile target's directory, and there is no CLI
+##           knob to clear it. F3 is defensive code against future
+##           Nim versions or NimScript-driven compiles; its shape
+##           parity with the happy path is a design invariant
+##           (§5.2), not something this test verifies.
 ##
 ## Task 1.2 scope explicitly DEFERS the transitive-scope section to
 ## Task 1.4. For now the report emits a placeholder
@@ -95,11 +94,10 @@ suite "audit_ffi auto-projectpath (Task 1.2)":
     check "TRIPWIRE_FFI_" notin output
 
   test "report shape: direct section + transitive placeholder + grand total":
-    # Case B indirect exercise. The report shape below is the
-    # invariant both the happy path AND the F3 fallback MUST satisfy.
-    # If a future change to scanProjectPath's fallback branch emits a
-    # different shape (e.g., omits the Transitive placeholder), this
-    # assertion fires.
+    # Case B pins the v0.1-compatible emission shape (Direct FFI
+    # header + Direct total + Transitive placeholder + Grand total).
+    # Does NOT cover the F3 empty-projectPath branch -- F3 is
+    # unreachable under `nim c` (see module docstring).
     let cmd = auditCmdNoEnv()
     var output: string
     var code: int

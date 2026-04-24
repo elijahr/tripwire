@@ -77,7 +77,12 @@ when defined(tripwireAuditFFI):
       " -type f -name '*.nim' -print0 2>/dev/null" &
       " | xargs -0 grep -cE " & quoteShell(FFIPragmaRegex) &
       " /dev/null 2>/dev/null" &
-      " | awk -F: 'BEGIN{sum=0} $1 != \"/dev/null\" {sum+=$2; print $0} END{print \"SUM:\"sum}'"
+      " | awk -F: 'BEGIN{sum=0} !/^\\/dev\\/null:/ {sum+=$NF; print $0} END{print \"SUM:\"sum}'"
+      # `$NF` (last field) — not `$2` — because paths may contain
+      # colons (e.g. Windows `C:\...\foo.nim:3` splits into 3 fields;
+      # the count is always the trailing field). The filter skips the
+      # `grep -c ... /dev/null` padding line that forces file:count
+      # output for single-file inputs.
 
   proc tripwireFfiParseReport(raw: string): tuple[perFile: string, total: int] {.compileTime.} =
     ## Parse the shell output into a pretty per-file block plus a grand
@@ -248,6 +253,35 @@ when defined(tripwireAuditFFI):
       matches.sort()
       if matches.len > 0: matches[0] else: ""
 
+    proc isAllDigits(s: string): bool {.compileTime.} =
+      if s.len == 0: return false
+      for ch in s:
+        if ch notin {'0'..'9'}: return false
+      true
+
+    proc cmpVersion(a, b: string): int {.compileTime.} =
+      ## Compare version strings component-wise. Numeric components
+      ## compare as integers (so `1.10` > `1.9`); non-numeric components
+      ## fall back to byte compare. Shorter-prefix loses (`1.2 < 1.2.1`).
+      ## Used by `locatePackageDir` so nimble's `pkgname-X.Y.Z` /
+      ## `pkgname-X.Y.Z-hash` directory selection picks the highest
+      ## actual version instead of the lexicographic last.
+      let aParts = a.split('.')
+      let bParts = b.split('.')
+      let n = min(aParts.len, bParts.len)
+      for i in 0 ..< n:
+        let ap = aParts[i]
+        let bp = bParts[i]
+        if isAllDigits(ap) and isAllDigits(bp):
+          let ai = parseInt(ap)
+          let bi = parseInt(bp)
+          if ai < bi: return -1
+          if ai > bi: return 1
+        else:
+          if ap < bp: return -1
+          if ap > bp: return 1
+      cmp(aParts.len, bParts.len)
+
     proc locatePackageDir(pkgName: string,
                           roots: seq[string] = @[]): string {.compileTime.} =
       ## Resolve an installed package name to its on-disk directory.
@@ -261,15 +295,15 @@ when defined(tripwireAuditFFI):
       ## Tests inject a mock root to avoid touching the real `$HOME`.
       ## Returns "" if no match is found under any root / subdir.
       ##
-      ## Version selection is best-effort: within a given subdir layer,
-      ## matches are collected and sorted; the lexicographically LAST
-      ## match wins. For semver-style names like `pkg-1.0` vs `pkg-2.0`
-      ## this approximates "newest version". `walkDir` order is
-      ## filesystem-dependent, so sorting is required for deterministic
-      ## cross-OS behavior.
+      ## Package name matching is case-insensitive (nimble package names
+      ## are case-insensitive; the on-disk directory preserves whichever
+      ## case the `.nimble` file declared). Version selection sorts by
+      ## `cmpVersion` (numeric component-wise) so `pkg-1.10` beats
+      ## `pkg-1.9` — lexicographic sort would pick the older version.
       let searchRoots =
         if roots.len > 0: roots
         else: @[getHomeDir() / ".nimble"]
+      let needle = pkgName.toLowerAscii
       for root in searchRoots:
         for subdir in ["pkgs2", "pkgs", ""]:
           let searchRoot = if subdir.len > 0: root / subdir else: root
@@ -279,11 +313,23 @@ when defined(tripwireAuditFFI):
           for kind, path in walkDir(searchRoot):
             if kind != pcDir:
               continue
-            let name = extractFilename(path)
-            if name == pkgName or name.startsWith(pkgName & "-"):
+            let name = extractFilename(path).toLowerAscii
+            if name == needle or name.startsWith(needle & "-"):
               matches.add(path)
           if matches.len > 0:
-            matches.sort()
+            # Sort by version suffix using cmpVersion. For a bare match
+            # (no `-` suffix) the version string is empty and it sorts
+            # below any versioned match, which matches nimble's layout
+            # (bare `<root>/pkgName/` is a local/develop install and
+            # losing to a versioned sibling is the right fallback).
+            proc versionSuffix(p: string): string =
+              let n = extractFilename(p).toLowerAscii
+              if n.len > needle.len and n[needle.len] == '-':
+                n[needle.len + 1 .. ^1]
+              else:
+                ""
+            matches.sort(proc(a, b: string): int =
+              cmpVersion(versionSuffix(a), versionSuffix(b)))
             return matches[^1]
       ""
 

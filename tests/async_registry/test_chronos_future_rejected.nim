@@ -26,8 +26,11 @@
 ## (orc+chronos; ``TRIPWIRE_TEST_CHRONOS=1`` in ``tripwire.nimble``)
 ## runs it with chronos installed and the substantive assertion path
 ## executes once ``tests/all_tests.nim`` aggregates this file (deferred
-## to WI5 Task 5.0.5 per impl plan line 92 — aggregation owned by a
-## single file owner to avoid parallel-work merge conflicts).
+## to WI5 Task 5.0.5 per impl plan line 857 — task-level note that
+## ``tests/all_tests.nim`` is NOT modified in Task 4.7 — and the broader
+## file-serial constraint at impl plan line 92, which routes all
+## ``tests/all_tests.nim`` edits through WI5 to avoid merge conflicts
+## with parallel work).
 ##
 ## Design citations: §4.1 (async registry surface), §11 (chronos non-
 ## goal), §9 (cell #6 chronos-rejected anchor).

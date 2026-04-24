@@ -35,8 +35,12 @@
 ##   - §3.6 F2: refc + threads rejected at compile time with a loud
 ##     error message pointing at the v0.3 roadmap for eventual lift.
 ##
-## Metric: M-matrix (matrix cell #7 orc+threads required-green; refc+
+## Metric: M-matrix (matrix cell #7 arc+threads required-green; refc+
 ## threads rejected-at-compile-time via this negative-build probe).
+## Note: cell #7 was originally specified as orc+threads in the impl
+## plan but switched to --mm:arc due to a Nim 2.2.6 orc cycle-collector
+## SIGSEGV during ref-Verifier teardown (see tripwire.nimble:50-57 and
+## spike/threads/v02_gc_safety_REPORT.md Addendum).
 
 import tripwire/threads
 

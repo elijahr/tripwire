@@ -43,16 +43,18 @@ See [`CHANGELOG.md`](CHANGELOG.md) for the full migration recipe.
 intentional scope cut: the libc-level firewall (bigfoot's v3 layer)
 arrives in v0.2.
 
-An opt-in FFI *audit* (Defense 2 Part 3) ships in v0 via
-`-d:tripwireAuditFFI`. When set, tripwire scans the paths named in
-`TRIPWIRE_FFI_SCAN_PATHS` (default: `src`) at compile time and emits
-a `{.hint.}` listing every `{.importc.}`, `{.importcpp.}`,
+An opt-in FFI *audit* ships via `-d:tripwireAuditFFI`. When set,
+tripwire auto-scopes to the project path (via Nim's
+`std/compilesettings.querySetting(projectPath)`) at compile time and
+emits a `{.hint.}` listing every `{.importc.}`, `{.importcpp.}`,
 `{.importobjc.}`, and `{.importjs.}` pragma it finds, with per-file
-counts and a grand total. Set `TRIPWIRE_FFI_TRANSITIVE_PATHS` to
-include the Nim stdlib or a nimble deps dir for transitive coverage;
-if unset, the audit reports "transitive FFI: 0 (not scanned)" so the
-partial scope is visible. A fully macro-driven transitive walk that
-does not require user path configuration is tracked for v0.2.
+counts and a grand total. v0.2 replaced the v0.1
+`TRIPWIRE_FFI_SCAN_PATHS` / `TRIPWIRE_FFI_TRANSITIVE_PATHS` env vars
+with compile-time auto-discovery (Defense 2 Part 3, design §5); to
+extend the scan beyond the project to nimble-managed dependencies or
+specific stdlib modules, use `-d:tripwireAuditFFIExtraRequires=...`.
+See [`CHANGELOG.md`](CHANGELOG.md) for the v0.1 → v0.2 migration
+recipe.
 
 Every defect message includes an FFI-scope footer pointing at
 `docs/concepts.md#scope`; if your test reports `UnmockedInteraction`

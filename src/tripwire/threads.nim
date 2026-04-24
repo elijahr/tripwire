@@ -88,7 +88,7 @@ template runWithVerifier*(v: Verifier; body: untyped) =
   ##
   ## Not intended for nested use within an already-sandboxed context on
   ## the SAME thread — see §3.6.
-  bind verifierStack, pushVerifier, popVerifier,
+  bind verifierStack, pushVerifier,
        newNestedTripwireThreadDefect, getThreadId, instantiationInfo
   if verifierStack.len > 0:
     raise newNestedTripwireThreadDefect(
@@ -97,7 +97,11 @@ template runWithVerifier*(v: Verifier; body: untyped) =
   try:
     body
   finally:
-    discard popVerifier()
+    # Raw stack pop — NOT popVerifier(). popVerifier() retires the verifier
+    # (gen++, active=false) which is correct at sandbox exit but WRONG here:
+    # `v` is borrowed (parent still owns the ref). Mutating it would
+    # invalidate the parent's verifier mid-sandbox.
+    discard verifierStack.pop()
 
 proc childEntry*(h: ThreadHandoff) {.thread, nimcall, gcsafe.} =
   ## INTERNAL — referenced only via the withTripwireThread template; do not call directly
@@ -120,7 +124,11 @@ proc childEntry*(h: ThreadHandoff) {.thread, nimcall, gcsafe.} =
   try:
     h.body()
   finally:
-    discard popVerifier()
+    # Raw stack pop — see runWithVerifier above. popVerifier() retires the
+    # verifier; here `h.verifier` is borrowed from the parent's sandbox, so
+    # retiring it would break subsequent withTripwireThread blocks in the
+    # same parent sandbox (design §3.5 multi-child pattern).
+    discard verifierStack.pop()
 
 template withTripwireThread*(threadBody: untyped) =
   ## Canonical ergonomic wrapper:

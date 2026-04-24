@@ -54,8 +54,11 @@ nim c -r -d:tripwireAuditFFI mytest.nim
 nim c -r -d:tripwireAuditFFI -d:tripwireAuditFFITransitive mytest.nim
 ```
 
-For ad-hoc stdlib audits outside a build, see the shell one-liner in
-`docs/quickstart.md` under "FFI audit."
+For ad-hoc audits outside the default project scope, extend via
+`-d:tripwireAuditFFIExtraRequires:"pkg1,pkg2"` (nimble-managed
+dependencies) or use the transitive scan toggle
+`-d:tripwireAuditFFITransitive`. See `src/tripwire/audit_ffi.nim`
+for the scanner's scope rules.
 
 ### Added
 - **`tripwire/threads`** — worker-thread TRM interception with
@@ -109,10 +112,14 @@ For ad-hoc stdlib audits outside a build, see the shell one-liner in
 
 ### Changed
 - **`integration_unittest.test` teardown ordering.** The per-test
-  template body now runs `drainPendingAsync(v)` → `poll(0)` →
-  `hasPendingOperations()` → `verifyAll()` at teardown. Users who
-  never call `asyncCheckInSandbox` see no behavioral change (the
-  registry stays empty; drain is a no-op).
+  template body now runs `drainPendingAsync(v)` →
+  `hasPendingOperations()` (guard) → `poll(0)` →
+  `hasPendingOperations()` (gate) → `verifyAll()` at teardown. The
+  guard before `poll(0)` prevents `ValueError` on an empty
+  dispatcher; the gate after is the user-visible
+  `PendingAsyncDefect` raise site. Users who never call
+  `asyncCheckInSandbox` see no behavioral change (the registry stays
+  empty; drain is a no-op).
 
 ### Deferred to v0.3
 - **Env-var replacements.** `TRIPWIRE_FFI_SCAN_PATHS` and

@@ -17,8 +17,7 @@
 ## the user must opt in). Switching to `asyncCheckInSandbox` +
 ## `drainPendingAsync(currentVerifier())` inside A's sandbox blocks A's
 ## exit until the Future completes, so the Future body runs while A's
-## verifier is still current — no leak reaches B. The GREEN companion
-## test lands in the next commit (Task 4.3b GREEN).
+## verifier is still current — no leak reaches B.
 ##
 ## Recording the contamination signal: `sandbox:` (sandbox.nim line 38)
 ## does NOT take a name argument — it creates an anonymous verifier via
@@ -110,3 +109,50 @@ suite "q4_generation port":
     check v1 != v2  # sandbox: creates a fresh verifier each time
     check observedVerifier == v2  # contamination: wrong verifier
     check observedVerifier != v1
+
+  test "asyncCheckInSandbox + drain contains Future within its own sandbox":
+    # GREEN shape: same two-sandbox sequence, but A1's body uses
+    # `asyncCheckInSandbox(fut)` and then `drainPendingAsync(
+    # currentVerifier())` BEFORE `sandbox:` pops v1. The drain blocks
+    # A1 until the Future completes — inside A1's sandbox, where
+    # `currentVerifier()` IS v1. So the Future's body records v1, not
+    # v2. No leak reaches A2's window.
+    var observedVerifier: Verifier = nil
+    var v1, v2: Verifier = nil
+
+    proc contained(): Future[int] {.async.} =
+      await sleepAsync(40)
+      # Signal: under asyncCheckInSandbox + drain, this runs while v1
+      # is still the current verifier (drain blocks A1's exit).
+      observedVerifier = currentVerifier()
+      return 1
+
+    sandbox:
+      v1 = currentVerifier()
+      let fut = contained()
+      asyncCheckInSandbox(fut)
+      # Explicit drain: blocks A1 until `fut` completes. Task 4.6
+      # will wire this into the `test:` template automatically; until
+      # then, the opt-in helper requires an explicit drain call.
+      drainPendingAsync(currentVerifier())
+      # Inside the sandbox body, after drain, the Future must have
+      # finished and its body must have recorded v1.
+      check fut.finished
+      check not fut.failed
+      check observedVerifier == v1
+
+    sandbox:
+      v2 = currentVerifier()
+      # No leak to observe here — A1's drain consumed the Future.
+      # waitFor gives any leaked Future (there isn't one in the GREEN
+      # path) a chance to resume, proving containment held.
+      waitFor sleepAsync(80)
+
+    # Post-sandbox invariants: no leftover pending ops; the observed
+    # verifier is v1 (containment held), not v2 (contamination).
+    check not futures.hasPendingOperations()
+    check v1 != nil
+    check v2 != nil
+    check v1 != v2
+    check observedVerifier == v1
+    check observedVerifier != v2

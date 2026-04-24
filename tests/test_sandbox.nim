@@ -12,6 +12,8 @@ suite "sandbox":
     check v.active == true
     check v.generation == 0
     check v.timeline.nextSeq == 0
+    # Task 2.2: futureRegistry must default-init to empty.
+    check v.futureRegistry.len == 0
 
   test "push/pop verifier stack":
     let v = newVerifier()

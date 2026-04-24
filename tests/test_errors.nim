@@ -54,11 +54,17 @@ suite "WI2 defect types (design §2.3, §3.6)":
     check d of ChronosOnWorkerThreadDefect
     check d of TripwireDefect
     check d of Defect
+    # Substring checks kept as documentation of what the message must contain.
     check "tripwireThread rejected" in d.msg
     check "chronos on worker thread" in d.msg
     check "on thread 42" in d.msg
     check "x.nim:10" in d.msg
     check FFIScopeFooter in d.msg
+    # Byte-identical pin: pins the exact phrasing so an accidental
+    # paraphrase is caught immediately (green-mirage hypothesis H8).
+    let expected = "tripwireThread rejected: chronos on worker thread" &
+      " on thread 42 at x.nim:10" & FFIScopeFooter
+    check d.msg == expected
 
   test "NestedTripwireThreadDefect construction":
     let d = newNestedTripwireThreadDefect(7,
@@ -66,11 +72,17 @@ suite "WI2 defect types (design §2.3, §3.6)":
     check d of NestedTripwireThreadDefect
     check d of TripwireDefect
     check d of Defect
+    # Substring checks kept as documentation of what the message must contain.
     check "tripwireThread rejected" in d.msg
     check "nested tripwire thread" in d.msg
     check "on thread 7" in d.msg
     check "nested.nim:99" in d.msg
     check FFIScopeFooter in d.msg
+    # Byte-identical pin: pins the exact phrasing so an accidental
+    # paraphrase is caught immediately (green-mirage hypothesis H8).
+    let expected = "tripwireThread rejected: nested tripwire thread" &
+      " on thread 7 at nested.nim:99" & FFIScopeFooter
+    check d.msg == expected
 
   test "Chronos and Nested defects have distinct reason strings":
     ## Guards against copy-paste swap of the reason portion.

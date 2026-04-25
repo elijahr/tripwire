@@ -32,6 +32,10 @@ task test, "Run the full test matrix":
   # wrappers into all_tests.nim pushes cap_counter's 15-rewrite cap
   # (Defense 3).
   exec "nim c --gc:orc --define:tripwireActive -r tests/test_osproc_arrays.nim"
+  # Cell 5b: test_sandbox_passthrough.nim runs standalone for the same
+  # reason as cell 5 — its `tripwirePluginIntercept`-backed wrapper proc
+  # pushes the aggregate one rewrite past the 15-cap.
+  exec "nim c --gc:orc --define:tripwireActive --import:tripwire/auto -r tests/test_sandbox_passthrough.nim"
   # Cell 6: orc + chronos — opt-in via env var because chronos isn't in
   # `requires`. Set TRIPWIRE_TEST_CHRONOS=1 to enable; otherwise skip
   # the chronos cell.

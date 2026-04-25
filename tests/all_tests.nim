@@ -11,6 +11,14 @@ import ./test_registry
 import ./test_timeline
 import ./test_sandbox
 import ./test_sandbox_named
+# test_sandbox_passthrough.nim deliberately excluded from the aggregate —
+# its single `tripwirePluginIntercept`-backed wrapper proc adds 1 TRM
+# rewrite which pushes the aggregate over Defense 3's 15-rewrites-per-
+# compilation-unit cap (cap_counter.nim). Mirrors the
+# `test_osproc_arrays.nim` exclusion above. Run it directly:
+#   nim c -r tests/test_sandbox_passthrough.nim
+# It is also wired as a dedicated cell in `tripwire.nimble` so
+# `nimble test` exercises it.
 import ./test_verifier
 import ./test_context
 import ./test_intercept

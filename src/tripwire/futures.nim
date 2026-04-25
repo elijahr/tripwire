@@ -28,6 +28,10 @@ proc makeCompletedFuture*[T](value: sink T,
                              label: string = ""): Future[T] =
   ## Build a Future[T] already completed with `value`. `label` is an
   ## optional debug tag forwarded to `newFuture[T]`.
+  ##
+  ## The unqualified `Future[T]` here resolves to `asyncdispatch.Future`
+  ## because `import chronos` is positioned BELOW this proc — see the
+  ## comment on the chronos-import block. Re-ordering risks ambiguity.
   result = newFuture[T](label)
   result.complete(value)
 
@@ -35,8 +39,20 @@ proc makeFailedFuture*[T](err: ref Exception,
                           label: string = ""): Future[T] =
   ## Build a Future[T] already failed with `err`. Awaiting or
   ## `waitFor`-ing the future re-raises `err`.
+  ##
+  ## See note on `makeCompletedFuture` re: unqualified `Future[T]`.
   result = newFuture[T](label)
   result.fail(err)
+
+# `import chronos` is positioned HERE — after the unqualified-`Future[T]`
+# helpers above (which need `Future` to resolve to asyncdispatch.Future),
+# but before `hasPendingOperations` below (which needs
+# `chronos.pendingFuturesCount` in scope under
+# `-d:chronos -d:chronosFutureTracking`). Folding this with the second
+# `when defined(chronos):` block below would force the helpers above to
+# qualify every `Future` reference; keeping it here is the minimal change.
+when defined(chronos):
+  import chronos
 
 proc hasPendingOperations*(): bool =
   ## True if the async dispatcher has outstanding callbacks.
@@ -53,7 +69,6 @@ proc hasPendingOperations*(): bool =
       result = result or chronos.pendingFuturesCount() > 0
 
 when defined(chronos):
-  import chronos
   export chronos
 
   # Chronos's `newFuture[T]` is a template whose `fromProc` parameter is

@@ -63,6 +63,25 @@ nimble packages to the transitive walk and is a no-op unless
 `src/tripwire/audit_ffi.nim` for the scanner's scope rules.
 
 ### Added
+- **`sandbox.passthrough(plugin, predicate)`** — per-sandbox passthrough
+  predicate API. Inside a `sandbox:` body, register a predicate
+  `proc(procName, fingerprint: string): bool` against a specific plugin
+  to allow matching unmocked calls to fall through to their real
+  implementation (spy mode). Predicates are scoped to the active
+  verifier and released when the sandbox exits; multiple predicates may
+  register against the same plugin and compose with OR semantics. The
+  per-sandbox predicate ORs with the existing
+  `Plugin.passthroughFor(procName)` gate, so MockPlugin's blanket
+  passthrough is unchanged. Calling `passthrough` outside an active
+  sandbox raises `LeakedInteractionDefect`. Motivating use case:
+  per-test localhost-listener allowances for the chronos httpclient
+  plugin (paperplanes SG-7) where a process-global plugin flag would
+  have wrong blast radius. New helper `sandboxPassthroughFor(v, plugin,
+  procName, fingerprint)` exposed for plugin authors writing custom
+  intercept combinators. Threaded through both
+  `tripwireInterceptBody` (typed-form, `tripwire/intercept`) and
+  `tripwirePluginIntercept` (untyped-form,
+  `tripwire/plugins/plugin_intercept`).
 - **`tripwire/threads`** — worker-thread TRM interception with
   parent-verifier inheritance. Canonical form `withTripwireThread do:
   body` pushes the parent `Verifier` onto the child thread's

@@ -47,7 +47,8 @@ template tripwireInterceptBody*(plugin: Plugin, procName: string,
   bind tripwireCountRewrite, currentVerifier, newLeakedInteractionDefect,
     newPostTestInteractionDefect, getThreadId, instantiationInfo,
     newUnmockedInteractionDefect, popMatchingMock, record, fingerprintOf,
-    supportsPassthrough, passthroughFor, realize, nfCollectMockFingerprints
+    supportsPassthrough, passthroughFor, realize, nfCollectMockFingerprints,
+    sandboxPassthroughFor
   tripwireCountRewrite()
   let nfVerifier {.inject.} = currentVerifier()
   if nfVerifier.isNil:
@@ -63,7 +64,8 @@ template tripwireInterceptBody*(plugin: Plugin, procName: string,
     (if nfMockOpt.isSome: nfMockOpt.get.response else: nil),
     (file: nfSite.filename, line: nfSite.line, column: nfSite.column))
   if nfMockOpt.isNone:
-    if plugin.supportsPassthrough() and plugin.passthroughFor(procName):
+    if (plugin.supportsPassthrough() and plugin.passthroughFor(procName)) or
+       sandboxPassthroughFor(nfVerifier, plugin, procName, fingerprint):
       spyBody
     else:
       raise newUnmockedInteractionDefect(plugin.name, procName, fingerprint,

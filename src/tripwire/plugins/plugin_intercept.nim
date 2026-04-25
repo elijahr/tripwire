@@ -43,7 +43,7 @@ template tripwirePluginIntercept*(plugin: Plugin, procName: string,
     newUnmockedInteractionDefect, popMatchingMock, record, fingerprintOf,
     supportsPassthrough, passthroughFor, realize,
     initOrderedTable, isSome, isNil, get, nfRecordFingerprint,
-    nfCollectMockFingerprints
+    nfCollectMockFingerprints, sandboxPassthroughFor
   # block: wrapper gives each expansion its own scope so a plugin module
   # holding two TRMs (e.g. osproc's execProcessSeqTRM + execCmdExTRM) does
   # not emit duplicate `let nfVerifier` bindings in the same module scope.
@@ -71,7 +71,8 @@ template tripwirePluginIntercept*(plugin: Plugin, procName: string,
       (if nfMockOpt.isSome: nfMockOpt.get.response else: nil),
       (file: nfSite.filename, line: nfSite.line, column: nfSite.column))
     if nfMockOpt.isNone:
-      if plugin.supportsPassthrough() and plugin.passthroughFor(procName):
+      if (plugin.supportsPassthrough() and plugin.passthroughFor(procName)) or
+         sandboxPassthroughFor(nfVerifier, plugin, procName, fingerprint):
         spyBody
       else:
         raise newUnmockedInteractionDefect(plugin.name, procName, fingerprint,

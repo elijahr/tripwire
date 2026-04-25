@@ -81,6 +81,27 @@ template execProcessSeqTRM*{execProcess(cmd, workingDir, args, env, options)}(
 # finds no mock. Pattern-var names (c, o, e, w, i) are distinct from
 # execProcessSeqTRM's (cmd, workingDir, args, env, options) purely for
 # readability and to avoid any identifier overlap between the two TRMs.
+# `realExecCmdEx` is a private alias to the stdlib `osproc.execCmdEx` proc.
+# Used as the passthrough call inside `execCmdExTRM`'s spy body. The
+# `{.noRewrite.}` pragma is supposed to suppress further TRM matching on
+# the inner call, but under Nim 2.2.8 it silently fails for this specific
+# TRM (the call inside the `{.noRewrite.}` block re-matches `execCmdExTRM`,
+# producing unbounded recursive expansion that trips the cap counter).
+# Routing through a renamed procvar makes the call site a non-`execCmdEx`
+# symbol so the TRM pattern matcher cannot match it. Confirmed against
+# 2.2.8 with `nim --version` 2.2.8 [MacOSX: arm64].
+let realExecCmdEx*: proc(command: string, options: set[ProcessOption],
+                         env: StringTableRef, workingDir, input: string):
+                           tuple[output: string, exitCode: int]
+                         {.gcsafe, raises: [IOError, OSError, Exception].} =
+  osproc.execCmdEx
+  ## Exported because the `{.dirty.}` `tripwirePluginIntercept` template
+  ## inlines its `spyBody` (which references this symbol) at every TRM
+  ## call site in the consumer TU. The symbol must be reachable from
+  ## those sites; an unexported `let` inside the plugin module would not
+  ## resolve there even though `--import:"tripwire/auto"` pulls the
+  ## module into the import graph.
+
 template execCmdExTRM*{execCmdEx(c, o, e, w, i)}(
     c: string,
     o: set[ProcessOption] = {poStdErrToStdOut, poUsePath},
@@ -92,7 +113,7 @@ template execCmdExTRM*{execCmdEx(c, o, e, w, i)}(
     fingerprintExecCmdEx(c, o, e, w, i),
     OsprocExecCmdExResponse):
     {.noRewrite.}:
-      execCmdEx(c, o, e, w, i)
+      realExecCmdEx(c, o, e, w, i)
 
 # ---- F8: execProcess array variants 0..8 --------------------------------
 # stdlib's execProcess declares `args: openArray[string] = []`. Fixed-size

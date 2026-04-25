@@ -6,12 +6,12 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
-## [0.2.0] - UNRELEASED
-
-Second release. Adds worker-thread TRM interception, opt-in
-sandboxed-async spawn registry, compile-time FFI audit auto-scope,
-and a named-sandbox overload. Two breaking changes, both with
-compile-time guards and explicit migration recipes.
+In-development work past v0.0.1. NOT yet validated against any
+real consumer project — the alpha banner still applies. Adds
+worker-thread TRM interception, opt-in sandboxed-async spawn
+registry, compile-time FFI audit auto-scope, and a named-sandbox
+overload. Two breaking changes are queued for the next release,
+both with compile-time guards and explicit migration recipes.
 
 ### Breaking
 

@@ -11,6 +11,9 @@ code — they abort the test binary with a stack trace that names the
 offending interaction.
 
 Nim adaptation of [bigfoot](https://github.com/axiomantic/bigfoot) (pytest).
+Bigfoot is the canonical UX reference for tripwire's API; the firewall
+vocabulary (`allow` / `restrict` / matchers / `guard = "warn"|"error"`)
+is taken directly from bigfoot.
 
 > **ALPHA** — tripwire is pre-1.0 and has NOT been validated against
 > any real consumer project. Breaking changes may ship in any
@@ -114,6 +117,84 @@ test "user fetch":
     nfhttp.assertHttp get(c, "http://api/u/1"):
       responded:
         status: 200
+```
+
+## Firewall mode
+
+Tripwire's three guarantees are strict by default — every unmocked call
+raises a defect. For the rare legitimate spy-mode case (the test wants
+the real implementation to run, just inside the sandbox), use the
+firewall API. Vocabulary is taken from
+[axiomantic/bigfoot](https://github.com/axiomantic/bigfoot).
+
+### `allow` — selectively permit real calls
+
+```nim
+sandbox:
+  # Plugin-name shorthand: ANY call routed through dnsPlugin passes.
+  allow(dnsPlugin)
+
+  # Matcher DSL: only requests to *.example.com pass.
+  allow(httpclientPlugin, M(host = "*.example.com"))
+
+  # Closure escape hatch: any predicate over (procName, fingerprint).
+  allow(socketPlugin, proc(p, fp: string): bool =
+    fp.contains("127.0.0.1"))
+```
+
+The matcher DSL fields (`host`, `port`, `httpMethod`, `path`, `scheme`,
+`procName`) support glob wildcards (`*` zero-or-more, `?` exactly one).
+For structured plugins (httpclient parses URLs into host/port/path),
+plugin-side comparison is the planned upgrade; today the matcher walks
+the call's fingerprint string as a coarse fallback. Closures remain
+the unconditional escape hatch.
+
+### `restrict` — inverse ceiling
+
+```nim
+sandbox:
+  # restrict configures a CEILING: nothing inside this sandbox can
+  # widen the firewall beyond what these matchers permit.
+  restrict(httpclientPlugin, M(host = "127.0.0.*"))
+
+  # An inner allow() can only authorize calls that ALSO match restrict.
+  allow(httpclientPlugin, M(host = "127.0.0.1"))
+```
+
+Use `restrict` to lock down a sandbox's blast radius before letting
+helper code reach for `allow`. Bigfoot's mental model: `restrict` is
+the airlock; `allow` is the door.
+
+### `guard` — warn vs error
+
+```nim
+sandbox:
+  # Default: every unmocked call that doesn't match `allow` raises.
+  # currentVerifier().firewallMode == fmError
+
+  # Bigfoot-style soft mode: warn to stderr, then proceed via passthrough.
+  guard(currentVerifier(), fmWarn)
+```
+
+Project-wide via `tripwire.toml`:
+
+```toml
+[tripwire.firewall]
+allow = ["mock"]    # plugin-name shorthands
+guard = "warn"      # or "error" (default)
+```
+
+Tripwire defaults to `error` to preserve Guarantee 1 (every external
+call is pre-authorized); flip to `warn` per-sandbox or in
+`tripwire.toml` for bigfoot's softer default.
+
+### Per-test sugar
+
+```nim
+firewallTest "fetches user", [httpclientPlugin], fmError:
+  # body runs inside a sandbox with allow(httpclientPlugin) and
+  # firewallMode = fmError already configured.
+  ...
 ```
 
 ## Documentation

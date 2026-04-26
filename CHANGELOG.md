@@ -63,25 +63,53 @@ nimble packages to the transitive walk and is a no-op unless
 `src/tripwire/audit_ffi.nim` for the scanner's scope rules.
 
 ### Added
-- **`sandbox.passthrough(plugin, predicate)`** — per-sandbox passthrough
-  predicate API. Inside a `sandbox:` body, register a predicate
-  `proc(procName, fingerprint: string): bool` against a specific plugin
-  to allow matching unmocked calls to fall through to their real
-  implementation (spy mode). Predicates are scoped to the active
-  verifier and released when the sandbox exits; multiple predicates may
-  register against the same plugin and compose with OR semantics. The
-  per-sandbox predicate ORs with the existing
-  `Plugin.passthroughFor(procName)` gate, so MockPlugin's blanket
-  passthrough is unchanged. Calling `passthrough` outside an active
-  sandbox raises `LeakedInteractionDefect`. Motivating use case:
-  per-test localhost-listener allowances for the chronos httpclient
-  plugin (paperplanes SG-7) where a process-global plugin flag would
-  have wrong blast radius. New helper `sandboxPassthroughFor(v, plugin,
-  procName, fingerprint)` exposed for plugin authors writing custom
-  intercept combinators. Threaded through both
-  `tripwireInterceptBody` (typed-form, `tripwire/intercept`) and
-  `tripwirePluginIntercept` (untyped-form,
-  `tripwire/plugins/plugin_intercept`).
+- **Firewall API: `sandbox.allow` / `sandbox.restrict` / `M(...)` /
+  `firewallMode`.** The per-sandbox passthrough surface is renamed and
+  expanded to match
+  [axiomantic/bigfoot](https://github.com/axiomantic/bigfoot)'s
+  vocabulary (the Python library tripwire ports). Pre-release: NO
+  deprecation aliases — callers must move to the new names.
+  - `sandbox.allow(plugin)` — blanket plugin-name shorthand. Any call
+    routed through `plugin` falls through to the real implementation.
+  - `sandbox.allow(plugin, predicate)` — closure escape hatch
+    (`proc(procName, fingerprint: string): bool`).
+  - `sandbox.allow(plugin, M(host = "*.example.com", httpMethod = "GET",
+    path = ..., port = ..., scheme = ..., procName = ...))` — matcher
+    DSL with glob wildcards (`*` zero-or-more, `?` exactly one).
+    Plugins SHOULD honor structured fields when present; the default
+    fingerprint-substring fallback works for any plugin out of the
+    box.
+  - `sandbox.restrict(plugin[, predicate|matcher])` — inverse ceiling.
+    When `restrict` is non-empty, an unmocked call MUST match a
+    `restrict` entry to even reach `allow`; otherwise the firewall
+    short-circuits to defect (or warn, per `firewallMode`). Bigfoot's
+    "airlock" pattern.
+  - `firewallMode: FirewallMode` on `Verifier` (default `fmError`,
+    flippable to `fmWarn`). `fmWarn` mirrors bigfoot's `guard = "warn"`
+    lane: emit a `tripwire firewall:` line to stderr and proceed via
+    passthrough. Tripwire defaults to `fmError` (NOT bigfoot's `warn`)
+    to preserve Guarantee 1; flip per-sandbox via `guard(v, fmWarn)`
+    or project-wide via `[tripwire.firewall] guard = "warn"`.
+  - `firewallTest "name", [plugin1, plugin2], fmWarn: body` — sugared
+    test wrapper that opens a sandbox, sets the mode, and blanket-
+    allows each plugin in the list before running the body. Mirrors
+    bigfoot's `@pytest.mark.allow(...)` per-test marker.
+  - `[tripwire.firewall]` section in `tripwire.toml` honors `allow =
+    ["plugin-name", ...]` and `guard = "warn"|"error"`; legacy
+    flat-key `[firewall]` form is still parsed for backward
+    compatibility. Replaces the prior allow-list/deny-all schema (which
+    was parsed-but-unused; bigfoot's vocabulary was always the
+    intent).
+  - Plugin authors writing custom intercept combinators consume the
+    decision via `firewallShouldRaise(v, plugin, procName,
+    fingerprint)` (returns `bool`, side-effects the warn-side stderr
+    line) or the lower-level `firewallDecideRaw` (pure, returns
+    `FirewallDecision = fdAllow | fdWarn | fdRaise`).
+  - Plugin-level base methods `supportsPassthrough` /
+    `passthroughFor` moved from `tripwire/intercept` to
+    `tripwire/plugin_base` so the firewall decision logic in
+    `tripwire/sandbox` can call them without an import cycle. No call-
+    site changes for plugin authors who already extended these.
 - **`tripwire/threads`** — worker-thread TRM interception with
   parent-verifier inheritance. Canonical form `withTripwireThread do:
   body` pushes the parent `Verifier` onto the child thread's

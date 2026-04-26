@@ -15,11 +15,19 @@ suite "docs presence (H4/H5/H6)":
   test "quickstart exists":
     check fileExists(RepoRoot / "docs" / "quickstart.md")
 
-  test "README exists with SCOPE callout":
+  test "README exists with alpha callout and plugin coverage":
+    # Commit 1f40606 rewrote the README and replaced the standalone
+    # "SCOPE" callout with a "## What tripwire is, and isn't" section
+    # plus a "## v0.0.x is alpha" callout. The behavioral guarantee of
+    # this test is unchanged: the README must clearly mark scope/alpha
+    # caveats and enumerate plugin coverage so accidental deletion of
+    # those load-bearing sections fails CI.
     let path = RepoRoot / "README.md"
     check fileExists(path)
     let r = readFile(path)
-    check "SCOPE" in r
+    check "## What tripwire is, and isn't" in r
+    check "## v0.0.x is alpha" in r
+    check "## Plugin coverage" in r
     check "FFI" in r
 
   test "plugin-authoring doc enumerates 13 rules":

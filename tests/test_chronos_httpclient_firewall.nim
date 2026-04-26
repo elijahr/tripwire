@@ -9,11 +9,12 @@
 ##
 ## ## Why this file is its own standalone cell
 ##
-## The chronos firewall plugin emits two TRMs (`send`, `fetch(uri)`)
-## that each count toward Defense 3's 15-rewrites-per-compilation-unit
-## cap (`cap_counter.nim`). Combined with the existing chronos cell's
-## TRM rewrites (`test_async_chronos.nim`, the umbrella plugin set), the
-## aggregate is at risk of going over. Following the precedent set by
+## The chronos firewall plugin emits three TRMs (`send`, `fetch(uri)`,
+## `fetch(req)`) that each count toward Defense 3's
+## 15-rewrites-per-compilation-unit cap (`cap_counter.nim`). Combined
+## with the existing chronos cell's TRM rewrites
+## (`test_async_chronos.nim`, the umbrella plugin set), the aggregate
+## is at risk of going over. Following the precedent set by
 ## `test_osproc_arrays.nim` and `test_firewall.nim`, this file lives in
 ## its own cell so its TRM expansions never compete with the aggregate's.
 when defined(chronos):
@@ -120,6 +121,8 @@ when defined(chronos):
           doAssert reqRes.isOk, "request build failed: " & reqRes.error
           let req = reqRes.get()
           discard waitFor req.fetch()
+          # Unreachable; the firewall already raised. Belt-and-braces
+          # cleanup uses waitFor (test bodies aren't async procs).
           waitFor req.closeWait()
           waitFor session.closeWait()
 

@@ -23,19 +23,16 @@
 ## The `[tripwire.firewall]` block is modeled on bigfoot's
 ## `[tool.bigfoot.firewall]` (axiomantic/bigfoot, the Python library
 ## tripwire ports). `guard = "warn"` mirrors bigfoot's default; tripwire
-## defaults to `"error"` instead — see `FirewallGuard` doc below.
+## defaults to `"error"` instead. Uses the unified
+## `firewall_types.FirewallMode` so the parsed config maps directly onto
+## the sandbox-level enum without a parallel translation step.
 
 import std/[os, options, tables, sequtils]
 import parsetoml
+import ./firewall_types
+export firewall_types
 
 type
-  FirewallGuard* = enum
-    ## Disposition of unmocked-and-not-allowed calls in the parsed
-    ## config. Maps 1:1 to `sandbox.FirewallMode`. Lives separately so
-    ## `tripwire/config` can be imported without dragging in the full
-    ## sandbox machinery.
-    fgError, fgWarn
-
   FirewallConfig* = object
     ## Project-wide firewall configuration parsed from
     ## `[tripwire.firewall]`. Code-level `sandbox.allow(...)` /
@@ -43,7 +40,7 @@ type
     ## (later-wins rule); this struct supplies the per-sandbox
     ## bootstrap.
     allow*: seq[string]    ## plugin-name shorthands, e.g. ["dns", "socket"]
-    guard*: FirewallGuard
+    guard*: FirewallMode
 
   TripwireConfig* = object
     enabledPlugins*: seq[string]
@@ -58,7 +55,7 @@ proc defaultConfig*(): TripwireConfig =
   TripwireConfig(
     enabledPlugins: @[],
     pluginOptions: initTable[string, TomlValueRef](),
-    firewall: FirewallConfig(allow: @[], guard: fgError),
+    firewall: FirewallConfig(allow: @[], guard: fmError),
     allowPendingAsync: false,
     sources: @["builtin-defaults"])
 
@@ -86,14 +83,18 @@ proc discoverConfigPath*(): Option[string] =
   none(string)
 
 proc parseFirewallConfig(t: TomlValueRef): FirewallConfig =
-  result = FirewallConfig(allow: @[], guard: fgError)
+  result = FirewallConfig(allow: @[], guard: fmError)
   if t.hasKey("allow"):
     result.allow = t["allow"].getElems.mapIt(it.getStr)
   if t.hasKey("guard"):
-    case t["guard"].getStr
-    of "warn": result.guard = fgWarn
-    of "error": result.guard = fgError
-    else: discard
+    let gotString = t["guard"].getStr
+    case gotString
+    of "warn": result.guard = fmWarn
+    of "error": result.guard = fmError
+    else:
+      raise newException(ValueError,
+        "[tripwire.firewall].guard must be \"warn\" or \"error\"; got: " &
+        gotString)
 
 proc loadConfig*(path: Option[string]): TripwireConfig =
   ## Load a `TripwireConfig` from `path`. If `path.isNone`, returns
@@ -119,7 +120,7 @@ proc loadConfig*(path: Option[string]): TripwireConfig =
   for pluginName in result.enabledPlugins:
     if toml.hasKey(pluginName):
       result.pluginOptions[pluginName] = toml[pluginName]
-  if result.firewall.allow.len == 0 and result.firewall.guard == fgError and
+  if result.firewall.allow.len == 0 and result.firewall.guard == fmError and
      toml.hasKey("firewall"):
     # Legacy flat [firewall] block — only consult if the bigfoot-style
     # nested form left defaults intact.

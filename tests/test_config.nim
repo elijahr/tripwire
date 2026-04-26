@@ -27,7 +27,7 @@ suite "config":
     let path = currentSourcePath().parentDir / "fixtures" / "tripwire.toml"
     let c = loadConfig(some(path))
     check c.firewall.allow == @["mock"]
-    check c.firewall.guard == fgWarn
+    check c.firewall.guard == fmWarn
 
   test "TRIPWIRE_CONFIG missing file raises":
     putEnv("TRIPWIRE_CONFIG", "/nonexistent/path.toml")

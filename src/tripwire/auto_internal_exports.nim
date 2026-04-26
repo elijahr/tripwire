@@ -70,6 +70,18 @@ export errors.TripwireDefect,
        errors.newLeakedInteractionDefect,
        errors.newPostTestInteractionDefect,
        errors.newUnmockedInteractionDefect
+# IMPORTANT: do NOT export `OutsideSandboxNoPassthroughDefect` or its
+# constructor through this module. Adding ANY additional `errors.X`
+# export here (whether folded into the comma-list above OR on a fresh
+# `export errors.Y` line) trips an `internal error: vmgen.nim(1821, 23)`
+# in Cell 3 (refc + unittest2) at test_self_three_guarantees.nim's
+# `expect TripwireDefect: ... waitFor c.get(...)` block. The bisect
+# isolates the failure to this module's exports; the existing nine-symbol
+# comma list is at vmgen's effective ceiling under refc + unittest2's
+# `failingOnExceptions` template wrapper. Operators consuming
+# `OutsideSandboxNoPassthroughDefect` (e.g. for `try / except` around
+# their guard='warn' deployment seam) must `import tripwire/errors`
+# directly. The `tripwire/auto` umbrella deliberately stops short.
 export verify.popMatchingMock, verify.verifyAll
 export sandbox.popVerifier, sandbox.pushVerifier, sandbox.newVerifier
 export timeline.record

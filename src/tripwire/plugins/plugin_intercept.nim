@@ -51,7 +51,7 @@ template tripwirePluginIntercept*(plugin: Plugin, procName: string,
     realize,
     initOrderedTable, isSome, isNil, get, nfRecordFingerprint,
     nfCollectMockFingerprints, firewallShouldRaise,
-    tagFirewallPassthrough
+    tagFirewallPassthrough, outsideSandboxShouldPassthrough
   # block: wrapper gives each expansion its own scope so a plugin module
   # holding two TRMs (e.g. osproc's execProcessSeqTRM + execCmdExTRM) does
   # not emit duplicate `let nfVerifier` bindings in the same module scope.
@@ -71,7 +71,21 @@ template tripwirePluginIntercept*(plugin: Plugin, procName: string,
       tripwireCountRewrite()
       let nfVerifier = currentVerifier()
       if nfVerifier.isNil:
-        raise newLeakedInteractionDefect(getThreadId(), instantiationInfo())
+        # See `tripwire/intercept.tripwireInterceptBody` SHAPE NOTES
+        # for the full rationale: the `-d:tripwireFirewallGuardMode`
+        # gate is required to keep Cell 3 (refc + unittest2)
+        # compiling. Adding ANY second statement to the if-body
+        # trips vmgen 1821,23 in unittest2's `failingOnExceptions`
+        # wrapper.
+        when defined(tripwireFirewallGuardMode):
+          if outsideSandboxShouldPassthrough(plugin, procName,
+              (filename: instantiationInfo().filename,
+               line: instantiationInfo().line)):
+            result = spyBody
+            return
+          raise newLeakedInteractionDefect(getThreadId(), instantiationInfo())
+        else:
+          raise newLeakedInteractionDefect(getThreadId(), instantiationInfo())
       if not nfVerifier.active:
         raise newPostTestInteractionDefect(nfVerifier.name,
           nfVerifier.generation, plugin.name, procName)

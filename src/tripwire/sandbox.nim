@@ -63,26 +63,12 @@
 ##      `restrict` entry also matches → spy body runs.
 ##   4. Otherwise → defect/warn (per `firewallMode`).
 import std/[tables, monotimes, strutils]
-import ./[types, timeline, errors, plugin_base]
+import ./[types, timeline, errors, plugin_base, firewall_types]
 import ./async_registry_types
 
-type
-  FirewallMode* = enum
-    ## Sandbox-level disposition of unmocked-and-not-allowed calls.
-    ##
-    ## `fmError` (default) is the tripwire three-guarantees posture: an
-    ## unmocked call that no `allow`/`restrict` predicate matches raises
-    ## `UnmockedInteractionDefect`. `fmWarn` mirrors bigfoot's `guard =
-    ## "warn"` lane: emit a `tripwire firewall:` warning to stderr and
-    ## proceed via passthrough.
-    ##
-    ## NOTE on the default. Bigfoot defaults to warn; tripwire defaults
-    ## to error to preserve "every external call is pre-authorized"
-    ## (Guarantee #1) without explicit opt-in. Flip per-sandbox via
-    ## `currentVerifier().firewallMode = fmWarn`, or project-wide via
-    ## `[tripwire.firewall] guard = "warn"` in `tripwire.toml`.
-    fmError, fmWarn
+export firewall_types
 
+type
   Matcher* = object
     ## Plugin-readable allow/restrict predicate descriptor. Optional
     ## fields are empty strings / -1 / etc. when unset; plugins SHOULD

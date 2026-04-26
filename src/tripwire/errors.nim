@@ -31,6 +31,17 @@ type
     threadId*: int
     procName*: string
 
+  OutsideSandboxNoPassthroughDefect* = object of TripwireDefect
+    ## Raised when a TRM fires outside any sandbox under
+    ## `[tripwire.firewall].guard = "warn"` for a plugin that does not
+    ## support passthrough. The remediation is in the message: install
+    ## a sandbox, or flip back to `guard = "error"` to make the missing
+    ## sandbox loud at the standard `LeakedInteractionDefect` site.
+    pluginName*: string
+    procName*: string
+    callsite*: tuple[filename: string, line: int]
+    threadId*: int
+
   PostTestInteractionDefect* = object of TripwireDefect
     verifierName*: string
     generation*: int
@@ -132,6 +143,26 @@ proc newLeakedInteractionDefect*(threadId: int,
   let msg = "TRM fired on thread " & $threadId & " with no active verifier " &
     "at " & site.filename & ":" & $site.line & FFIScopeFooter
   result = (ref LeakedInteractionDefect)(msg: msg, threadId: threadId)
+
+proc newOutsideSandboxNoPassthroughDefect*(pluginName, procName: string,
+    callsite: tuple[filename: string, line: int]):
+      ref OutsideSandboxNoPassthroughDefect {.raises: [].} =
+  ## `{.raises: [].}` is load-bearing: the constructor is called from
+  ## inside TRM expansions that may sit inside chronos
+  ## `async: (raises: [...])` procs. Matches `newLeakedInteractionDefect`'s
+  ## annotation. Message format mirrors bigfoot's pedagogical guidance:
+  ## point the operator at either installing a sandbox or flipping back
+  ## to `guard = "error"` for the standard LeakedInteractionDefect.
+  let msg = "plugin '" & pluginName &
+    "' doesn't support outside-sandbox passthrough for '" & procName &
+    "' at " & callsite.filename & ":" & $callsite.line &
+    "; install a sandbox or set [tripwire.firewall].guard='error' to " &
+    "make this fail loudly with the standard LeakedInteractionDefect" &
+    FFIScopeFooter
+  result = (ref OutsideSandboxNoPassthroughDefect)(msg: msg,
+    pluginName: pluginName, procName: procName,
+    callsite: (filename: callsite.filename, line: callsite.line),
+    threadId: 0)
 
 proc newPostTestInteractionDefect*(verifierName: string, generation: int,
     pluginName, procName: string):

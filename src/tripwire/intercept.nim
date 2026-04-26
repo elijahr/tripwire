@@ -29,11 +29,11 @@ template tripwireGuard*(plugin: Plugin, procName: string): untyped {.dirty.} =
     raise newPostTestInteractionDefect(nfVerifier.name,
       nfVerifier.generation, plugin.name, procName)
 
-# ---- Plugin passthrough base methods -------------------------------------
-method supportsPassthrough*(p: Plugin): bool {.base.} = false
-method passthroughFor*(p: Plugin, procName: string): bool {.base.} = false
-
 # ---- realize: plugins MUST override --------------------------------------
+# (`supportsPassthrough` / `passthroughFor` base methods now live in
+#  `tripwire/plugin_base` so the firewall decision proc in
+#  `tripwire/sandbox` can call them without inverting the import graph.)
+
 method realize*(r: MockResponse): auto {.base.} =
   raise newException(Defect,
     "MockResponse.realize must be overridden by each plugin's subclass")
@@ -44,11 +44,16 @@ template tripwireInterceptBody*(plugin: Plugin, procName: string,
                                responseType: typedesc,
                                spyBody: untyped): untyped {.dirty.} =
   ## Canonical TRM body combinator. See design §5.3.
+  ##
+  ## Firewall consultation order for an unmocked call:
+  ##   1. plugin's own `passthroughFor(procName)`        (legacy/blanket)
+  ##   2. `restrict` gate                                (inverse ceiling)
+  ##   3. `allow` gate                                   (per-sandbox firewall)
+  ##   4. `firewallMode` decides defect-or-warn
   bind tripwireCountRewrite, currentVerifier, newLeakedInteractionDefect,
     newPostTestInteractionDefect, getThreadId, instantiationInfo,
     newUnmockedInteractionDefect, popMatchingMock, record, fingerprintOf,
-    supportsPassthrough, passthroughFor, realize, nfCollectMockFingerprints,
-    sandboxPassthroughFor
+    realize, nfCollectMockFingerprints, firewallShouldRaise
   tripwireCountRewrite()
   let nfVerifier {.inject.} = currentVerifier()
   if nfVerifier.isNil:
@@ -64,12 +69,19 @@ template tripwireInterceptBody*(plugin: Plugin, procName: string,
     (if nfMockOpt.isSome: nfMockOpt.get.response else: nil),
     (file: nfSite.filename, line: nfSite.line, column: nfSite.column))
   if nfMockOpt.isNone:
-    if (plugin.supportsPassthrough() and plugin.passthroughFor(procName)) or
-       sandboxPassthroughFor(nfVerifier, plugin, procName, fingerprint):
-      spyBody
-    else:
+    # Firewall decision is consolidated into `firewallDecide` (a real
+    # proc, not a template). The TRM body needs to stay structurally
+    # SIMPLE — Nim 2.2.8's term-rewriting macro engine SIGSEGVs when
+    # the body of a TRM contains multiple if-statements that themselves
+    # contain {.noRewrite.}: blocks (verified by bisecting on
+    # tests/test_self_three_guarantees.nim during the firewall-rename
+    # refactor). The fix: flatten to a single decision branch, with the
+    # raise lifted into a small helper proc and the warn-side preceding
+    # spyBody as a plain statement.
+    if firewallShouldRaise(nfVerifier, plugin, procName, fingerprint):
       raise newUnmockedInteractionDefect(plugin.name, procName, fingerprint,
         (file: nfSite.filename, line: nfSite.line, column: nfSite.column),
         nil, nfCollectMockFingerprints(nfVerifier, plugin.name))
+    spyBody
   else:
     responseType(nfMockOpt.get.response).realize()

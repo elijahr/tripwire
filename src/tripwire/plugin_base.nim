@@ -20,3 +20,15 @@ method matches*(p: Plugin, i: Interaction,
   ## Used by `inAnyOrder` + user criteria. Default accepts every interaction
   ## (plugins override for argument-aware matching).
   true
+
+method supportsPassthrough*(p: Plugin): bool {.base.} = false
+  ## Plugin-level blanket: when true, every call routed through this
+  ## plugin is allowed to fall through to its real implementation.
+  ## MockPlugin returns true; httpclient/osproc return false. Lives in
+  ## plugin_base so `firewallDecide` (in `tripwire/sandbox`) can call
+  ## it without inverting the import graph.
+
+method passthroughFor*(p: Plugin, procName: string): bool {.base.} = false
+  ## Plugin-level per-proc blanket. Consulted only when
+  ## `supportsPassthrough` is true; lets a plugin gate passthrough on
+  ## the procName (e.g. allow `getEnv` but not `setEnv`).

@@ -113,3 +113,16 @@ when not defined(tripwireUnittest2):
       # resolves to std/unittest. Exercised here; the unittest2 parity
       # test lives in tests/test_integration_unittest2.nim.
       std_ut.check backendName == "std/unittest"
+
+    std_ut.test "firewallTest sugar wires allow + guard around a sandbox":
+      # firewallTest is a thin wrapper that opens a sandbox, sets the
+      # firewall mode, and blanket-allows each plugin in the list before
+      # running the body. Mirrors bigfoot's
+      # `@pytest.mark.allow("dns", "socket")` per-test marker.
+      var ran = false
+      firewallTest "fw-inner", [Plugin(itPlugin)], fmWarn:
+        let v = currentVerifier()
+        std_ut.check v.firewallMode == fmWarn
+        std_ut.check v.allowPredicates.len == 1
+        ran = true
+      std_ut.check ran

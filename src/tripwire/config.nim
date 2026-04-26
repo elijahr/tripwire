@@ -14,22 +14,36 @@
 ##     allow_pending_async  = bool
 ##   [<plugin-name>]          # one block per plugin listed above
 ##     ... plugin-specific keys, stashed as TomlValueRef
-##   [firewall]
-##     mode                 = "off" | "allow_list" | "deny_all"
-##     allowed_domains      = [...]
-##     allowed_processes    = [...]
+##   [tripwire.firewall]
+##     allow                = ["plugin-name", ...]    # blanket-allow these plugins
+##     guard                = "warn" | "error"        # default "error"
+##
+## Bigfoot pedigree
+## ----------------
+## The `[tripwire.firewall]` block is modeled on bigfoot's
+## `[tool.bigfoot.firewall]` (axiomantic/bigfoot, the Python library
+## tripwire ports). `guard = "warn"` mirrors bigfoot's default; tripwire
+## defaults to `"error"` instead — see `FirewallGuard` doc below.
 
 import std/[os, options, tables, sequtils]
 import parsetoml
 
 type
-  FirewallMode* = enum
-    fmOff, fmAllowList, fmDenyAll
+  FirewallGuard* = enum
+    ## Disposition of unmocked-and-not-allowed calls in the parsed
+    ## config. Maps 1:1 to `sandbox.FirewallMode`. Lives separately so
+    ## `tripwire/config` can be imported without dragging in the full
+    ## sandbox machinery.
+    fgError, fgWarn
 
   FirewallConfig* = object
-    mode*: FirewallMode
-    allowedDomains*: seq[string]
-    allowedProcesses*: seq[string]
+    ## Project-wide firewall configuration parsed from
+    ## `[tripwire.firewall]`. Code-level `sandbox.allow(...)` /
+    ## `sandbox.restrict(...)` calls win over the file values
+    ## (later-wins rule); this struct supplies the per-sandbox
+    ## bootstrap.
+    allow*: seq[string]    ## plugin-name shorthands, e.g. ["dns", "socket"]
+    guard*: FirewallGuard
 
   TripwireConfig* = object
     enabledPlugins*: seq[string]
@@ -44,7 +58,7 @@ proc defaultConfig*(): TripwireConfig =
   TripwireConfig(
     enabledPlugins: @[],
     pluginOptions: initTable[string, TomlValueRef](),
-    firewall: FirewallConfig(mode: fmOff),
+    firewall: FirewallConfig(allow: @[], guard: fgError),
     allowPendingAsync: false,
     sources: @["builtin-defaults"])
 
@@ -72,22 +86,23 @@ proc discoverConfigPath*(): Option[string] =
   none(string)
 
 proc parseFirewallConfig(t: TomlValueRef): FirewallConfig =
-  result = FirewallConfig(mode: fmOff)
-  if t.hasKey("mode"):
-    case t["mode"].getStr
-    of "off": result.mode = fmOff
-    of "allow_list": result.mode = fmAllowList
-    of "deny_all": result.mode = fmDenyAll
+  result = FirewallConfig(allow: @[], guard: fgError)
+  if t.hasKey("allow"):
+    result.allow = t["allow"].getElems.mapIt(it.getStr)
+  if t.hasKey("guard"):
+    case t["guard"].getStr
+    of "warn": result.guard = fgWarn
+    of "error": result.guard = fgError
     else: discard
-  if t.hasKey("allowed_domains"):
-    result.allowedDomains = t["allowed_domains"].getElems.mapIt(it.getStr)
-  if t.hasKey("allowed_processes"):
-    result.allowedProcesses = t["allowed_processes"].getElems.mapIt(it.getStr)
 
 proc loadConfig*(path: Option[string]): TripwireConfig =
   ## Load a `TripwireConfig` from `path`. If `path.isNone`, returns
   ## `defaultConfig()`. Unknown keys / sections are ignored by design;
   ## per-plugin blocks are stashed verbatim as TomlValueRef.
+  ##
+  ## The firewall section is read from either `[tripwire.firewall]`
+  ## (preferred, bigfoot-style) or top-level `[firewall]` (legacy
+  ## flatness; kept so existing tripwire.toml files don't break).
   if path.isNone:
     return defaultConfig()
   let toml = parsetoml.parseFile(path.get)
@@ -99,10 +114,15 @@ proc loadConfig*(path: Option[string]): TripwireConfig =
       result.enabledPlugins = n["enabled_plugins"].getElems.mapIt(it.getStr)
     if n.hasKey("allow_pending_async"):
       result.allowPendingAsync = n["allow_pending_async"].getBool
+    if n.hasKey("firewall"):
+      result.firewall = parseFirewallConfig(n["firewall"])
   for pluginName in result.enabledPlugins:
     if toml.hasKey(pluginName):
       result.pluginOptions[pluginName] = toml[pluginName]
-  if toml.hasKey("firewall"):
+  if result.firewall.allow.len == 0 and result.firewall.guard == fgError and
+     toml.hasKey("firewall"):
+    # Legacy flat [firewall] block — only consult if the bigfoot-style
+    # nested form left defaults intact.
     result.firewall = parseFirewallConfig(toml["firewall"])
 
 var configMemo {.threadvar.}: Option[TripwireConfig]

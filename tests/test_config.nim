@@ -23,11 +23,11 @@ suite "config":
     let c = loadConfig(some(path))
     check c.pluginOptions.hasKey("httpclient")
 
-  test "loadConfig parses firewall block":
+  test "loadConfig parses [tripwire.firewall] block":
     let path = currentSourcePath().parentDir / "fixtures" / "tripwire.toml"
     let c = loadConfig(some(path))
-    check c.firewall.mode == fmAllowList
-    check c.firewall.allowedDomains == @["api.example.com"]
+    check c.firewall.allow == @["mock"]
+    check c.firewall.guard == fgWarn
 
   test "TRIPWIRE_CONFIG missing file raises":
     putEnv("TRIPWIRE_CONFIG", "/nonexistent/path.toml")

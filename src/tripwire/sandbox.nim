@@ -1,19 +1,92 @@
-## tripwire/sandbox.nim — Verifier type, thread-local stack, sandbox template.
-import std/[tables, monotimes]
-import ./[types, timeline, errors]
+## tripwire/sandbox.nim — Verifier type, thread-local stack, sandbox template,
+## firewall API (`allow` / `restrict` / matchers).
+##
+## Firewall vocabulary (modeled on axiomantic/bigfoot, the Python library
+## tripwire ports):
+##
+##   * `sandbox.allow(plugin)`              — ALL calls intercepted by `plugin`
+##                                            may fall through to the real impl.
+##   * `sandbox.allow(plugin, predicate)`   — closure escape hatch:
+##                                            `proc(procName, fp: string): bool`.
+##   * `sandbox.allow(plugin, M(host = "127.0.0.1"))`
+##                                          — matcher DSL; plugins receive the
+##                                            Matcher via `AllowMatch` and SHOULD
+##                                            honor host/port/method/path.
+##   * `sandbox.restrict(...)`              — inverse ceiling. If non-empty, an
+##                                            unmocked call MUST match a
+##                                            `restrict` entry to even reach
+##                                            `allow`; otherwise the firewall
+##                                            short-circuits to defect/warn.
+##   * `firewallMode` on the Verifier        — `fmError` (default; tripwire's
+##                                            three-guarantees posture) raises
+##                                            `UnmockedInteractionDefect` for
+##                                            unmocked-and-not-allowed calls;
+##                                            `fmWarn` writes a one-line warning
+##                                            to stderr and proceeds via
+##                                            passthrough.
+##
+## Consultation order in the intercept combinators
+## (`tripwire/intercept.tripwireInterceptBody`,
+## `tripwire/plugins/plugin_intercept.tripwirePluginIntercept`):
+##
+##   1. Mock match → return mock response.
+##   2. Plugin's own `passthroughFor(procName)` (e.g., MockPlugin's blanket).
+##   3. If `restrictPredicates` is non-empty AND no entry matches → defect/warn.
+##   4. If any `allowPredicates` entry matches → spy body runs.
+##   5. Otherwise → defect/warn (per `firewallMode`).
+import std/[tables, monotimes, strutils]
+import ./[types, timeline, errors, plugin_base]
 import ./async_registry_types
 
 type
-  PassthroughPredicate* = proc(procName, fingerprint: string): bool {.closure, gcsafe.}
-    ## Per-sandbox passthrough decision proc. Registered via
-    ## `sandbox.passthrough(plugin, predicate)` from inside a `sandbox:`
-    ## body. Returns `true` to allow an unmocked call to fall through to
-    ## its real implementation (spy mode); `false` to defer to the next
-    ## predicate (or, if none match, raise `UnmockedInteractionDefect`).
+  FirewallMode* = enum
+    ## Sandbox-level disposition of unmocked-and-not-allowed calls.
+    ##
+    ## `fmError` (default) is the tripwire three-guarantees posture: an
+    ## unmocked call that no `allow`/`restrict` predicate matches raises
+    ## `UnmockedInteractionDefect`. `fmWarn` mirrors bigfoot's `guard =
+    ## "warn"` lane: emit a `tripwire firewall:` warning to stderr and
+    ## proceed via passthrough.
+    ##
+    ## NOTE on the default. Bigfoot defaults to warn; tripwire defaults
+    ## to error to preserve "every external call is pre-authorized"
+    ## (Guarantee #1) without explicit opt-in. Flip per-sandbox via
+    ## `currentVerifier().firewallMode = fmWarn`, or project-wide via
+    ## `[tripwire.firewall] guard = "warn"` in `tripwire.toml`.
+    fmError, fmWarn
 
-  PassthroughEntry* = object
+  Matcher* = object
+    ## Plugin-readable allow/restrict predicate descriptor. Optional
+    ## fields are empty strings / -1 / etc. when unset; plugins SHOULD
+    ## honor the fields they understand and ignore the rest.
+    ##
+    ## String fields support glob-style wildcards: `*` matches zero or
+    ## more characters, `?` matches exactly one. `*.example.com` and
+    ## `127.0.0.*` are the load-bearing forms — kept simple; no regex.
+    host*: string
+    port*: int      ## -1 = unset
+    httpMethod*: string
+    path*: string
+    scheme*: string
+    procName*: string  ## optional: gate by intercepted procName
+
+  AllowPredicate* = proc(procName, fingerprint: string): bool {.closure, gcsafe.}
+    ## Closure-escape-hatch firewall predicate. Use when matchers don't
+    ## express the policy you need — e.g. fingerprint substring tests,
+    ## counters, file-state probes.
+
+  AllowEntryKind* = enum
+    aekAllPlugin, aekPredicate, aekMatcher
+
+  AllowEntry* = object
     plugin*: Plugin
-    predicate*: PassthroughPredicate
+    case kind*: AllowEntryKind
+    of aekPredicate:
+      predicate*: AllowPredicate
+    of aekMatcher:
+      matcher*: Matcher
+    of aekAllPlugin:
+      discard ## blanket: any call routed through this plugin is allowed
 
   Verifier* = ref object
     name*: string
@@ -24,19 +97,26 @@ type
     createdAt*: MonoTime
     active*: bool
     futureRegistry*: seq[RegisteredFuture]
-    passthroughPredicates*: seq[PassthroughEntry]
-      ## Per-sandbox predicates registered via `sandbox.passthrough(...)`.
-      ## Lifetime is bounded by the verifier: pushed in `sandbox:` template,
-      ## freed when the verifier is popped. Consulted by
-      ## `tripwirePluginIntercept` (and the typed-form combinator in
-      ## `tripwire/intercept`) before raising `UnmockedInteractionDefect`.
+    allowPredicates*: seq[AllowEntry]
+      ## Per-sandbox `allow` entries. Lifetime is bounded by the
+      ## verifier: pushed in `sandbox:` template, freed when the
+      ## verifier is popped. Consulted by `tripwirePluginIntercept`
+      ## (and `tripwireInterceptBody`) when a call has no mock and
+      ## the plugin's own `passthroughFor` says no.
+    restrictPredicates*: seq[AllowEntry]
+      ## Per-sandbox `restrict` entries — inverse ceiling. When
+      ## non-empty, an unmocked call MUST match a `restrict` entry to
+      ## be eligible for `allow`; otherwise the firewall raises
+      ## (`fmError`) or warns (`fmWarn`) immediately.
+    firewallMode*: FirewallMode
 
 proc newVerifier*(name: string = ""): Verifier =
   Verifier(name: name, timeline: Timeline(nextSeq: 0),
            mockQueues: initTable[string, MockQueue](),
            context: AssertionContext(strict: true),
            generation: 0, createdAt: getMonoTime(), active: true,
-           passthroughPredicates: @[])
+           allowPredicates: @[], restrictPredicates: @[],
+           firewallMode: fmError)
 
 var verifierStack* {.threadvar.}: seq[Verifier]
 
@@ -53,41 +133,250 @@ proc popVerifier*(): Verifier =
 proc currentVerifier*(): Verifier {.inline.} =
   if verifierStack.len == 0: nil else: verifierStack[^1]
 
-proc passthrough*(plugin: Plugin, predicate: PassthroughPredicate) =
-  ## Register a per-sandbox passthrough predicate against the current
-  ## verifier. The predicate is consulted whenever a call routed
-  ## through `plugin` finds no matching mock; if the predicate returns
-  ## `true` for `(procName, fingerprint)` the call falls through to its
-  ## real implementation (spy mode).
+# ---- Matcher DSL ---------------------------------------------------------
+
+proc initMatcher*(host = ""; port = -1; httpMethod = ""; path = "";
+                  scheme = ""; procName = ""): Matcher =
+  ## Construct a Matcher. Direct callers may use this; the `M(...)`
+  ## template is the keyword-arg-friendly façade most call sites should
+  ## reach for.
+  Matcher(host: host, port: port, httpMethod: httpMethod, path: path,
+          scheme: scheme, procName: procName)
+
+template M*(args: varargs[untyped]): Matcher =
+  ## Keyword-arg matcher constructor. Mirrors bigfoot's `M(...)`. Only
+  ## the named fields you supply are populated; everything else stays
+  ## unset (empty string / -1).
   ##
-  ## Predicates are scoped to the active verifier and are released when
-  ## the sandbox exits. Multiple predicates may be registered against
-  ## the same plugin; the OR of the registered predicates plus the
-  ## plugin's own `passthroughFor` decides passthrough.
+  ## Example: `sandbox.allow(httpclientPlugin, M(host = "*.example.com",
+  ##                                              httpMethod = "GET"))`
+  initMatcher(args)
+
+proc globMatch*(pat, s: string): bool =
+  ## Glob match: `*` zero-or-more, `?` exactly one. Anchored start +
+  ## end. Linear-scan with single-segment backtracking; sufficient for
+  ## host/path patterns. No regex dep.
+  if pat.len == 0: return s.len == 0
+  var pi, si, starPi, starSi = 0
+  starPi = -1
+  while si < s.len:
+    if pi < pat.len and (pat[pi] == '?' or pat[pi] == s[si]):
+      inc pi; inc si
+    elif pi < pat.len and pat[pi] == '*':
+      starPi = pi
+      starSi = si
+      inc pi
+    elif starPi != -1:
+      pi = starPi + 1
+      inc starSi
+      si = starSi
+    else:
+      return false
+  while pi < pat.len and pat[pi] == '*':
+    inc pi
+  pi == pat.len
+
+proc fieldMatches(pattern, value: string): bool {.inline.} =
+  ## Empty pattern = "don't care, always matches". Otherwise glob.
+  pattern.len == 0 or globMatch(pattern, value)
+
+proc matchesFingerprint*(m: Matcher, procName, fingerprint: string): bool =
+  ## Default Matcher → fingerprint matcher. Plugin authors with
+  ## structured call data (httpclient: parse the URL into host/port/
+  ## scheme/path) SHOULD do their own structured comparison; this
+  ## fallback walks the fingerprint string, treating each set field as
+  ## a substring/glob constraint.
   ##
-  ## Raises `LeakedInteractionDefect` if called outside an active
-  ## sandbox: registering a passthrough has no observable effect once
-  ## the sandbox has been popped, so the call is treated as a leak in
-  ## the same sense `tripwirePluginIntercept` does for unguarded TRMs.
+  ## - `procName` (if set) must equal the intercepted proc name (exact).
+  ## - `host`, `path`, `httpMethod`, `scheme` (if set) must each appear
+  ##   as a substring (or glob match) somewhere in the fingerprint.
+  ## - `port` (if >= 0) must appear as `:<port>` in the fingerprint.
+  if m.procName.len > 0 and m.procName != procName:
+    return false
+  if m.host.len > 0:
+    if "*" in m.host or "?" in m.host:
+      # Wildcard: scan tokens for a glob hit. The split set covers the
+      # punctuation forms tripwire's plugin fingerprints use today
+      # (httpclient: " /:?&=", mock/osproc: "|"). New plugins SHOULD
+      # parse their fingerprints structurally before this fallback runs.
+      var anyTok = false
+      for tok in fingerprint.split({' ', '/', ':', '?', '&', '=', '|'}):
+        if globMatch(m.host, tok): anyTok = true; break
+      if not anyTok: return false
+    elif m.host notin fingerprint:
+      return false
+  if m.httpMethod.len > 0 and m.httpMethod notin fingerprint:
+    return false
+  if m.path.len > 0 and not fieldMatches(m.path, fingerprint):
+    # path glob applied against the whole fingerprint as a coarse fallback
+    # — plugins that parse the URL do better.
+    if m.path notin fingerprint:
+      return false
+  if m.scheme.len > 0 and m.scheme notin fingerprint:
+    return false
+  if m.port >= 0 and (":" & $m.port) notin fingerprint:
+    return false
+  true
+
+# ---- allow / restrict registration --------------------------------------
+
+proc allow*(plugin: Plugin) =
+  ## Plugin-name shorthand: any call intercepted by `plugin` falls
+  ## through to its real implementation. Equivalent in spirit to
+  ## bigfoot's `allow("dns")`.
   let v = currentVerifier()
   if v.isNil:
     raise newLeakedInteractionDefect(getThreadId(), instantiationInfo())
-  v.passthroughPredicates.add(PassthroughEntry(plugin: plugin,
-                                                predicate: predicate))
+  v.allowPredicates.add(AllowEntry(plugin: plugin, kind: aekAllPlugin))
 
-proc sandboxPassthroughFor*(v: Verifier, plugin: Plugin,
-                            procName, fingerprint: string): bool =
-  ## OR over all per-sandbox predicates registered against `plugin` (by
-  ## ref identity). Returns `true` on the first match. Used by the
+proc allow*(plugin: Plugin, predicate: AllowPredicate) =
+  ## Closure-escape-hatch. Predicate receives `(procName, fingerprint)`
+  ## and returns true to allow.
+  let v = currentVerifier()
+  if v.isNil:
+    raise newLeakedInteractionDefect(getThreadId(), instantiationInfo())
+  v.allowPredicates.add(AllowEntry(plugin: plugin, kind: aekPredicate,
+                                   predicate: predicate))
+
+proc allow*(plugin: Plugin, matcher: Matcher) =
+  ## Matcher-DSL form. The matcher is consulted via
+  ## `Matcher.matchesFingerprint(procName, fingerprint)`; plugin authors
+  ## with structured call data SHOULD upgrade by parsing the
+  ## fingerprint themselves before this lookup runs.
+  let v = currentVerifier()
+  if v.isNil:
+    raise newLeakedInteractionDefect(getThreadId(), instantiationInfo())
+  v.allowPredicates.add(AllowEntry(plugin: plugin, kind: aekMatcher,
+                                   matcher: matcher))
+
+proc restrict*(plugin: Plugin) =
+  ## Inverse-ceiling, plugin-name shorthand. When `restrictPredicates`
+  ## is non-empty, only calls whose plugin matches a `restrict` entry
+  ## are eligible for `allow`. Use this to prevent inner sandboxes from
+  ## widening the firewall.
+  let v = currentVerifier()
+  if v.isNil:
+    raise newLeakedInteractionDefect(getThreadId(), instantiationInfo())
+  v.restrictPredicates.add(AllowEntry(plugin: plugin, kind: aekAllPlugin))
+
+proc restrict*(plugin: Plugin, predicate: AllowPredicate) =
+  let v = currentVerifier()
+  if v.isNil:
+    raise newLeakedInteractionDefect(getThreadId(), instantiationInfo())
+  v.restrictPredicates.add(AllowEntry(plugin: plugin, kind: aekPredicate,
+                                      predicate: predicate))
+
+proc restrict*(plugin: Plugin, matcher: Matcher) =
+  let v = currentVerifier()
+  if v.isNil:
+    raise newLeakedInteractionDefect(getThreadId(), instantiationInfo())
+  v.restrictPredicates.add(AllowEntry(plugin: plugin, kind: aekMatcher,
+                                      matcher: matcher))
+
+# ---- Consultation helpers (used by intercept combinators) ---------------
+
+proc entryMatches(entry: AllowEntry, plugin: Plugin,
+                  procName, fingerprint: string): bool =
+  if entry.plugin != plugin:
+    return false
+  case entry.kind
+  of aekAllPlugin:
+    true
+  of aekPredicate:
+    entry.predicate(procName, fingerprint)
+  of aekMatcher:
+    entry.matcher.matchesFingerprint(procName, fingerprint)
+
+proc sandboxAllowsFor*(v: Verifier, plugin: Plugin,
+                       procName, fingerprint: string): bool =
+  ## OR over all per-sandbox `allow` entries registered against `plugin`
+  ## (by ref identity). Returns `true` on the first match. Used by the
   ## TRM-body combinators to extend the existing
   ## `plugin.passthroughFor(procName)` gate with a per-sandbox,
   ## fingerprint-aware decision.
-  if v.isNil:
-    return false
-  for entry in v.passthroughPredicates:
-    if entry.plugin == plugin and entry.predicate(procName, fingerprint):
+  if v.isNil: return false
+  for entry in v.allowPredicates:
+    if entry.entryMatches(plugin, procName, fingerprint):
       return true
   false
+
+proc sandboxRestrictsFor*(v: Verifier, plugin: Plugin,
+                          procName, fingerprint: string):
+                          tuple[active: bool, allows: bool] =
+  ## Returns `(active, allows)`:
+  ##   - `active = false` means the verifier has no `restrict` entries;
+  ##     callers should ignore the gate.
+  ##   - `active = true, allows = true` means at least one `restrict`
+  ##     entry matched `(plugin, procName, fingerprint)`.
+  ##   - `active = true, allows = false` means restrict is configured
+  ##     but no entry matches — short-circuit to defect/warn.
+  if v.isNil or v.restrictPredicates.len == 0:
+    return (active: false, allows: false)
+  for entry in v.restrictPredicates:
+    if entry.entryMatches(plugin, procName, fingerprint):
+      return (active: true, allows: true)
+  (active: true, allows: false)
+
+# ---- Firewall mode helpers ----------------------------------------------
+
+proc guard*(v: Verifier, mode: FirewallMode) =
+  ## Set firewall mode on a verifier (also reachable as
+  ## `currentVerifier().firewallMode = ...`). The `guard=` form is the
+  ## bigfoot-aligned spelling for in-test toggles.
+  if v.isNil:
+    raise newLeakedInteractionDefect(getThreadId(), instantiationInfo())
+  v.firewallMode = mode
+
+proc emitFirewallWarning*(pluginName, procName, fingerprint: string) =
+  ## Stderr write for `fmWarn` mode. Single-line, prefix-stable so
+  ## consumers can grep / filter. Called by the intercept combinators
+  ## just before they fall through to `spyBody`.
+  stderr.writeLine "tripwire firewall: warn passthrough for " &
+    pluginName & "." & procName & " (fp=" & fingerprint & ")"
+
+type FirewallDecision* = enum
+  fdAllow, fdWarn, fdRaise
+
+proc firewallDecideRaw*(v: Verifier, plugin: Plugin, procName,
+                        fingerprint: string): FirewallDecision =
+  ## Pure decision proc — exposed for unit tests and plugin authors
+  ## writing custom intercept combinators. Decision order: plugin-level
+  ## blanket passthrough -> restrict ceiling -> allow predicates ->
+  ## firewallMode. Side-effect-free.
+  let pluginPasses = plugin.supportsPassthrough() and
+                     plugin.passthroughFor(procName)
+  if pluginPasses:
+    return fdAllow
+  let r = sandboxRestrictsFor(v, plugin, procName, fingerprint)
+  if r.active and not r.allows:
+    return (if v.firewallMode == fmWarn: fdWarn else: fdRaise)
+  if sandboxAllowsFor(v, plugin, procName, fingerprint):
+    return fdAllow
+  if v.firewallMode == fmWarn: fdWarn else: fdRaise
+
+proc firewallDecide*(v: Verifier, plugin: Plugin, procName,
+                     fingerprint: string): FirewallDecision =
+  ## Side-effecting decision used by the intercept combinators. In the
+  ## `fdWarn` lane, this proc emits the stderr warning so the TRM body
+  ## structure remains a single `if fdRaise: raise; spyBody` — the
+  ## flattest shape that doesn't trip Nim 2.2.8's TRM rewriter on
+  ## multi-branch templates (see `tripwire/intercept` for the full
+  ## reproducer).
+  result = firewallDecideRaw(v, plugin, procName, fingerprint)
+  if result == fdWarn:
+    emitFirewallWarning(plugin.name, procName, fingerprint)
+
+proc firewallShouldRaise*(v: Verifier, plugin: Plugin, procName,
+                          fingerprint: string): bool {.inline.} =
+  ## Bool-returning convenience used inside TRM combinator bodies.
+  ## Emits the warn-side stderr line as a side effect of running
+  ## `firewallDecide`. Returns `true` iff the call should raise
+  ## `UnmockedInteractionDefect`. Lifted out of the combinator body so
+  ## the TRM body parses as a single `if`-statement, dodging a Nim
+  ## 2.2.8 dirty-template rewriter SIGSEGV on multi-branch bodies.
+  firewallDecide(v, plugin, procName, fingerprint) == fdRaise
+
+# ---- Sandbox templates ---------------------------------------------------
 
 template sandbox*(body: untyped) =
   ## Lexical scope: push fresh verifier, run body, pop, verifyAll.

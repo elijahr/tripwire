@@ -38,12 +38,18 @@ template tripwirePluginIntercept*(plugin: Plugin, procName: string,
   ## Plugin-facing intercept combinator. Identical semantics to
   ## `tripwire/intercept.tripwireInterceptBody`; differs only in the
   ## `respType` parameter being `untyped` to survive TRM expansion.
+  ##
+  ## Firewall consultation order for an unmocked call:
+  ##   1. plugin's own `passthroughFor(procName)`        (legacy/blanket)
+  ##   2. `restrict` gate                                (inverse ceiling)
+  ##   3. `allow` gate                                   (per-sandbox firewall)
+  ##   4. `firewallMode` decides defect-or-warn
   bind tripwireCountRewrite, currentVerifier, newLeakedInteractionDefect,
     newPostTestInteractionDefect, getThreadId, instantiationInfo,
     newUnmockedInteractionDefect, popMatchingMock, record, fingerprintOf,
-    supportsPassthrough, passthroughFor, realize,
+    realize,
     initOrderedTable, isSome, isNil, get, nfRecordFingerprint,
-    nfCollectMockFingerprints, sandboxPassthroughFor
+    nfCollectMockFingerprints, firewallShouldRaise
   # block: wrapper gives each expansion its own scope so a plugin module
   # holding two TRMs (e.g. osproc's execProcessSeqTRM + execCmdExTRM) does
   # not emit duplicate `let nfVerifier` bindings in the same module scope.
@@ -71,12 +77,16 @@ template tripwirePluginIntercept*(plugin: Plugin, procName: string,
       (if nfMockOpt.isSome: nfMockOpt.get.response else: nil),
       (file: nfSite.filename, line: nfSite.line, column: nfSite.column))
     if nfMockOpt.isNone:
-      if (plugin.supportsPassthrough() and plugin.passthroughFor(procName)) or
-         sandboxPassthroughFor(nfVerifier, plugin, procName, fingerprint):
-        spyBody
-      else:
-        raise newUnmockedInteractionDefect(plugin.name, procName, fingerprint,
+      # See the matching commentary in tripwire/intercept.nim: TRM body
+      # MUST stay structurally simple (single conditional branch) to
+      # avoid a Nim-2.2.8 rewriter SIGSEGV. `firewallDecide` does the
+      # warn-side stderr emission as a side effect so the body here is
+      # just `if fdRaise: raise; spyBody`.
+      if firewallShouldRaise(nfVerifier, plugin, procName, fingerprint):
+        raise newUnmockedInteractionDefect(plugin.name, procName,
+          fingerprint,
           (file: nfSite.filename, line: nfSite.line, column: nfSite.column),
           nil, nfCollectMockFingerprints(nfVerifier, plugin.name))
+      spyBody
     else:
       respType(nfMockOpt.get.response).realize()

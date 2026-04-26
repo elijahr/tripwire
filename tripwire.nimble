@@ -36,6 +36,12 @@ task test, "Run the full test matrix":
   # cell 5 — its `tripwirePluginIntercept`-backed wrapper proc pushes
   # the aggregate one rewrite past the 15-cap.
   exec "nim c --gc:orc --define:tripwireActive --import:tripwire/auto -r tests/test_firewall.nim"
+  # Cell 5c: test_auto_umbrella.nim runs standalone for the same
+  # reason as cells 5 and 5b. Its “auto-only consumer” regression-guard
+  # tests each emit a fresh TRM rewrite (one for the wrapper proc, one
+  # for the firewall behavioral check), pushing the aggregate over the
+  # 15-cap. Standalone, the cap is never approached.
+  exec "nim c --gc:orc --define:tripwireActive --import:tripwire/auto -r tests/test_auto_umbrella.nim"
   # Cell 6: orc + chronos — opt-in via env var because chronos isn't in
   # `requires`. Set TRIPWIRE_TEST_CHRONOS=1 to enable; otherwise skip
   # the chronos cell.

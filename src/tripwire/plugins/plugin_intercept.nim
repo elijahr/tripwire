@@ -50,7 +50,8 @@ template tripwirePluginIntercept*(plugin: Plugin, procName: string,
     newUnmockedInteractionDefect, popMatchingMock, record, fingerprintOf,
     realize,
     initOrderedTable, isSome, isNil, get, nfRecordFingerprint,
-    nfCollectMockFingerprints, firewallShouldRaise
+    nfCollectMockFingerprints, firewallShouldRaise,
+    tagFirewallPassthrough
   # block: wrapper gives each expansion its own scope so a plugin module
   # holding two TRMs (e.g. osproc's execProcessSeqTRM + execCmdExTRM) does
   # not emit duplicate `let nfVerifier` bindings in the same module scope.
@@ -84,10 +85,16 @@ template tripwirePluginIntercept*(plugin: Plugin, procName: string,
       # HttpHeaders.[]= etc.
       var nfArgs = initOrderedTable[string, string]()
       nfRecordFingerprint(nfArgs, fingerprint)
-      discard nfVerifier.timeline.record(plugin, procName, nfArgs,
+      # `kind` discrimination is done via a post-record
+      # `tagFirewallPassthrough` mutation inside the existing
+      # `if nfMockOpt.isNone:` branch — see
+      # `tripwire/intercept.tripwireInterceptBody` for the
+      # vmgen / unittest2 / refc rationale.
+      let nfRec = nfVerifier.timeline.record(plugin, procName, nfArgs,
         (if nfMockOpt.isSome: nfMockOpt.get.response else: nil),
         (file: nfSite.filename, line: nfSite.line, column: nfSite.column))
       if nfMockOpt.isNone:
+        tagFirewallPassthrough(nfRec)
         # See the matching commentary in tripwire/intercept.nim: TRM body
         # MUST stay structurally simple (single conditional branch) to
         # avoid a Nim-2.2.8 rewriter SIGSEGV. `firewallDecide` does the

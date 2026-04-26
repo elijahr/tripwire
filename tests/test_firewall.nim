@@ -246,3 +246,44 @@ suite "firewall":
       check v.firewallMode == fmWarn
       check fetchA("foo") == "real-A:foo"
       v.timeline.markAsserted(v.timeline.entries[0])
+
+  test "firewall passthrough auto-drains: G2 ignores ikFirewallPassthrough":
+    # Regression guard for the paperplanes-driven ergonomics: a call
+    # that the firewall AUTHORIZED via `allow` records as
+    # `ikFirewallPassthrough` and is NOT subject to Guarantee 2. The
+    # user already authorized via `allow(...)` — the assertion is
+    # implicit. No `markAsserted` boilerplate; sandbox teardown
+    # MUST NOT raise UnassertedInteractionsDefect.
+    #
+    # Pre-fix, every passthrough test had to manually mark every
+    # timeline entry asserted to silence G2; with auto-drain, that
+    # boilerplate disappears.
+    sandbox:
+      let v = currentVerifier()
+      allow(ptPluginA, proc(procName, fp: string): bool =
+        fp.contains("127.0.0.1"))
+      check fetchA("127.0.0.1") == "real-A:127.0.0.1"
+      check v.timeline.entries.len == 1
+      check v.timeline.entries[0].kind == ikFirewallPassthrough
+      check v.timeline.entries[0].asserted == false
+      # Deliberately NOT calling markAsserted. Sandbox teardown's
+      # verifyAll must still pass — the new G2 contract excludes
+      # firewall passthroughs.
+
+  test "mock-matched recordings remain G2-relevant (no auto-drain regression)":
+    # Counterpart to the auto-drain test above: a call that was
+    # MOCKED (not firewall-passthrough) is still subject to G2.
+    # `responded` / `markAsserted` is required.
+    expect UnassertedInteractionsDefect:
+      sandbox:
+        let v = currentVerifier()
+        # Register a mock so the call goes the mocked path, not the
+        # firewall path.
+        v.registerMock("ptA",
+          newMock("fetchA", fingerprintOf("fetchA", @["zzz"]),
+                  PtResp(val: "mocked-A"), instantiationInfo()))
+        check fetchA("zzz") == "mocked-A"
+        check v.timeline.entries.len == 1
+        check v.timeline.entries[0].kind == ikMockMatched
+        # Deliberately NOT calling markAsserted. Sandbox teardown
+        # MUST raise UnassertedInteractionsDefect.

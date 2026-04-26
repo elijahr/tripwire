@@ -66,7 +66,8 @@ template tripwireInterceptBody*(plugin: Plugin, procName: string,
   bind tripwireCountRewrite, currentVerifier, newLeakedInteractionDefect,
     newPostTestInteractionDefect, getThreadId, instantiationInfo,
     newUnmockedInteractionDefect, popMatchingMock, record, fingerprintOf,
-    realize, nfCollectMockFingerprints, firewallShouldRaise
+    realize, nfCollectMockFingerprints, firewallShouldRaise,
+    tagFirewallPassthrough
   # `{.cast(gcsafe).}` is load-bearing: TRM expansions inline into
   # consumer call sites which under chronos `async: (raises: [...])`
   # are forced to gcsafe. The body legitimately reads top-level `let`
@@ -85,11 +86,19 @@ template tripwireInterceptBody*(plugin: Plugin, procName: string,
     let nfMockOpt = nfVerifier.popMatchingMock(plugin.name, procName,
                                                 fingerprint)
     let nfSite = instantiationInfo()
-    discard nfVerifier.timeline.record(plugin, procName,
+    # `record`'s arg list stays unchanged (Nim 2.2.8 refc + unittest2
+    # `failingOnExceptions` vmgen 1821,23 crash). Kind discrimination
+    # is done via a post-record `tagFirewallPassthrough` call inside
+    # the existing `if nfMockOpt.isNone:` branch — that branch
+    # already exists for the firewall raise/spy decision, so we're
+    # not adding a new control-flow node, only one extra statement
+    # inside an existing one.
+    let nfRec = nfVerifier.timeline.record(plugin, procName,
       initOrderedTable[string, string](),
       (if nfMockOpt.isSome: nfMockOpt.get.response else: nil),
       (file: nfSite.filename, line: nfSite.line, column: nfSite.column))
     if nfMockOpt.isNone:
+      tagFirewallPassthrough(nfRec)
       # Firewall decision is consolidated into `firewallDecide` (a real
       # proc, not a template). The TRM body needs to stay structurally
       # SIMPLE — Nim 2.2.8's term-rewriting macro engine SIGSEGVs when

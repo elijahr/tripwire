@@ -41,7 +41,7 @@
 ## This is the same disambiguation rule that applies to any other symbol
 ## brought into scope by `--import:tripwire/auto`.
 
-import ./[errors, sandbox, timeline, verify, cap_counter, intercept]
+import ./[types, errors, sandbox, timeline, verify, cap_counter, intercept]
 import ./plugins/plugin_intercept
 import std/[options, tables]
 
@@ -73,6 +73,10 @@ export errors.TripwireDefect,
 export verify.popMatchingMock, verify.verifyAll
 export sandbox.popVerifier, sandbox.pushVerifier, sandbox.newVerifier
 export timeline.record
+export types.InteractionKind  # enum-field values (`ikMockMatched`,
+                              # `ikFirewallPassthrough`) flow through
+                              # this type export — Nim does not allow
+                              # exporting enum fields individually.
 export cap_counter.tripwireCountRewrite
 export plugin_intercept.nfRecordFingerprint
 export intercept.nfCollectMockFingerprints

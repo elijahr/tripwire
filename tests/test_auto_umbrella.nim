@@ -75,6 +75,23 @@ suite "auto umbrella":
       var sink: pointer = cast[pointer](autoOnlyTrmCompiles)
       check sink != nil
 
+  test "auto-only consumer reaches plugin instance by name":
+    # Regression guard for the paperplanes-driven ergonomics:
+    # `import tripwire/auto` MUST be sufficient to call
+    # `allow(httpclientPluginInstance, M(...))` — the plugin's typed
+    # `let` binding is reachable unqualified through the umbrella's
+    # whole-module re-exports of its plugin modules. Pre-fix,
+    # consumers had to `import tripwire/plugins/httpclient as nfhc`
+    # and write `nfhc.httpclientPluginInstance`.
+    when defined(tripwireActive):
+      sandbox:
+        # Fingerprint here doesn't matter — the matcher won't fire
+        # because no call is made. We only care that the symbol
+        # `httpclientPluginInstance` resolves through the umbrella.
+        allow(httpclientPluginInstance, M(host = "127.0.0.1"))
+        let v = currentVerifier()
+        check v.allowPredicates.len == 1
+
   test "auto-only consumer reaches the firewall path through sandbox":
     # Behavioral guard: with a live sandbox + an `allow(...)` predicate
     # whose matcher does NOT match the call's host, the TRM expansion

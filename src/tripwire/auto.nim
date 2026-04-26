@@ -31,6 +31,11 @@ when defined(tripwireActive):
   import ./plugins/mock
   import ./plugins/httpclient
   import ./plugins/osproc
+  # Chronos httpclient firewall (G1-only). Auto-registers when chronos is
+  # in scope; consumers without chronos see no plugin and no compile cost.
+  # See plugins/chronos_httpclient.nim for the firewall-only rationale.
+  when defined(chronos):
+    import ./plugins/chronos_httpclient
 
   # Re-export the plugin modules (not just import them). Without this,
   # the TRM expansion at consumer sites that only do `import tripwire/auto`
@@ -41,6 +46,8 @@ when defined(tripwireActive):
   # modules in the consumer's import graph by name, the same way a
   # direct import would.
   export mock, httpclient, osproc
+  when defined(chronos):
+    export chronos_httpclient
 
   # Re-export the focused set of framework symbols that the
   # `{.dirty.}` TRM combinator's body references at expansion time.

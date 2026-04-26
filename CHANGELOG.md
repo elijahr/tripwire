@@ -63,6 +63,25 @@ nimble packages to the transitive walk and is a no-op unless
 `src/tripwire/audit_ffi.nim` for the scanner's scope rules.
 
 ### Added
+- **Chronos httpclient firewall-only plugin
+  (`tripwire/plugins/chronos_httpclient`).** Auto-registers when
+  `-d:chronos` is set. Enforces Guarantee #1 (every external call is
+  pre-authorized) on chronos HTTP. Mocking is NOT supported on this
+  surface — chronos's `HttpClientResponse.state` is private with no
+  public constructor, so a synthetic-response plugin would require
+  `cast` or `unsafeNew`. The firewall-only path sidesteps the wall
+  entirely: the TRM body either raises `UnmockedInteractionDefect` or
+  passes through to the real chronos proc; it never constructs a
+  response. Consumers continue to mock HTTP responses via closure-based
+  DI at their transport boundary (e.g. an `HttpSender` closure injected
+  into a REST client) for G2/G3 coverage. Intercepts `send(req)` (the
+  network boundary inside chronos's request lifecycle) and
+  `fetch(session, url)` (the URL-only convenience GET); does not
+  intercept `fetch(req)` because its body internally calls `send`.
+  Standalone test cell `tests/test_chronos_httpclient_firewall.nim`
+  (gated under `TRIPWIRE_TEST_CHRONOS=1`); standalone because the
+  plugin's two TRMs plus the test wrappers would push the chronos
+  aggregate over Defense 3's 15-rewrites-per-compilation-unit cap.
 - **Firewall API: `sandbox.allow` / `sandbox.restrict` / `M(...)` /
   `firewallMode`.** The per-sandbox passthrough surface is renamed and
   expanded to match

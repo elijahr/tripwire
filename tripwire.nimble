@@ -47,6 +47,15 @@ task test, "Run the full test matrix":
   # the chronos cell.
   if existsEnv("TRIPWIRE_TEST_CHRONOS"):
     exec "nim c --gc:orc --define:tripwireActive --define:chronos --import:tripwire/auto -r tests/all_tests.nim"
+  # Cell 6b: orc + chronos httpclient firewall plugin (standalone).
+  # The chronos httpclient plugin's two firewall TRMs (`send`,
+  # `fetch(uri)`) plus this test file's wrapper helpers push the
+  # all_tests aggregate over Defense 3's 15-rewrites-per-compilation
+  # -unit cap, so the file lives in its own cell. Same env-var gate as
+  # cell 6 (chronos isn't in `requires`). Standalone-cell precedent:
+  # test_osproc_arrays.nim / test_firewall.nim / test_auto_umbrella.nim.
+  if existsEnv("TRIPWIRE_TEST_CHRONOS"):
+    exec "nim c --gc:orc --define:tripwireActive --define:chronos --import:tripwire/auto -r tests/test_chronos_httpclient_firewall.nim"
   # Cell 7: arc + threads (v0.2 WI3, design §8.1, M-matrix). Runs the
   # main all_tests.nim aggregate under --mm:arc --threads:on to exercise
   # the v0.2 thread-safety amendment at the aggregate level, then runs

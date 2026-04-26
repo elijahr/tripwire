@@ -1,10 +1,11 @@
-# Plugin authoring — the 13 Rules
+# Plugin authoring — the 14 Rules
 
 A **tripwire plugin** is a Nim module that intercepts one or more
 procs from another library and lets tests mock their return values.
-The built-in plugins (`mock`, `httpclient`, `osproc`) are the
-reference implementations; this guide distils the 13 authoring rules
-that make a plugin safe, testable, and TRM-engine-compatible.
+The built-in plugins (`mock`, `httpclient`, `osproc`,
+`chronos_httpclient`) are the reference implementations; this guide
+distils the 14 authoring rules that make a plugin safe, testable, and
+TRM-engine-compatible.
 
 Every plugin ships:
 
@@ -131,6 +132,57 @@ only, and the wrapper canonicalization DSL (`expectHttp get(c, url):`)
 rewrites user `expect` blocks to register against `request`. This
 keeps the plugin small (two TRMs, sync + async) and guarantees the
 mock matches regardless of which wrapper the user called.
+
+## Rule 14 — Firewall-only plugins are a valid pattern when the target library has private response state
+
+Some libraries cannot be fully mocked from outside without forbidden
+idioms (`cast`, `unsafeNew`). Chronos's `HttpClientResponse` is the
+canonical example: its `state` field is private (`apps/http/httpclient
+.nim:167`) with no public constructor. A full mock plugin would have
+to fabricate a synthetic response; that requires reaching into private
+fields, which clean-room plugins MUST NOT do.
+
+**The way out: don't try to mock — firewall instead.** A firewall-only
+plugin enforces Guarantee #1 (every external call is pre-authorized)
+without ever constructing a response object. The TRM body either:
+
+* raises `UnmockedInteractionDefect` when no `allow`/`restrict` rule
+  matches, or
+* calls through to the real proc (passthrough).
+
+No synthetic-response construction. The private-field wall doesn't
+matter because the plugin is the gatekeeper, not a substitute.
+
+`plugins/chronos_httpclient.nim` is the reference implementation. The
+TRM bodies use `tripwirePluginIntercept` exactly like a full mock
+plugin would, but the `MockResponse` subtypes' `realize` method bodies
+raise a Defect — registering a mock against a firewall-only plugin is
+unsupported, and the realize path is unreachable in normal use.
+Consumers continue to mock at their own DI seams (closures, factories)
+for G2/G3 coverage.
+
+When to choose firewall-only:
+
+* The target library has private fields that block synthetic-response
+  construction without `cast` / `unsafeNew`.
+* The library is only used inside a higher-level abstraction the
+  consumer already mocks via DI (so G2/G3 is covered there).
+* G1 alone is sufficient — you want unmocked calls to fail loudly, but
+  you don't need to feed back canned responses.
+
+When to choose a full mock plugin instead:
+
+* The target library has either fully-public response types or a
+  cooperatively-exported test seam (e.g., `mockNew` constructors).
+* The consumer needs deterministic per-call response control without
+  routing through their own DI seam.
+
+The investigation behind this rule (chronos httpclient strategy
+A/B/C) is captured in paperplanes' journal at
+`docs/journal/2026-04-25-tripwire-chronos-plugin-pivot.md` (Strategy A
+infeasibility) and
+`docs/journal/2026-04-25-chronos-firewall-only-plugin.md` (firewall-
+only resolution).
 
 ---
 

@@ -196,6 +196,45 @@ Tripwire defaults to `error` to preserve Guarantee 1 (every external
 call is pre-authorized); flip to `warn` per-sandbox or in
 `tripwire.toml` for bigfoot's softer default.
 
+### Chronos httpclient (firewall-only) plugin
+
+Tripwire ships a chronos httpclient plugin under `-d:chronos` that
+enforces **Guarantee #1 only** — every external chronos HTTP call must
+be `allow`'d (or `restrict`-ceiling'd). Mocking is NOT supported on
+this surface; use closure-based DI at your transport boundary for G2/G3
+coverage (e.g. inject an `HttpSender` closure into your REST client).
+
+Why firewall-only: chronos's `HttpClientResponse` carries a private
+`state` field with no public constructor, so a synthetic-response mock
+plugin would require `cast` or `unsafeNew` (forbidden in any consumer
+that enforces the same idiom rules tripwire targets). The firewall
+path sidesteps this entirely — it never constructs a response, only
+decides whether the call may proceed.
+
+```nim
+import tripwire
+import chronos
+import chronos/apps/http/httpclient
+import tripwire/plugins/chronos_httpclient as nfchronos
+
+sandbox:
+  # Authorize loopback only.
+  allow(nfchronos.chronosHttpPluginInstance, M(host = "127.0.0.1"))
+  let session = HttpSessionRef.new()
+  let req = HttpClientRequestRef.post(
+    session, "http://127.0.0.1:" & $port & "/health", body = "").get()
+  let resp = waitFor req.send()    # firewall passes through to chronos
+  # ...
+```
+
+Intercepted surfaces: `send(req)` (the network boundary inside chronos's
+request lifecycle) and `fetch(session, url)` (the URL-only convenience
+GET). The plugin does not intercept `fetch(req)` because its body
+internally calls `send`, which our `send` TRM already covers.
+
+Auto-registers when `-d:chronos` is set; consumers without chronos see
+no plugin and no compile cost.
+
 ### Per-test sugar
 
 ```nim

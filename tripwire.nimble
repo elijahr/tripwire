@@ -47,14 +47,9 @@ task test, "Run the full test matrix":
   # guard semantics with two passthrough/no-passthrough TRM wrappers,
   # plus a thread-isolation case (case 6) that requires --threads:on.
   # Use --mm:arc --threads:on (mirroring cell 7) so case 6 has the
-  # runtime support it needs.
-  #
-  # `-d:tripwireFirewallGuardMode` activates the bigfoot-style guard
-  # passthrough machinery. The TRM body's multi-statement guard branch
-  # is gated behind this compile-time define because the natural shape
-  # trips an `internal error: vmgen.nim(1821, 23)` on the matrix-default
-  # Cell 3 (refc + unittest2). See `tripwire/intercept` SHAPE NOTES.
-  exec "nim c --mm:arc --threads:on --define:tripwireActive --define:tripwireFirewallGuardMode --import:tripwire/auto -r tests/test_outside_sandbox_guard.nim"
+  # runtime support it needs. Bigfoot parity: guard='warn' activates
+  # purely from tripwire.toml — no compile-time define required.
+  exec "nim c --mm:arc --threads:on --define:tripwireActive --import:tripwire/auto -r tests/test_outside_sandbox_guard.nim"
   # Cell 6: orc + chronos — opt-in via env var because chronos isn't in
   # `requires`. Set TRIPWIRE_TEST_CHRONOS=1 to enable; otherwise skip
   # the chronos cell.

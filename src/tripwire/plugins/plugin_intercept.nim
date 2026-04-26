@@ -70,55 +70,60 @@ template tripwirePluginIntercept*(plugin: Plugin, procName: string,
     block:
       tripwireCountRewrite()
       let nfVerifier = currentVerifier()
-      if nfVerifier.isNil:
-        # See `tripwire/intercept.tripwireInterceptBody` SHAPE NOTES
-        # for the full rationale: the `-d:tripwireFirewallGuardMode`
-        # gate is required to keep Cell 3 (refc + unittest2)
-        # compiling. Adding ANY second statement to the if-body
-        # trips vmgen 1821,23 in unittest2's `failingOnExceptions`
-        # wrapper.
-        when defined(tripwireFirewallGuardMode):
-          if outsideSandboxShouldPassthrough(plugin, procName,
-              (filename: instantiationInfo().filename,
-               line: instantiationInfo().line)):
-            result = spyBody
-            return
-          raise newLeakedInteractionDefect(getThreadId(), instantiationInfo())
+      # See `tripwire/intercept.tripwireInterceptBody` SHAPE NOTES for
+      # the rationale.  The `if nfVerifier.isNil:` branch must hold a
+      # single statement under Nim 2.2.8 refc + unittest2 (vmgen 1821).
+      # Hoist the guard='warn' decision into an out-of-band `let` so
+      # the if-isNil branch stays a single raise; the
+      # `if nfOutsideHandled:` block is structurally separate.  See:
+      #   docs/upstream-bugs/nim-2.2.8-vmgen-1821-multi-statement-if-body.md
+      let nfOutsideHandled = nfVerifier.isNil and
+          outsideSandboxShouldPassthrough(plugin, procName,
+            (filename: instantiationInfo().filename,
+             line: instantiationInfo().line))
+      if nfVerifier.isNil and not nfOutsideHandled:
+        raise newLeakedInteractionDefect(getThreadId(), instantiationInfo())
+      if not nfOutsideHandled:
+        if not nfVerifier.active:
+          raise newPostTestInteractionDefect(nfVerifier.name,
+            nfVerifier.generation, plugin.name, procName)
+        let nfMockOpt = nfVerifier.popMatchingMock(plugin.name, procName,
+                                                    fingerprint)
+        let nfSite = instantiationInfo()
+        # Record the call-site fingerprint in args[".fp"] so assertMock can
+        # match by (procName, fingerprint) rather than procName alone.
+        # Routed through nfRecordFingerprint (a real proc) so the TRM expansion
+        # site does NOT try to overload-resolve tables.[]= against any nearby
+        # HttpHeaders.[]= etc.
+        var nfArgs = initOrderedTable[string, string]()
+        nfRecordFingerprint(nfArgs, fingerprint)
+        # `kind` discrimination is done via a post-record
+        # `tagFirewallPassthrough` mutation inside the existing
+        # `if nfMockOpt.isNone:` branch — see
+        # `tripwire/intercept.tripwireInterceptBody` for the
+        # vmgen / unittest2 / refc rationale.
+        let nfRec = nfVerifier.timeline.record(plugin, procName, nfArgs,
+          (if nfMockOpt.isSome: nfMockOpt.get.response else: nil),
+          (file: nfSite.filename, line: nfSite.line, column: nfSite.column))
+        if nfMockOpt.isNone:
+          tagFirewallPassthrough(nfRec)
+          # See the matching commentary in tripwire/intercept.nim: TRM body
+          # MUST stay structurally simple (single conditional branch) to
+          # avoid a Nim-2.2.8 rewriter SIGSEGV. `firewallDecide` does the
+          # warn-side stderr emission as a side effect so the body here is
+          # just `if fdRaise: raise; spyBody`.
+          if firewallShouldRaise(nfVerifier, plugin, procName, fingerprint):
+            raise newUnmockedInteractionDefect(plugin.name, procName,
+              fingerprint,
+              (file: nfSite.filename, line: nfSite.line, column: nfSite.column),
+              nil, nfCollectMockFingerprints(nfVerifier, plugin.name))
+          spyBody
         else:
-          raise newLeakedInteractionDefect(getThreadId(), instantiationInfo())
-      if not nfVerifier.active:
-        raise newPostTestInteractionDefect(nfVerifier.name,
-          nfVerifier.generation, plugin.name, procName)
-      let nfMockOpt = nfVerifier.popMatchingMock(plugin.name, procName,
-                                                  fingerprint)
-      let nfSite = instantiationInfo()
-      # Record the call-site fingerprint in args[".fp"] so assertMock can
-      # match by (procName, fingerprint) rather than procName alone.
-      # Routed through nfRecordFingerprint (a real proc) so the TRM expansion
-      # site does NOT try to overload-resolve tables.[]= against any nearby
-      # HttpHeaders.[]= etc.
-      var nfArgs = initOrderedTable[string, string]()
-      nfRecordFingerprint(nfArgs, fingerprint)
-      # `kind` discrimination is done via a post-record
-      # `tagFirewallPassthrough` mutation inside the existing
-      # `if nfMockOpt.isNone:` branch — see
-      # `tripwire/intercept.tripwireInterceptBody` for the
-      # vmgen / unittest2 / refc rationale.
-      let nfRec = nfVerifier.timeline.record(plugin, procName, nfArgs,
-        (if nfMockOpt.isSome: nfMockOpt.get.response else: nil),
-        (file: nfSite.filename, line: nfSite.line, column: nfSite.column))
-      if nfMockOpt.isNone:
-        tagFirewallPassthrough(nfRec)
-        # See the matching commentary in tripwire/intercept.nim: TRM body
-        # MUST stay structurally simple (single conditional branch) to
-        # avoid a Nim-2.2.8 rewriter SIGSEGV. `firewallDecide` does the
-        # warn-side stderr emission as a side effect so the body here is
-        # just `if fdRaise: raise; spyBody`.
-        if firewallShouldRaise(nfVerifier, plugin, procName, fingerprint):
-          raise newUnmockedInteractionDefect(plugin.name, procName,
-            fingerprint,
-            (file: nfSite.filename, line: nfSite.line, column: nfSite.column),
-            nil, nfCollectMockFingerprints(nfVerifier, plugin.name))
-        spyBody
+          respType(nfMockOpt.get.response).realize()
       else:
-        respType(nfMockOpt.get.response).realize()
+        # guard='warn' passthrough: see the matching `else: spyBody` in
+        # `tripwire/intercept.tripwireInterceptBody`.  Trailing-expression
+        # form (NOT `result = spyBody; return`) so the combinator survives
+        # expression-context call sites such as `discard c.request(...)`
+        # where the consumer has no `result` variable in scope.
+        spyBody

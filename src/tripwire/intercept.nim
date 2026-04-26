@@ -131,91 +131,78 @@ template tripwireInterceptBody*(plugin: Plugin, procName: string,
   {.cast(gcsafe).}:
     tripwireCountRewrite()
     let nfVerifier {.inject.} = currentVerifier()
-    if nfVerifier.isNil:
-      # SHAPE NOTES (Nim 2.2.8 toolchain quirks, A4'''.4 R10 fallback):
-      #
-      #   1. The {.dirty.} template's `bind` list MUST NOT bind enum tag
-      #      identifiers. The natural design shape (an
-      #      `OutsideSandboxDisposition` enum returned from a free proc
-      #      and switched on via `case`) was bisected and rejected:
-      #      binding the enum tag identifiers
-      #      (`osdRaise`/`osdRaiseNoPassthrough`/`osdPassthrough`) into
-      #      this combinator's `bind` clause destabilizes Nim 2.2.8's
-      #      TRM rewriter on heavy aggregate compilation (SIGSEGV
-      #      during `httpclient.requestAsyncTRM` expansion in
-      #      tests/all_tests.nim, Cell 1). The bool-form predicate
-      #      `outsideSandboxShouldPassthrough` avoids that destabilizer.
-      #
-      #   2. Adding ANY additional statement to this `if isNil:` block
-      #      (verified: `discard outsideSandboxShouldPassthrough(...)`
-      #      followed by `result = spyBody; return`, with or without
-      #      an intermediate `let nfOsCallsite`, with or without a
-      #      `block:` wrapper, with or without a `when typeof` split)
-      #      trips an `internal error: vmgen.nim(1821, 23)` under
-      #      `--mm:refc --define:tripwireUnittest2` (Cell 3) at
-      #      tests/test_self_three_guarantees.nim's
-      #      `expect TripwireDefect: ... waitFor c.get(...)` block.
-      #      The bug is in vmgen's register-slot tracking when
-      #      unittest2's `failingOnExceptions` template wraps a body
-      #      that contains an async-httpclient TRM expansion with a
-      #      multi-statement if-isNil branch. No structural rewrite
-      #      of the body has been found that survives Cell 3.
-      #
-      # Workaround: gate the multi-statement guard='warn' machinery
-      # behind `-d:tripwireFirewallGuardMode`. Operators who actually
-      # want guard='warn' passthrough opt in at compile time; the
-      # matrix-default codepath stays single-raise (Cell 3 compatible).
-      # Tests for guard='warn' compile WITHOUT `-d:tripwireUnittest2`
-      # (see tests/test_outside_sandbox_guard.nim's nimble cell-5d).
-      when defined(tripwireFirewallGuardMode):
-        if outsideSandboxShouldPassthrough(plugin, procName,
-            (filename: instantiationInfo().filename,
-             line: instantiationInfo().line)):
-          # spyBody is the {.noRewrite.}-wrapped real call; all existing
-          # TRM templates are value-typed (Response, Future, etc.).
-          result = spyBody
-          return
-        # Unreachable: outsideSandboxShouldPassthrough either returned
-        # true (handled above) or raised (guard=fmError or
-        # guard=fmWarn-without-passthrough). The fall-through `raise`
-        # below is structurally required because the compiler can't
-        # prove the predicate's raise paths cover all outcomes; it
-        # never executes at runtime.
-        raise newLeakedInteractionDefect(getThreadId(), instantiationInfo())
+    # SHAPE NOTES (Nim 2.2.8 toolchain quirks). See:
+    #   docs/upstream-bugs/nim-2.2.8-trm-bind-enum-tags-sigsegv.md
+    #   docs/upstream-bugs/nim-2.2.8-vmgen-1821-multi-statement-if-body.md
+    #
+    # 1. The {.dirty.} template's `bind` list MUST NOT bind enum tag
+    #    identifiers. The natural design shape (an
+    #    `OutsideSandboxDisposition` enum returned from a free proc and
+    #    switched on via `case`) was bisected and rejected: binding the
+    #    enum tag identifiers into this combinator's `bind` clause
+    #    destabilizes Nim 2.2.8's TRM rewriter on heavy aggregate
+    #    compilation (SIGSEGV in Cell 1).  The bool-form predicate
+    #    `outsideSandboxShouldPassthrough` avoids that destabilizer.
+    #
+    # 2. The `if nfVerifier.isNil:` body MUST be a SINGLE statement
+    #    under Nim 2.2.8's refc + unittest2 vmgen pipeline (Cell 3).
+    #    Adding any second statement to that branch trips
+    #    `internal error: vmgen.nim(1821, 23)` inside unittest2's
+    #    `failingOnExceptions` wrapper.  Workaround used here: hoist
+    #    the guard='warn' passthrough decision into a separate `let`
+    #    that is evaluated BEFORE the single-raise if-isNil branch,
+    #    using a short-circuit `and` against `nfVerifier.isNil` so the
+    #    predicate is never invoked when a verifier is in scope.  The
+    #    second `if nfOutsideHandled:` branch is structurally distinct
+    #    from `if nfVerifier.isNil:` and so escapes the constraint.
+    let nfOutsideHandled = nfVerifier.isNil and
+        outsideSandboxShouldPassthrough(plugin, procName,
+          (filename: instantiationInfo().filename,
+           line: instantiationInfo().line))
+    if nfVerifier.isNil and not nfOutsideHandled:
+      raise newLeakedInteractionDefect(getThreadId(), instantiationInfo())
+    if not nfOutsideHandled:
+      if not nfVerifier.active:
+        raise newPostTestInteractionDefect(nfVerifier.name,
+          nfVerifier.generation, plugin.name, procName)
+      let nfMockOpt = nfVerifier.popMatchingMock(plugin.name, procName,
+                                                  fingerprint)
+      let nfSite = instantiationInfo()
+      # `record`'s arg list stays unchanged (Nim 2.2.8 refc + unittest2
+      # `failingOnExceptions` vmgen 1821,23 crash). Kind discrimination
+      # is done via a post-record `tagFirewallPassthrough` call inside
+      # the existing `if nfMockOpt.isNone:` branch — that branch
+      # already exists for the firewall raise/spy decision, so we're
+      # not adding a new control-flow node, only one extra statement
+      # inside an existing one.
+      let nfRec = nfVerifier.timeline.record(plugin, procName,
+        initOrderedTable[string, string](),
+        (if nfMockOpt.isSome: nfMockOpt.get.response else: nil),
+        (file: nfSite.filename, line: nfSite.line, column: nfSite.column))
+      if nfMockOpt.isNone:
+        tagFirewallPassthrough(nfRec)
+        # Firewall decision is consolidated into `firewallDecide` (a real
+        # proc, not a template). The TRM body needs to stay structurally
+        # SIMPLE — Nim 2.2.8's term-rewriting macro engine SIGSEGVs when
+        # the body of a TRM contains multiple if-statements that themselves
+        # contain {.noRewrite.}: blocks (verified by bisecting on
+        # tests/test_self_three_guarantees.nim during the firewall-rename
+        # refactor). The fix: flatten to a single decision branch, with the
+        # raise lifted into a small helper proc and the warn-side preceding
+        # spyBody as a plain statement.
+        if firewallShouldRaise(nfVerifier, plugin, procName, fingerprint):
+          raise newUnmockedInteractionDefect(plugin.name, procName, fingerprint,
+            (file: nfSite.filename, line: nfSite.line, column: nfSite.column),
+            nil, nfCollectMockFingerprints(nfVerifier, plugin.name))
+        spyBody
       else:
-        raise newLeakedInteractionDefect(getThreadId(), instantiationInfo())
-    if not nfVerifier.active:
-      raise newPostTestInteractionDefect(nfVerifier.name,
-        nfVerifier.generation, plugin.name, procName)
-    let nfMockOpt = nfVerifier.popMatchingMock(plugin.name, procName,
-                                                fingerprint)
-    let nfSite = instantiationInfo()
-    # `record`'s arg list stays unchanged (Nim 2.2.8 refc + unittest2
-    # `failingOnExceptions` vmgen 1821,23 crash). Kind discrimination
-    # is done via a post-record `tagFirewallPassthrough` call inside
-    # the existing `if nfMockOpt.isNone:` branch — that branch
-    # already exists for the firewall raise/spy decision, so we're
-    # not adding a new control-flow node, only one extra statement
-    # inside an existing one.
-    let nfRec = nfVerifier.timeline.record(plugin, procName,
-      initOrderedTable[string, string](),
-      (if nfMockOpt.isSome: nfMockOpt.get.response else: nil),
-      (file: nfSite.filename, line: nfSite.line, column: nfSite.column))
-    if nfMockOpt.isNone:
-      tagFirewallPassthrough(nfRec)
-      # Firewall decision is consolidated into `firewallDecide` (a real
-      # proc, not a template). The TRM body needs to stay structurally
-      # SIMPLE — Nim 2.2.8's term-rewriting macro engine SIGSEGVs when
-      # the body of a TRM contains multiple if-statements that themselves
-      # contain {.noRewrite.}: blocks (verified by bisecting on
-      # tests/test_self_three_guarantees.nim during the firewall-rename
-      # refactor). The fix: flatten to a single decision branch, with the
-      # raise lifted into a small helper proc and the warn-side preceding
-      # spyBody as a plain statement.
-      if firewallShouldRaise(nfVerifier, plugin, procName, fingerprint):
-        raise newUnmockedInteractionDefect(plugin.name, procName, fingerprint,
-          (file: nfSite.filename, line: nfSite.line, column: nfSite.column),
-          nil, nfCollectMockFingerprints(nfVerifier, plugin.name))
-      spyBody
+        responseType(nfMockOpt.get.response).realize()
     else:
-      responseType(nfMockOpt.get.response).realize()
+      # guard='warn' passthrough: skip verifier-path entirely, evaluate
+      # spyBody as the combinator's trailing expression.  Crucially this
+      # is NOT `result = spyBody; return` — TRM expansions also fire at
+      # expression-context call sites (e.g. `discard c.request(...)`)
+      # where `result` is undeclared.  Returning spyBody as the trailing
+      # expression keeps the combinator a value-form expression at every
+      # call site, regardless of consumer return-type plumbing.
+      spyBody

@@ -21,32 +21,32 @@ requires "parsetoml >= 0.7.0"
 
 task test, "Run the full test matrix":
   # Cell 1: refc + sync
-  exec "nim c --gc:refc --define:tripwireActive --import:tripwire/auto -r tests/all_tests.nim"
+  exec "nim c --mm:refc --define:tripwireActive --import:tripwire/auto -r tests/all_tests.nim"
   # Cell 2: orc + sync
-  exec "nim c --gc:orc --define:tripwireActive --import:tripwire/auto -r tests/all_tests.nim"
+  exec "nim c --mm:orc --define:tripwireActive --import:tripwire/auto -r tests/all_tests.nim"
   # Cell 3: refc + unittest2
-  exec "nim c --gc:refc --define:tripwireActive --define:tripwireUnittest2 --import:tripwire/auto -r tests/all_tests.nim"
+  exec "nim c --mm:refc --define:tripwireActive --define:tripwireUnittest2 --import:tripwire/auto -r tests/all_tests.nim"
   # Cell 4: orc + unittest2
-  exec "nim c --gc:orc --define:tripwireActive --define:tripwireUnittest2 --import:tripwire/auto -r tests/all_tests.nim"
+  exec "nim c --mm:orc --define:tripwireActive --define:tripwireUnittest2 --import:tripwire/auto -r tests/all_tests.nim"
   # Cell 5: test_osproc_arrays.nim runs standalone — aggregating its
   # wrappers into all_tests.nim pushes cap_counter's 15-rewrite cap
   # (Defense 3).
-  exec "nim c --gc:orc --define:tripwireActive -r tests/test_osproc_arrays.nim"
+  exec "nim c --mm:orc --define:tripwireActive -r tests/test_osproc_arrays.nim"
   # Cell 5b: test_firewall.nim runs standalone for the same reason as
   # cell 5 — its `tripwirePluginIntercept`-backed wrapper proc pushes
   # the aggregate one rewrite past the 15-cap.
-  exec "nim c --gc:orc --define:tripwireActive --import:tripwire/auto -r tests/test_firewall.nim"
+  exec "nim c --mm:orc --define:tripwireActive --import:tripwire/auto -r tests/test_firewall.nim"
   # Cell 5c: test_auto_umbrella.nim runs standalone for the same
   # reason as cells 5 and 5b. Its “auto-only consumer” regression-guard
   # tests each emit a fresh TRM rewrite (one for the wrapper proc, one
   # for the firewall behavioral check), pushing the aggregate over the
   # 15-cap. Standalone, the cap is never approached.
-  exec "nim c --gc:orc --define:tripwireActive --import:tripwire/auto -r tests/test_auto_umbrella.nim"
+  exec "nim c --mm:orc --define:tripwireActive --import:tripwire/auto -r tests/test_auto_umbrella.nim"
   # Cell 6: orc + chronos — opt-in via env var because chronos isn't in
   # `requires`. Set TRIPWIRE_TEST_CHRONOS=1 to enable; otherwise skip
   # the chronos cell.
   if existsEnv("TRIPWIRE_TEST_CHRONOS"):
-    exec "nim c --gc:orc --define:tripwireActive --define:chronos --import:tripwire/auto -r tests/all_tests.nim"
+    exec "nim c --mm:orc --define:tripwireActive --define:chronos --import:tripwire/auto -r tests/all_tests.nim"
   # Cell 6b: orc + chronos httpclient firewall plugin (standalone).
   # The chronos httpclient plugin's two firewall TRMs (`send`,
   # `fetch(uri)`) plus this test file's wrapper helpers push the
@@ -55,7 +55,7 @@ task test, "Run the full test matrix":
   # cell 6 (chronos isn't in `requires`). Standalone-cell precedent:
   # test_osproc_arrays.nim / test_firewall.nim / test_auto_umbrella.nim.
   if existsEnv("TRIPWIRE_TEST_CHRONOS"):
-    exec "nim c --gc:orc --define:tripwireActive --define:chronos --import:tripwire/auto -r tests/test_chronos_httpclient_firewall.nim"
+    exec "nim c --mm:orc --define:tripwireActive --define:chronos --import:tripwire/auto -r tests/test_chronos_httpclient_firewall.nim"
   # Cell 6c: orc + chronos firewall raises-clause regression guard
   # (standalone). Pins the fix that lets tripwire's firewall hot path
   # compose with chronos `async: (raises: [...])` consumers (e.g.,
@@ -65,7 +65,7 @@ task test, "Run the full test matrix":
   # cell because its two TRM rewrites would push the chronos aggregate
   # past Defense 3's 15-cap if co-located with cell 6 / 6b.
   if existsEnv("TRIPWIRE_TEST_CHRONOS"):
-    exec "nim c --gc:orc --define:tripwireActive --define:chronos --import:tripwire/auto -r tests/test_firewall_raises_compat.nim"
+    exec "nim c --mm:orc --define:tripwireActive --define:chronos --import:tripwire/auto -r tests/test_firewall_raises_compat.nim"
   # Cell 6d: orc + websock client firewall plugin (standalone).
   # Mirrors the chronos plugin's standalone-cell layout (cell 6b).
   # The websock plugin's single `nfwebsockConnect(uri)` TRM plus this
@@ -76,7 +76,7 @@ task test, "Run the full test matrix":
   # we set both `-d:chronos` and `-d:websock` together; the chronos
   # plugin is harmless when also active in the same compilation unit.
   if existsEnv("TRIPWIRE_TEST_WEBSOCK"):
-    exec "nim c --gc:orc --define:tripwireActive --define:chronos --define:websock --import:tripwire/auto -r tests/test_websock_firewall.nim"
+    exec "nim c --mm:orc --define:tripwireActive --define:chronos --define:websock --import:tripwire/auto -r tests/test_websock_firewall.nim"
   # Cell 7: arc + threads (v0.2 WI3, design §8.1, M-matrix). Runs the
   # main all_tests.nim aggregate under --mm:arc --threads:on to exercise
   # the v0.2 thread-safety amendment at the aggregate level, then runs
@@ -115,7 +115,7 @@ task test, "Run the full test matrix":
   # triggering C codegen. Asserts exit code != 0 AND the expected error
   # text appears in stderr/output.
   let negBuild = gorgeEx(
-    "nim check --gc:refc --threads:on --define:tripwireActive " &
+    "nim check --mm:refc --threads:on --define:tripwireActive " &
     "tests/threads/test_refc_threads_rejected.nim")
   doAssert negBuild.exitCode != 0,
     "refc+threads negative build unexpectedly succeeded; F2 guard in " &
@@ -131,7 +131,7 @@ task test, "Run the full test matrix":
     negBuild.output
 
 task test_fast, "Run one config for quick iteration":
-  exec "nim c --gc:orc --define:tripwireActive --import:tripwire/auto -r tests/all_tests.nim"
+  exec "nim c --mm:orc --define:tripwireActive --import:tripwire/auto -r tests/all_tests.nim"
 
 task test_defenses, "Run the Defense-1 compile-fail check":
   # NimScript has no execShellCmd; gorgeEx returns (output, exitCode).

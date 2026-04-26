@@ -26,12 +26,24 @@ const FixtureDir = RepoRoot / "tests" / "fixtures" / "nimble_parser"
   ## `import tripwire/audit_ffi` to resolve.
 
 proc writeDriver(body: string): string =
-  ## Write a driver `.nim` file to a unique tmp path and return it.
+  ## Write a driver `.nim` file to a UNIQUE per-driver subdir so the
+  ## driver's compile-time `projectPath` resolves to a tmp dir that
+  ## contains ONLY that driver. `audit_ffi.scanProjectPath()` walks
+  ## projectPath at compile time via `find -name '*.nim'`; if drivers
+  ## shared a parent dir, accumulated drivers from prior runs blow the
+  ## VM iteration cap (`--maxLoopIterationsVM:10000000`) and the
+  ## compile fails with "interpretation requires too many iterations"
+  ## even though the test itself is innocent. Per-driver subdirs cap
+  ## the scanner's input at one .nim file regardless of how many test
+  ## runs have happened on this machine.
+  ##
   ## Each test writes its own driver so failures don't cross-contaminate.
-  let tmpDir = getTempDir() / "tripwire_nimble_parser_test"
-  createDir(tmpDir)
-  let path = tmpDir / ("driver_" & $getTime().toUnix() & "_" &
-                        $rand(high(int))) & ".nim"
+  let runRoot = getTempDir() / "tripwire_nimble_parser_test"
+  createDir(runRoot)
+  let subdir = runRoot / ("driver_" & $getTime().toUnix() & "_" &
+                          $rand(high(int)))
+  createDir(subdir)
+  let path = subdir / "driver.nim"
   writeFile(path, body)
   path
 
@@ -78,6 +90,16 @@ proc tripleQuote(s: string): string =
   "\"\"\"\n" & s & "\n\"\"\""
 
 suite "audit_ffi .nimble parser limits (Task 1.3)":
+
+  # Reclaim accumulated per-driver subdirs from prior runs. Each
+  # driver lives in its own subdir (per writeDriver), so wiping the
+  # parent here is safe and bounded. Without this, the shared parent
+  # would grow over time and eventually trip find / xargs limits even
+  # though projectPath isolation already shields the VM from it.
+  block:
+    let runRoot = getTempDir() / "tripwire_nimble_parser_test"
+    if dirExists(runRoot):
+      removeDir(runRoot)
 
   test "parseNimbleRequires handles simple single-line requires with version bounds":
     # Happy path: `requires "foo"` and `requires "bar >= 1.0"`.

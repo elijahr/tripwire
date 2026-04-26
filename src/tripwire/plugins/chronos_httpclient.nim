@@ -49,10 +49,15 @@
 ##   * `fetch(session: HttpSessionRef, url: Uri)` — line 1521. Convenience
 ##     GET. Intercepted as a separate firewall surface so callers using
 ##     the URL-only convenience get the same G1 protection.
-##
-## Not intercepted: `fetch(request: HttpClientRequestRef)` (line 1504) —
-## its body internally calls `request.send()` which our `send` TRM already
-## intercepts. Adding a TRM here would double-fire and double-record.
+##   * `fetch(request: HttpClientRequestRef)` — line 1504. Request-form
+##     convenience that returns `(status, body)`. Intercepted as a
+##     separate firewall surface. The earlier assumption that the
+##     existing `send` TRM would transitively cover this code path was
+##     wrong: chronos's `fetch(req)` body compiles outside the
+##     tripwire-active compilation unit, so the inner `request.send()`
+##     call inside chronos is NOT subject to TRM rewriting. Without an
+##     explicit TRM here, `req.fetch()` reached the network with no
+##     firewall consultation. G1 now holds on both fetch shapes.
 
 import std/[uri, options]
 import chronos
@@ -135,6 +140,24 @@ proc fingerprintChronosSend*(meth: HttpMethod, addr0: HttpAddress): string =
   "send " & $meth & " " & scheme & "://" & addr0.hostname & ":" &
     $addr0.port & addr0.path
 
+proc fingerprintChronosFetchReq*(meth: HttpMethod, addr0: HttpAddress): string =
+  ## Canonicalize a `fetch(request)` call. Mirrors `fingerprintChronosSend`
+  ## but with a `fetch` surface tag so the matcher DSL can distinguish
+  ## the two surfaces. The request's method may be any HTTP verb (POST,
+  ## PUT, DELETE, etc.) — chronos `fetch(req)` does not coerce GET; it
+  ## just sends whatever the request was built with.
+  ##
+  ## Format: `"fetch <METHOD> <SCHEME>://<HOST>:<PORT><PATH>"`. Same
+  ## fingerprint shape as `fingerprintChronosSend` modulo the leading
+  ## verb tag; the matcher DSL pattern-matches by host / port / path /
+  ## method substring against either.
+  let scheme =
+    case addr0.scheme
+    of HttpClientScheme.NonSecure: "http"
+    of HttpClientScheme.Secure: "https"
+  "fetch " & $meth & " " & scheme & "://" & addr0.hostname & ":" &
+    $addr0.port & addr0.path
+
 proc fingerprintChronosFetch*(url: Uri): string =
   ## Canonicalize a `fetch(session, url)` call. Always GET (chronos's
   ## URL-only fetch hardcodes GET). Format mirrors `fingerprintChronosSend`
@@ -188,6 +211,15 @@ proc realChronosFetchUri*(session: HttpSessionRef, url: Uri):
   ## Trampoline to chronos's real URL-only `fetch`.
   {.noRewrite.}:
     return await httpclient.fetch(session, url)
+
+proc realChronosFetchReq*(request: HttpClientRequestRef):
+                           Future[HttpResponseTuple] {.
+                             async: (raises: [CancelledError, HttpError]).} =
+  ## Trampoline to chronos's real request-form `fetch`. The outer name
+  ## differs from `fetch` so the TRM pattern matcher can't see this
+  ## call site, mirroring the rename pattern used by `realChronosSend`.
+  {.noRewrite.}:
+    return await httpclient.fetch(request)
 
 # ---- TRMs ----------------------------------------------------------------
 #
@@ -249,3 +281,29 @@ template chronosFetchUriTRM*{fetch(session, url)}(
     ChronosHttpFetchStubResponse):
     {.noRewrite.}:
       realChronosFetchUri(session, url)
+
+template chronosFetchReqTRM*{fetch(request)}(
+    request: HttpClientRequestRef):
+    InternalRaisesFuture[HttpResponseTuple,
+                         (CancelledError, HttpError)] =
+  ## Firewall TRM for `chronos.httpclient.fetch(request)` — the
+  ## request-form convenience that returns `(status, body)`. Mirrors
+  ## `chronosFetchUriTRM` exactly modulo the pattern (`fetch(request)`
+  ## vs `fetch(session, url)`), the fingerprint helper, and the
+  ## trampoline. Same firewall-only semantics as `chronosSendTRM`.
+  ##
+  ## This TRM closes a silent G1 bypass: chronos's `fetch(req)` body
+  ## internally calls `request.send()`, but that inner call compiles
+  ## inside chronos (outside the tripwire-active compilation unit) so
+  ## the existing `chronosSendTRM` is NOT applied. Without this TRM,
+  ## `req.fetch()` reached the network with no firewall consultation.
+  ##
+  ## The raises tuple `(CancelledError, HttpError)` matches chronos's
+  ## actual `fetch(request)` signature at `httpclient.nim:1505`.
+  tripwirePluginIntercept(
+    chronosHttpPluginInstance,
+    "fetch",
+    fingerprintChronosFetchReq(request.meth, request.address),
+    ChronosHttpFetchStubResponse):
+    {.noRewrite.}:
+      realChronosFetchReq(request)

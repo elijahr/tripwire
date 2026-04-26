@@ -102,6 +102,27 @@ when defined(chronos):
           discard waitFor session.fetch(parseUri(NeverBoundUrl))
           waitFor session.closeWait()
 
+    test "fetch(req): unmocked call inside sandbox raises UnmockedInteractionDefect":
+      ## Regression guard for the silent firewall bypass on the
+      ## request-form `fetch`. Prior to chronosFetchReqTRM, the
+      ## existing `send` TRM did NOT transitively cover this code
+      ## path: chronos's `fetch(req)` body compiles outside the
+      ## tripwire-active compilation unit, so the inner `request.send()`
+      ## call inside chronos is not subject to TRM rewriting.
+      ## Without the new TRM this test reaches the network and either
+      ## hangs or surfaces a network error — NOT
+      ## UnmockedInteractionDefect.
+      expect UnmockedInteractionDefect:
+        sandbox:
+          let session = newSession()
+          let reqRes = HttpClientRequestRef.post(
+            session, NeverBoundUrl, body = "")
+          doAssert reqRes.isOk, "request build failed: " & reqRes.error
+          let req = reqRes.get()
+          discard waitFor req.fetch()
+          waitFor req.closeWait()
+          waitFor session.closeWait()
+
     # ------------------------------------------------------------------
     # 2. allow(plugin, M(host="127.0.0.1")) — real round-trip via TRM
     #    passthrough to the localhost listener
@@ -134,6 +155,37 @@ when defined(chronos):
         # on sandbox exit (G2 is not the firewall's job, but the
         # combinator still records — same rule the existing httpclient
         # tests follow).
+        check v.timeline.entries.len >= 1
+        for entry in v.timeline.entries:
+          v.timeline.markAsserted(entry)
+
+    test "fetch(req): allow(M(host=127.0.0.1)) authorizes loopback round-trip":
+      ## Mirrors the `send` passthrough test for the request-form
+      ## `fetch`. With chronosFetchReqTRM in place, the firewall
+      ## consults the matcher BEFORE chronos's body executes; on
+      ## allow, the trampoline calls real chronos which does its own
+      ## `request.send()` to the localhost listener and returns the
+      ## (status, body) tuple.
+      let (server, port) = startLocalhostServer()
+      defer:
+        waitFor server.closeWait()
+      sandbox:
+        let v = currentVerifier()
+        allow(chronosHttpPluginInstance, M(host = "127.0.0.1"))
+        let session = newSession()
+        let url = "http://127.0.0.1:" & $port & "/fetch-req"
+        let reqRes = HttpClientRequestRef.post(
+          session, url, body = "ping")
+        doAssert reqRes.isOk, "request build failed: " & reqRes.error
+        let req = reqRes.get()
+        let (status, bodyBytes) = waitFor req.fetch()
+        check status == 200
+        var body = newString(bodyBytes.len)
+        for i in 0 ..< bodyBytes.len:
+          body[i] = char(bodyBytes[i])
+        check body == "hello-from-localhost"
+        waitFor req.closeWait()
+        waitFor session.closeWait()
         check v.timeline.entries.len >= 1
         for entry in v.timeline.entries:
           v.timeline.markAsserted(entry)

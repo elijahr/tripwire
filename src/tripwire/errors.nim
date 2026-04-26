@@ -64,7 +64,7 @@ const FFIScopeFooter* = "\n(tripwire intercepts Nim source calls only. " &
 # ---- Nearest-mock hints --------------------------------------------------
 
 proc nearestMockHints*(actual: string, candidates: openArray[string],
-                       maxDistance: int = 1): seq[string] =
+                       maxDistance: int = 1): seq[string] {.raises: [].} =
   ## Returns candidates whose Levenshtein distance from `actual` is within
   ## (0, maxDistance]. Exact matches (distance 0) are suppressed because
   ## they would have matched upstream in `popMatchingMock` and never
@@ -83,7 +83,8 @@ proc nearestMockHints*(actual: string, candidates: openArray[string],
 proc newUnmockedInteractionDefect*(pluginName, procName, fingerprint: string,
     site: tuple[file: string, line, column: int],
     plugin: Plugin = nil,
-    candidates: openArray[string] = []): ref UnmockedInteractionDefect =
+    candidates: openArray[string] = []):
+      ref UnmockedInteractionDefect {.raises: [].} =
   ## If `plugin` is provided, the header uses `plugin.formatInteraction` for
   ## a verbose rendering; otherwise it falls back to `<plugin>.<proc>`.
   ##
@@ -111,27 +112,30 @@ proc newUnmockedInteractionDefect*(pluginName, procName, fingerprint: string,
     site: site, nearestMockHints: hints)
 
 proc newUnassertedInteractionsDefect*(verifierName: string,
-    interactions: seq[Interaction]): ref UnassertedInteractionsDefect =
+    interactions: seq[Interaction]):
+      ref UnassertedInteractionsDefect {.raises: [].} =
   let msg = $interactions.len & " interactions recorded but not asserted " &
     "in verifier '" & verifierName & "'" & FFIScopeFooter
   result = (ref UnassertedInteractionsDefect)(msg: msg,
     verifierName: verifierName, interactions: interactions)
 
 proc newUnusedMocksDefect*(verifierName: string,
-    mocks: seq[Mock]): ref UnusedMocksDefect =
+    mocks: seq[Mock]): ref UnusedMocksDefect {.raises: [].} =
   let msg = $mocks.len & " mocks registered but never consumed in verifier '" &
     verifierName & "'" & FFIScopeFooter
   result = (ref UnusedMocksDefect)(msg: msg,
     verifierName: verifierName, mocks: mocks)
 
 proc newLeakedInteractionDefect*(threadId: int,
-    site: tuple[filename: string, line: int, column: int]): ref LeakedInteractionDefect =
+    site: tuple[filename: string, line: int, column: int]):
+      ref LeakedInteractionDefect {.raises: [].} =
   let msg = "TRM fired on thread " & $threadId & " with no active verifier " &
     "at " & site.filename & ":" & $site.line & FFIScopeFooter
   result = (ref LeakedInteractionDefect)(msg: msg, threadId: threadId)
 
 proc newPostTestInteractionDefect*(verifierName: string, generation: int,
-    pluginName, procName: string): ref PostTestInteractionDefect =
+    pluginName, procName: string):
+      ref PostTestInteractionDefect {.raises: [].} =
   let msg = "TRM fired against popped verifier '" & verifierName &
     "' (generation " & $generation & "): " & pluginName & "." & procName &
     FFIScopeFooter

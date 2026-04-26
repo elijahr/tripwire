@@ -98,10 +98,19 @@ type
     scheme*: string
     procName*: string  ## optional: gate by intercepted procName
 
-  AllowPredicate* = proc(procName, fingerprint: string): bool {.closure, gcsafe.}
+  AllowPredicate* = proc(procName, fingerprint: string): bool {.
+                         closure, gcsafe, raises: [].}
     ## Closure-escape-hatch firewall predicate. Use when matchers don't
     ## express the policy you need — e.g. fingerprint substring tests,
     ## counters, file-state probes.
+    ##
+    ## `raises: []` is load-bearing: the predicate is consulted from the
+    ## firewall hot path, which itself sits inside TRM expansions that
+    ## may sit inside chronos `async: (raises: [...])` procs. A
+    ## predicate that could raise CatchableError would push that effect
+    ## into the surrounding strict-raises proc and break compilation.
+    ## Predicates with side-effecting probes (counters, file-state)
+    ## must catch their own exceptions internally.
 
   AllowEntryKind* = enum
     aekAllPlugin, aekPredicate, aekMatcher
@@ -161,7 +170,7 @@ proc popVerifier*(): Verifier =
   inc(result.generation)
   result.active = false
 
-proc currentVerifier*(): Verifier {.inline.} =
+proc currentVerifier*(): Verifier {.inline, raises: [].} =
   if verifierStack.len == 0: nil else: verifierStack[^1]
 
 # ---- Matcher DSL ---------------------------------------------------------
@@ -183,7 +192,7 @@ template M*(args: varargs[untyped]): Matcher =
   ##                                              httpMethod = "GET"))`
   initMatcher(args)
 
-proc globMatch*(pat, s: string): bool =
+proc globMatch*(pat, s: string): bool {.raises: [].} =
   ## Glob match: `*` zero-or-more, `?` exactly one. Anchored start +
   ## end. Linear-scan with single-segment backtracking; sufficient for
   ## host/path patterns. No regex dep.
@@ -207,11 +216,12 @@ proc globMatch*(pat, s: string): bool =
     inc pi
   pi == pat.len
 
-proc fieldMatches(pattern, value: string): bool {.inline.} =
+proc fieldMatches(pattern, value: string): bool {.inline, raises: [].} =
   ## Empty pattern = "don't care, always matches". Otherwise glob.
   pattern.len == 0 or globMatch(pattern, value)
 
-proc matchesFingerprint*(m: Matcher, procName, fingerprint: string): bool =
+proc matchesFingerprint*(m: Matcher, procName,
+                         fingerprint: string): bool {.raises: [].} =
   ## Default Matcher → fingerprint matcher. Plugin authors with
   ## structured call data (httpclient: parse the URL into host/port/
   ## scheme/path) SHOULD do their own structured comparison; this
@@ -318,7 +328,7 @@ proc restrict*(plugin: Plugin, matcher: Matcher) =
 # ---- Consultation helpers (used by intercept combinators) ---------------
 
 proc entryMatches(entry: AllowEntry, plugin: Plugin,
-                  procName, fingerprint: string): bool =
+                  procName, fingerprint: string): bool {.raises: [].} =
   if entry.plugin != plugin:
     return false
   case entry.kind
@@ -330,7 +340,7 @@ proc entryMatches(entry: AllowEntry, plugin: Plugin,
     entry.matcher.matchesFingerprint(procName, fingerprint)
 
 proc sandboxAllowsFor*(v: Verifier, plugin: Plugin,
-                       procName, fingerprint: string): bool =
+                       procName, fingerprint: string): bool {.raises: [].} =
   ## OR over all per-sandbox `allow` entries registered against `plugin`
   ## (by ref identity). Returns `true` on the first match. Used by the
   ## TRM-body combinators to extend the existing
@@ -344,7 +354,7 @@ proc sandboxAllowsFor*(v: Verifier, plugin: Plugin,
 
 proc sandboxRestrictsFor*(v: Verifier, plugin: Plugin,
                           procName, fingerprint: string):
-                          tuple[active: bool, allows: bool] =
+                          tuple[active: bool, allows: bool] {.raises: [].} =
   ## Computes the ceiling side of the firewall decision. The runtime
   ## decision (in `firewallDecideRaw`) is "allow ∩ restrict" at call
   ## time: passthrough requires a matching `allow` AND, if any
@@ -378,18 +388,30 @@ proc guard*(v: Verifier, mode: FirewallMode) =
     raise newLeakedInteractionDefect(getThreadId(), instantiationInfo())
   v.firewallMode = mode
 
-proc emitFirewallWarning*(pluginName, procName, fingerprint: string) =
+proc emitFirewallWarning*(pluginName, procName,
+                          fingerprint: string) {.raises: [].} =
   ## Stderr write for `fmWarn` mode. Single-line, prefix-stable so
   ## consumers can grep / filter. Called by the intercept combinators
   ## just before they fall through to `spyBody`.
-  stderr.writeLine "tripwire firewall: warn passthrough for " &
-    pluginName & "." & procName & " (fp=" & fingerprint & ")"
+  ##
+  ## Annotated `{.raises: [].}` because the TRM expansion site may sit
+  ## inside a strict-raises consumer (e.g., a chronos
+  ## `async: (raises: [HttpError])` proc). `stderr.writeLine` raises
+  ## `IOError`; we suppress it because losing a single firewall warning
+  ## on a stderr write failure is preferable to propagating an
+  ## unmodelled CatchableError out of the hot path. Stderr write
+  ## failures are vanishingly rare in practice (no disk involved).
+  try:
+    stderr.writeLine "tripwire firewall: warn passthrough for " &
+      pluginName & "." & procName & " (fp=" & fingerprint & ")"
+  except IOError:
+    discard
 
 type FirewallDecision* = enum
   fdAllow, fdWarn, fdRaise
 
 proc firewallDecideRaw*(v: Verifier, plugin: Plugin, procName,
-                        fingerprint: string): FirewallDecision =
+                        fingerprint: string): FirewallDecision {.raises: [].} =
   ## Pure decision proc — exposed for unit tests and plugin authors
   ## writing custom intercept combinators. Side-effect-free.
   ##
@@ -422,7 +444,7 @@ proc firewallDecideRaw*(v: Verifier, plugin: Plugin, procName,
   if v.firewallMode == fmWarn: fdWarn else: fdRaise
 
 proc firewallDecide*(v: Verifier, plugin: Plugin, procName,
-                     fingerprint: string): FirewallDecision =
+                     fingerprint: string): FirewallDecision {.raises: [].} =
   ## Side-effecting decision used by the intercept combinators. In the
   ## `fdWarn` lane, this proc emits the stderr warning so the TRM body
   ## structure remains a single `if fdRaise: raise; spyBody` — the
@@ -434,7 +456,7 @@ proc firewallDecide*(v: Verifier, plugin: Plugin, procName,
     emitFirewallWarning(plugin.name, procName, fingerprint)
 
 proc firewallShouldRaise*(v: Verifier, plugin: Plugin, procName,
-                          fingerprint: string): bool {.inline.} =
+                          fingerprint: string): bool {.inline, raises: [].} =
   ## Bool-returning convenience used inside TRM combinator bodies.
   ## Emits the warn-side stderr line as a side effect of running
   ## `firewallDecide`. Returns `true` iff the call should raise

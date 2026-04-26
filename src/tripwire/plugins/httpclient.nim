@@ -45,7 +45,7 @@ proc fingerprintHttpRequest*(url: string, httpMethod: HttpMethod,
   " hdr=" & (if headers.isNil: "nil" else: $headers) &
   " mp=" & (if multipart.isNil: "nil" else: "multipart")
 
-method realize*(r: HttpMockResponse): Response {.base.} =
+method realize*(r: HttpMockResponse): Response {.base, raises: [Defect].} =
   ## Build a Response that mirrors what the real httpclient would produce.
   ## `body` is read lazily from `bodyStream` via the `httpclient.body()`
   ## getter, so we set only `bodyStream` (the `body` field is not
@@ -57,7 +57,7 @@ method realize*(r: HttpMockResponse): Response {.base.} =
     bodyStream: newStringStream(r.body))
 
 method realize*(r: HttpAsyncMockResponse): asyncdispatch.Future[AsyncResponse]
-    {.base.} =
+    {.base, raises: [Defect].} =
   ## Async counterpart. `AsyncResponse.body` is also unexported; we set
   ## only the fields we can construct and let the stdlib's `body()`
   ## future lazily materialize the body string.

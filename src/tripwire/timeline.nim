@@ -4,7 +4,7 @@ import ./types
 
 proc record*(t: var Timeline, plugin: Plugin, procName: string,
              args: OrderedTable[string, string], response: MockResponse,
-             site: tuple[file: string, line, column: int]): Interaction =
+             site: tuple[file: string, line, column: int]): Interaction {.raises: [].} =
   result = Interaction(
     sequence: t.nextSeq, plugin: plugin, procName: procName,
     args: args, response: response, asserted: false,

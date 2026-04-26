@@ -35,9 +35,11 @@ type
     expectedOutput*: string
     expectedStderr*: string
 
-method realize*(r: OsprocExecProcessResponse): string {.base.} = r.output
+method realize*(r: OsprocExecProcessResponse): string {.base, raises: [Defect].} =
+  r.output
 
-method realize*(r: OsprocExecCmdExResponse): tuple[output: string, exitCode: int] {.base.} =
+method realize*(r: OsprocExecCmdExResponse):
+    tuple[output: string, exitCode: int] {.base, raises: [Defect].} =
   (output: r.output, exitCode: r.exitCode)
 
 # Thread-local tag table for fake Processes (F8 populates on startProcess).

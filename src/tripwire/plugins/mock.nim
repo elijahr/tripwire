@@ -31,15 +31,18 @@ type
   MockUserResponse*[T] = ref object of MockResponse
     returnValue*: T
 
-proc realize*[T](r: MockUserResponse[T]): T = r.returnValue
+proc realize*[T](r: MockUserResponse[T]): T {.raises: [].} = r.returnValue
   ## Not a method — Nim 2.2.6 multimethod dispatch doesn't support generic
   ## type parameters. Call sites use concrete T via the TRM body cast:
   ## `MockUserResponse[T](resp).realize()`.
+  ##
+  ## `raises: []` for firewall-hot-path raises composition; see
+  ## `MockResponse.realize` in `tripwire/intercept.nim`.
 
-method supportsPassthrough*(p: MockPlugin): bool = true
-method passthroughFor*(p: MockPlugin, procName: string): bool = true
+method supportsPassthrough*(p: MockPlugin): bool {.raises: [].} = true
+method passthroughFor*(p: MockPlugin, procName: string): bool {.raises: [].} = true
 
-method assertableFields*(p: MockPlugin, i: Interaction): seq[string] =
+method assertableFields*(p: MockPlugin, i: Interaction): seq[string] {.raises: [].} =
   @["value"]
 
 let mockPluginInstance* = MockPlugin(name: "mock", enabled: true)

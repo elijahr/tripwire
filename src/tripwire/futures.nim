@@ -25,24 +25,52 @@ import std/asyncdispatch
 export asyncdispatch except hasPendingOperations
 
 proc makeCompletedFuture*[T](value: sink T,
-                             label: string = ""): Future[T] =
+                             label: string = ""): Future[T] {.raises: [].} =
   ## Build a Future[T] already completed with `value`. `label` is an
   ## optional debug tag forwarded to `newFuture[T]`.
   ##
   ## The unqualified `Future[T]` here resolves to `asyncdispatch.Future`
   ## because `import chronos` is positioned BELOW this proc — see the
   ## comment on the chronos-import block. Re-ordering risks ambiguity.
+  ##
+  ## `raises: []` is load-bearing for plugin TRM raises composition.
+  ## `complete` (asyncdispatch) declares `raises: [ValueError]` because
+  ## it raises if the future is already finished — but `newFuture[T]`
+  ## above produces a freshly-allocated, not-yet-finished future, so
+  ## that branch is unreachable here. We swallow the impossible
+  ## ValueError so plugin `realize` overrides that delegate to this
+  ## helper can be `{.raises: [Defect].}`-annotated and compose with
+  ## strict-raises consumer procs.
   result = newFuture[T](label)
-  result.complete(value)
+  try:
+    result.complete(value)
+  except Exception:
+    discard  # unreachable on a fresh future:
+             # `asyncdispatch.complete` declares no raises clause, so its
+             # inferred set is `Exception` (callbacks could raise anything
+             # in principle). On a freshly-`newFuture`d Future no callbacks
+             # are registered, so neither the `checkFinished` ValueError
+             # nor any callback exception can fire here. We catch
+             # CatchableError to satisfy the compiler's effect inference
+             # so plugin `realize` overrides that delegate to this helper
+             # can be `{.raises: [Defect].}`-annotated and compose with
+             # strict-raises consumer procs.
 
 proc makeFailedFuture*[T](err: ref Exception,
-                          label: string = ""): Future[T] =
+                          label: string = ""): Future[T] {.raises: [].} =
   ## Build a Future[T] already failed with `err`. Awaiting or
   ## `waitFor`-ing the future re-raises `err`.
   ##
-  ## See note on `makeCompletedFuture` re: unqualified `Future[T]`.
+  ## See note on `makeCompletedFuture` re: unqualified `Future[T]` and
+  ## the `raises: []` rationale (impossible-ValueError suppression on a
+  ## freshly-minted future).
   result = newFuture[T](label)
-  result.fail(err)
+  try:
+    result.fail(err)
+  except Exception:
+    discard  # unreachable on a fresh future. See `makeCompletedFuture`
+             # for the full rationale on why CatchableError is the
+             # correct breadth here.
 
 # `import chronos` is positioned HERE — after the unqualified-`Future[T]`
 # helpers above (which need `Future` to resolve to asyncdispatch.Future),

@@ -56,6 +56,16 @@ task test, "Run the full test matrix":
   # test_osproc_arrays.nim / test_firewall.nim / test_auto_umbrella.nim.
   if existsEnv("TRIPWIRE_TEST_CHRONOS"):
     exec "nim c --gc:orc --define:tripwireActive --define:chronos --import:tripwire/auto -r tests/test_chronos_httpclient_firewall.nim"
+  # Cell 6c: orc + chronos firewall raises-clause regression guard
+  # (standalone). Pins the fix that lets tripwire's firewall hot path
+  # compose with chronos `async: (raises: [...])` consumers (e.g.,
+  # paperplanes' src/transport/http_real.nim). Compile-only test:
+  # if the firewall leaks any CatchableError into a TRM expansion, the
+  # strict-raises proc in this file fails to type-check. Standalone
+  # cell because its two TRM rewrites would push the chronos aggregate
+  # past Defense 3's 15-cap if co-located with cell 6 / 6b.
+  if existsEnv("TRIPWIRE_TEST_CHRONOS"):
+    exec "nim c --gc:orc --define:tripwireActive --define:chronos --import:tripwire/auto -r tests/test_firewall_raises_compat.nim"
   # Cell 7: arc + threads (v0.2 WI3, design §8.1, M-matrix). Runs the
   # main all_tests.nim aggregate under --mm:arc --threads:on to exercise
   # the v0.2 thread-safety amendment at the aggregate level, then runs

@@ -90,18 +90,28 @@ const FirewallOnlyMockMsg =
 
 method realize*(r: ChronosHttpSendStubResponse):
     InternalRaisesFuture[HttpClientResponseRef,
-                         (CancelledError, HttpError)] {.base.} =
+                         (CancelledError, HttpError)] {.
+      base, gcsafe, raises: [Defect].} =
   ## Mocking unsupported — see module docstring. The combinator only
   ## reaches this branch if a consumer registered a mock against this
   ## plugin, which the firewall-only design forbids. Return type
   ## matches the corresponding TRM's chronos-`async:` shape (see the
   ## TRM-block comments below for why `InternalRaisesFuture` rather
   ## than plain `Future`).
+  ##
+  ## `raises: [Defect]` is load-bearing — see `MockResponse.realize`
+  ## docstring in `tripwire/intercept.nim` for the rationale. Without
+  ## this annotation, Nim infers the maximum (Exception) and the TRM
+  ## expansion fails to type-check inside chronos `async: (raises: [...])`
+  ## consumer procs.
   raise newException(Defect, FirewallOnlyMockMsg)
 
 method realize*(r: ChronosHttpFetchStubResponse):
     InternalRaisesFuture[HttpResponseTuple,
-                         (CancelledError, HttpError)] {.base.} =
+                         (CancelledError, HttpError)] {.
+      base, gcsafe, raises: [Defect].} =
+  ## See `ChronosHttpSendStubResponse.realize` docstring for the
+  ## `raises: [Defect]` rationale.
   raise newException(Defect, FirewallOnlyMockMsg)
 
 let chronosHttpPluginInstance* = ChronosHttpPlugin(name: "chronos_httpclient",

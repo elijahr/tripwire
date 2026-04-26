@@ -66,6 +66,17 @@ task test, "Run the full test matrix":
   # past Defense 3's 15-cap if co-located with cell 6 / 6b.
   if existsEnv("TRIPWIRE_TEST_CHRONOS"):
     exec "nim c --gc:orc --define:tripwireActive --define:chronos --import:tripwire/auto -r tests/test_firewall_raises_compat.nim"
+  # Cell 6d: orc + websock client firewall plugin (standalone).
+  # Mirrors the chronos plugin's standalone-cell layout (cell 6b).
+  # The websock plugin's single `nfwebsockConnect(uri)` TRM plus this
+  # test file's wrapper helpers stay clear of Defense 3's 15-rewrite
+  # cap on its own; co-locating with chronos cells risks aggregating
+  # over. Opt-in via `TRIPWIRE_TEST_WEBSOCK=1` (websock isn't in
+  # `requires`). The websock library transitively requires chronos, so
+  # we set both `-d:chronos` and `-d:websock` together; the chronos
+  # plugin is harmless when also active in the same compilation unit.
+  if existsEnv("TRIPWIRE_TEST_WEBSOCK"):
+    exec "nim c --gc:orc --define:tripwireActive --define:chronos --define:websock --import:tripwire/auto -r tests/test_websock_firewall.nim"
   # Cell 7: arc + threads (v0.2 WI3, design §8.1, M-matrix). Runs the
   # main all_tests.nim aggregate under --mm:arc --threads:on to exercise
   # the v0.2 thread-safety amendment at the aggregate level, then runs

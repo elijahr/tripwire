@@ -36,6 +36,12 @@ when defined(tripwireActive):
   # See plugins/chronos_httpclient.nim for the firewall-only rationale.
   when defined(chronos):
     import ./plugins/chronos_httpclient
+  # Websock client firewall (G1-only). Auto-registers when the consumer
+  # opts in via `-d:websock`; consumers without websock see no plugin
+  # and no compile cost. See plugins/websock.nim for the firewall-only
+  # rationale (mirror of the chronos plugin shape).
+  when defined(websock):
+    import ./plugins/websock as websock_plugin
 
   # Re-export the plugin modules (not just import them). Without this,
   # the TRM expansion at consumer sites that only do `import tripwire/auto`
@@ -48,6 +54,8 @@ when defined(tripwireActive):
   export mock, httpclient, osproc
   when defined(chronos):
     export chronos_httpclient
+  when defined(websock):
+    export websock_plugin
 
   # Re-export the focused set of framework symbols that the
   # `{.dirty.}` TRM combinator's body references at expansion time.

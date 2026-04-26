@@ -149,21 +149,29 @@ plugin-side comparison is the planned upgrade; today the matcher walks
 the call's fingerprint string as a coarse fallback. Closures remain
 the unconditional escape hatch.
 
-### `restrict` — inverse ceiling
+### `restrict` — ceiling on `allow`
 
 ```nim
 sandbox:
-  # restrict configures a CEILING: nothing inside this sandbox can
-  # widen the firewall beyond what these matchers permit.
-  restrict(httpclientPlugin, M(host = "127.0.0.*"))
+  # `allow` lists what the sandbox PERMITS. `restrict` is a CEILING
+  # that shrinks the effective permission set down to calls that fall
+  # inside it. Pair a broad `allow` with a narrow `restrict` to get
+  # "permit anything httpclient intercepts, but only under 127.0.0.*."
+  allow(httpclientPlugin)                              # broad
+  restrict(httpclientPlugin, M(host = "127.0.0.*"))    # ceiling
 
-  # An inner allow() can only authorize calls that ALSO match restrict.
-  allow(httpclientPlugin, M(host = "127.0.0.1"))
+  # A call passes iff some `allow` matches AND, if any `restrict` is
+  # configured for the plugin, some `restrict` matches too. With no
+  # `allow` registered, `restrict` alone authorizes nothing — it
+  # filters the permission set, it does not grant.
 ```
 
-Use `restrict` to lock down a sandbox's blast radius before letting
-helper code reach for `allow`. Bigfoot's mental model: `restrict` is
-the airlock; `allow` is the door.
+Use `restrict` to bound a sandbox's blast radius. Bigfoot's mental
+model: `allow` is the permit list; `restrict` is the ceiling that
+inner blocks cannot widen. Tripwire today is single-scope, so the
+ceiling and the permit list collapse to "allow ∩ restrict at call
+time" — but the framing extends naturally to nested sandboxes when
+they land.
 
 ### `guard` — warn vs error
 

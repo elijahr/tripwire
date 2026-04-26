@@ -79,11 +79,14 @@ nimble packages to the transitive walk and is a no-op unless
     Plugins SHOULD honor structured fields when present; the default
     fingerprint-substring fallback works for any plugin out of the
     box.
-  - `sandbox.restrict(plugin[, predicate|matcher])` — inverse ceiling.
-    When `restrict` is non-empty, an unmocked call MUST match a
-    `restrict` entry to even reach `allow`; otherwise the firewall
-    short-circuits to defect (or warn, per `firewallMode`). Bigfoot's
-    "airlock" pattern.
+  - `sandbox.restrict(plugin[, predicate|matcher])` — ceiling on
+    `allow`. Bigfoot's mental model: `allow` lists what the sandbox
+    PERMITS; `restrict` shrinks the permission set down to calls that
+    fall inside the ceiling. A call passes iff some `allow` matches
+    AND, if any `restrict` is configured for the plugin, some
+    `restrict` matches too. `restrict` alone authorizes nothing — it
+    filters the permission set, it does not grant. Most useful as a
+    broad `allow(plugin)` narrowed by a `restrict(plugin, M(...))`.
   - `firewallMode: FirewallMode` on `Verifier` (default `fmError`,
     flippable to `fmWarn`). `fmWarn` mirrors bigfoot's `guard = "warn"`
     lane: emit a `tripwire firewall:` line to stderr and proceed via

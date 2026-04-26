@@ -12,11 +12,14 @@
 ##                                          — matcher DSL; plugins receive the
 ##                                            Matcher via `AllowMatch` and SHOULD
 ##                                            honor host/port/method/path.
-##   * `sandbox.restrict(...)`              — inverse ceiling. If non-empty, an
-##                                            unmocked call MUST match a
-##                                            `restrict` entry to even reach
-##                                            `allow`; otherwise the firewall
-##                                            short-circuits to defect/warn.
+##   * `sandbox.restrict(...)`              — ceiling on `allow`. Bigfoot's
+##                                            mental model: `allow` lists what
+##                                            the sandbox PERMITS; `restrict`
+##                                            shrinks the permission set down to
+##                                            what falls inside the ceiling. A
+##                                            `restrict` entry alone authorizes
+##                                            nothing — it filters allows, it
+##                                            does not grant.
 ##   * `firewallMode` on the Verifier        — `fmError` (default; tripwire's
 ##                                            three-guarantees posture) raises
 ##                                            `UnmockedInteractionDefect` for
@@ -25,15 +28,40 @@
 ##                                            to stderr and proceeds via
 ##                                            passthrough.
 ##
+## ## Ceiling semantics
+##
+## `restrict` is a ceiling on the sandbox's effective permission set. The
+## decision rule is observationally:
+##
+##   * If `restrict` is empty for a plugin: the call passes iff some `allow`
+##     entry for that plugin matches.
+##   * If `restrict` is non-empty for a plugin: the call passes iff some
+##     `allow` entry matches AND some `restrict` entry matches.
+##
+## This is equivalent to "intersect allow with restrict at call time": the
+## predicates aren't enumerable sets, so the intersection is computed by
+## checking both sides against the live call. The most useful pattern is a
+## broad `allow(plugin)` (blanket: matches every call) narrowed by a
+## `restrict(plugin, M(...))` ceiling — say "permit anything httpclient
+## intercepts, but only for hosts under 127.0.0.*."
+##
+## Tripwire today has a single (flat) sandbox scope. When nested sandboxes
+## land in a future release, the ceiling extends naturally: an inner
+## `restrict` filters the union of outer + inner allows, so an inner block
+## can only TIGHTEN the ceiling, never widen it (bigfoot's "inner blocks
+## cannot widen" guarantee).
+##
 ## Consultation order in the intercept combinators
 ## (`tripwire/intercept.tripwireInterceptBody`,
 ## `tripwire/plugins/plugin_intercept.tripwirePluginIntercept`):
 ##
 ##   1. Mock match → return mock response.
 ##   2. Plugin's own `passthroughFor(procName)` (e.g., MockPlugin's blanket).
-##   3. If `restrictPredicates` is non-empty AND no entry matches → defect/warn.
-##   4. If any `allowPredicates` entry matches → spy body runs.
-##   5. Otherwise → defect/warn (per `firewallMode`).
+##      This is a tripwire-specific extension that sits above the firewall;
+##      the per-plugin gate is consulted before allow/restrict.
+##   3. If any `allow` entry matches AND (if `restrict` is non-empty) some
+##      `restrict` entry also matches → spy body runs.
+##   4. Otherwise → defect/warn (per `firewallMode`).
 import std/[tables, monotimes, strutils]
 import ./[types, timeline, errors, plugin_base]
 import ./async_registry_types
@@ -104,10 +132,13 @@ type
       ## (and `tripwireInterceptBody`) when a call has no mock and
       ## the plugin's own `passthroughFor` says no.
     restrictPredicates*: seq[AllowEntry]
-      ## Per-sandbox `restrict` entries — inverse ceiling. When
-      ## non-empty, an unmocked call MUST match a `restrict` entry to
-      ## be eligible for `allow`; otherwise the firewall raises
-      ## (`fmError`) or warns (`fmWarn`) immediately.
+      ## Per-sandbox `restrict` entries — the ceiling on `allow`. When
+      ## non-empty for a given plugin, the effective permission set is
+      ## the intersection of `allowPredicates` and `restrictPredicates`
+      ## for that plugin: a call passes iff some `allow` entry matches
+      ## AND some `restrict` entry matches. With no `allow` registered,
+      ## a non-empty `restrict` authorizes nothing (the intersection is
+      ## empty). See module docstring for the full ceiling semantics.
     firewallMode*: FirewallMode
 
 proc newVerifier*(name: string = ""): Verifier =
@@ -250,16 +281,23 @@ proc allow*(plugin: Plugin, matcher: Matcher) =
                                    matcher: matcher))
 
 proc restrict*(plugin: Plugin) =
-  ## Inverse-ceiling, plugin-name shorthand. When `restrictPredicates`
-  ## is non-empty, only calls whose plugin matches a `restrict` entry
-  ## are eligible for `allow`. Use this to prevent inner sandboxes from
-  ## widening the firewall.
+  ## Ceiling-on-`allow`, plugin-name shorthand. A blanket `restrict`
+  ## entry matches every call routed through `plugin`, so it narrows
+  ## the ceiling to "anything for this plugin" — equivalent to no
+  ## ceiling at all for `plugin` while still filtering OTHER plugins'
+  ## allows down to nothing (any plugin without its own `restrict`
+  ## entry has an empty ceiling and rejects). Mostly useful as a
+  ## scaffold; structured matchers are the load-bearing form.
   let v = currentVerifier()
   if v.isNil:
     raise newLeakedInteractionDefect(getThreadId(), instantiationInfo())
   v.restrictPredicates.add(AllowEntry(plugin: plugin, kind: aekAllPlugin))
 
 proc restrict*(plugin: Plugin, predicate: AllowPredicate) =
+  ## Ceiling on `allow`. The predicate is consulted at call time; calls
+  ## that don't match it are outside the ceiling and reject regardless
+  ## of `allow`. With no matching `allow`, this still authorizes
+  ## nothing — `restrict` filters the permission set, it does not grant.
   let v = currentVerifier()
   if v.isNil:
     raise newLeakedInteractionDefect(getThreadId(), instantiationInfo())
@@ -267,6 +305,10 @@ proc restrict*(plugin: Plugin, predicate: AllowPredicate) =
                                       predicate: predicate))
 
 proc restrict*(plugin: Plugin, matcher: Matcher) =
+  ## Ceiling on `allow`, matcher-DSL form. The matcher is the canonical
+  ## "narrow a broad allow" tool: pair `allow(plugin)` (blanket) with
+  ## `restrict(plugin, M(host="..."))` (ceiling) to permit everything
+  ## the plugin intercepts EXCEPT calls that fall outside the matcher.
   let v = currentVerifier()
   if v.isNil:
     raise newLeakedInteractionDefect(getThreadId(), instantiationInfo())
@@ -303,13 +345,22 @@ proc sandboxAllowsFor*(v: Verifier, plugin: Plugin,
 proc sandboxRestrictsFor*(v: Verifier, plugin: Plugin,
                           procName, fingerprint: string):
                           tuple[active: bool, allows: bool] =
+  ## Computes the ceiling side of the firewall decision. The runtime
+  ## decision (in `firewallDecideRaw`) is "allow ∩ restrict" at call
+  ## time: passthrough requires a matching `allow` AND, if any
+  ## `restrict` entries are configured, a matching `restrict`.
+  ##
   ## Returns `(active, allows)`:
   ##   - `active = false` means the verifier has no `restrict` entries;
-  ##     callers should ignore the gate.
+  ##     the ceiling is open, so the decision reduces to "does some
+  ##     allow match?".
   ##   - `active = true, allows = true` means at least one `restrict`
-  ##     entry matched `(plugin, procName, fingerprint)`.
+  ##     entry matched `(plugin, procName, fingerprint)`; the ceiling
+  ##     admits this call.
   ##   - `active = true, allows = false` means restrict is configured
-  ##     but no entry matches — short-circuit to defect/warn.
+  ##     but no entry matches — the ceiling rejects regardless of
+  ##     `allow`. With no `allow` registered the ceiling also rejects
+  ##     (the intersection of empty allow with anything is empty).
   if v.isNil or v.restrictPredicates.len == 0:
     return (active: false, allows: false)
   for entry in v.restrictPredicates:
@@ -340,9 +391,25 @@ type FirewallDecision* = enum
 proc firewallDecideRaw*(v: Verifier, plugin: Plugin, procName,
                         fingerprint: string): FirewallDecision =
   ## Pure decision proc — exposed for unit tests and plugin authors
-  ## writing custom intercept combinators. Decision order: plugin-level
-  ## blanket passthrough -> restrict ceiling -> allow predicates ->
-  ## firewallMode. Side-effect-free.
+  ## writing custom intercept combinators. Side-effect-free.
+  ##
+  ## Decision rule (bigfoot ceiling model in flat-scope semantics):
+  ##
+  ##   1. Plugin-level blanket passthrough (e.g., MockPlugin's
+  ##      `passthroughFor` over every procName) → fdAllow. This is a
+  ##      tripwire-specific extension that sits above the firewall.
+  ##   2. Compute the ceiling: if `restrict` is non-empty for `plugin`
+  ##      and no `restrict` entry matches the call, the call is OUTSIDE
+  ##      the ceiling → fdRaise (or fdWarn).
+  ##   3. Otherwise the call is inside (or there is no) ceiling.
+  ##      Consult `allow`: if some entry matches → fdAllow.
+  ##   4. No allow match → fdRaise (or fdWarn).
+  ##
+  ## Steps 2-3 jointly implement "passthrough iff the call is in
+  ## allow ∩ restrict" — the ceiling shrinks the effective `allow` set
+  ## down to entries that fall under it. With `restrict` empty, the
+  ## ceiling is open and the rule reduces to "iff some allow matches."
+  ## With `allow` empty, no call passes regardless of `restrict`.
   let pluginPasses = plugin.supportsPassthrough() and
                      plugin.passthroughFor(procName)
   if pluginPasses:

@@ -6,7 +6,7 @@
 ##   * `allow(plugin)`                 — blanket plugin-name shorthand.
 ##   * `allow(plugin, predicate)`      — closure escape hatch.
 ##   * `allow(plugin, M(...))`         — matcher DSL.
-##   * `restrict(...)`                 — inverse ceiling.
+##   * `restrict(...)`                 — ceiling on `allow` (intersection).
 ##   * `firewallMode = fmWarn`         — warns on stderr, then passes through.
 ##   * `firewallMode = fmError`        — raises (default).
 ##   * Predicate keyed on plugin A doesn't affect plugin B's calls.
@@ -160,31 +160,52 @@ suite "firewall":
       check fetchA("127.0.0.7") == "real-A:127.0.0.7"
       v.timeline.markAsserted(v.timeline.entries[0])
 
-  # ---- restrict ---------------------------------------------------------
+  # ---- restrict (ceiling on allow) --------------------------------------
 
-  test "restrict alone, matched call: still raises (no allow set)":
-    # Spec: restrict is a CEILING, not a permission. Even when a call
-    # matches a restrict entry, it must ALSO match an allow entry to
-    # pass through. With no allow set, every call raises.
+  test "restrict alone authorizes nothing (empty allow ∩ restrict = empty)":
+    # `restrict` is a CEILING on `allow`, not a permission grant. With
+    # no `allow` registered, the effective permission set is empty
+    # regardless of whether the call matches `restrict` — the ceiling
+    # filters the permission set, it does not grant.
     expect UnmockedInteractionDefect:
       sandbox:
         restrict(ptPluginA, proc(procName, fp: string): bool =
           fp.contains("127.0.0.1"))
         discard fetchA("127.0.0.1")
 
-  test "restrict alone, unmatched call: raises (short-circuit)":
+  test "restrict alone, unmatched call: raises (no allow, no ceiling-admit)":
     expect UnmockedInteractionDefect:
       sandbox:
         restrict(ptPluginA, proc(procName, fp: string): bool =
           fp.contains("127.0.0.1"))
-        # 8.8.8.8 is outside the restrict ceiling; this short-circuits
-        # without consulting `allow`.
+        # Outside the ceiling AND no allow — both reasons reject.
         discard fetchA("8.8.8.8")
 
-  test "restrict + allow: allow only takes effect within restrict":
-    # restrict permits 127.* prefix and localhost; allow within widens
-    # to host=localhost. An attempt to allow 8.8.8.8 is impossible
-    # because restrict gates the call before allow is consulted.
+  test "blanket allow + restrict matcher: ceiling narrows broad permission":
+    # The canonical bigfoot pattern. `allow(plugin)` permits every
+    # call the plugin intercepts; `restrict(plugin, M(...))` is the
+    # ceiling that shrinks the permission set down to calls matching
+    # the matcher. Calls inside the ceiling pass; calls outside reject.
+    sandbox:
+      let v = currentVerifier()
+      allow(ptPluginA)                                  # broad permit
+      restrict(ptPluginA, M(host = "127.0.0.*"))        # ceiling
+      check fetchA("127.0.0.1") == "real-A:127.0.0.1"
+      check fetchA("127.0.0.42") == "real-A:127.0.0.42"
+      check v.timeline.entries.len == 2
+      v.timeline.markAsserted(v.timeline.entries[0])
+      v.timeline.markAsserted(v.timeline.entries[1])
+    expect UnmockedInteractionDefect:
+      sandbox:
+        allow(ptPluginA)
+        restrict(ptPluginA, M(host = "127.0.0.*"))
+        # Outside the ceiling; the blanket allow doesn't widen it.
+        discard fetchA("8.8.8.8")
+
+  test "restrict + non-matching allow: rejects (intersection is empty)":
+    # `allow` matches localhost; `restrict` only admits 127.* / localhost.
+    # 8.8.8.8 is outside both, so the intersection rejects it. Conversely
+    # localhost is in BOTH and passes — demonstrates "allow ∩ restrict."
     sandbox:
       let v = currentVerifier()
       restrict(ptPluginA, proc(procName, fp: string): bool =
@@ -196,7 +217,7 @@ suite "firewall":
       sandbox:
         restrict(ptPluginA, proc(procName, fp: string): bool =
           fp.contains("127.") or fp.contains("localhost"))
-        # Wide-open allow: restrict still wins.
+        # allow widens to "anything" but restrict ceiling still filters.
         allow(ptPluginA)
         discard fetchA("8.8.8.8")
 

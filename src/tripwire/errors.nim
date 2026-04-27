@@ -32,11 +32,13 @@ type
     procName*: string
 
   OutsideSandboxNoPassthroughDefect* = object of TripwireDefect
-    ## Raised when a TRM fires outside any sandbox under
-    ## `[tripwire.firewall].guard = "warn"` for a plugin that does not
-    ## support passthrough. The remediation is in the message: install
-    ## a sandbox, or flip back to `guard = "error"` to make the missing
-    ## sandbox loud at the standard `LeakedInteractionDefect` site.
+    ## Raised when a TRM fires outside any sandbox under a resolved
+    ## `fmWarn` firewall mode (either `[tripwire.firewall].<plugin>=
+    ## "warn"` or `[tripwire.firewall].default = "warn"`) for a plugin
+    ## that does not support passthrough. The remediation is in the
+    ## message: install a sandbox, narrow the per-plugin entry to
+    ## `"error"`, or flip the default back to `"error"` so the missing
+    ## sandbox is loud at the standard `LeakedInteractionDefect` site.
     pluginName*: string
     procName*: string
     callsite*: tuple[filename: string, line: int]
@@ -151,13 +153,15 @@ proc newOutsideSandboxNoPassthroughDefect*(pluginName, procName: string,
   ## inside TRM expansions that may sit inside chronos
   ## `async: (raises: [...])` procs. Matches `newLeakedInteractionDefect`'s
   ## annotation. Message format mirrors bigfoot's pedagogical guidance:
-  ## point the operator at either installing a sandbox or flipping back
-  ## to `guard = "error"` for the standard LeakedInteractionDefect.
+  ## point the operator at either installing a sandbox, narrowing the
+  ## per-plugin entry, or flipping the default back to `"error"` for the
+  ## standard LeakedInteractionDefect.
   let msg = "plugin '" & pluginName &
     "' doesn't support outside-sandbox passthrough for '" & procName &
     "' at " & callsite.filename & ":" & $callsite.line &
-    "; install a sandbox or set [tripwire.firewall].guard='error' to " &
-    "make this fail loudly with the standard LeakedInteractionDefect" &
+    "; install a sandbox, set [tripwire.firewall]." & pluginName & "='warn' " &
+    "to allow this plugin's passthrough specifically, or set " &
+    "[tripwire.firewall].default='warn' as a project-wide default" &
     FFIScopeFooter
   result = (ref OutsideSandboxNoPassthroughDefect)(msg: msg,
     pluginName: pluginName, procName: procName,

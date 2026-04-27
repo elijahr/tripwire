@@ -27,9 +27,11 @@ export cap_counter.tripwireCountRewrite, cap_counter.TripwireCapThreshold
 
 # ---- Outside-sandbox firewall predicate ---------------------------------
 #
-# A4'''.4 guard mode: when [tripwire.firewall].guard='warn' is configured,
-# unmocked TRM calls outside any sandbox can pass through to the real impl
-# (when the plugin supports it) instead of raising LeakedInteractionDefect.
+# A4'''.4 / A4'''.5 guard mode: when the resolved firewall mode for the
+# calling plugin is fmWarn (per-plugin entry under [tripwire.firewall], or
+# the [tripwire.firewall].default fallback), unmocked TRM calls outside
+# any sandbox can pass through to the real impl (when the plugin supports
+# it) instead of raising LeakedInteractionDefect.
 #
 # CONSUMPTION SHAPE: this predicate is callable from a TRM body and is
 # unconditionally consulted from both `tripwireInterceptBody` (here) and
@@ -38,11 +40,16 @@ export cap_counter.tripwireCountRewrite, cap_counter.TripwireCapThreshold
 proc outsideSandboxShouldPassthrough*(plugin: Plugin, procName: string,
     callsite: tuple[filename: string, line: int]): bool {.raises: [].} =
   ## Outside-sandbox firewall decision, bool form. Returns `true` iff
-  ## guard=fmWarn AND the plugin can passthrough (also emits the stderr
-  ## warning as a side effect). RAISES on the raise paths:
-  ##   - guard=fmError → raises LeakedInteractionDefect.
-  ##   - guard=fmWarn AND plugin can't passthrough → raises
+  ## resolved mode = fmWarn AND the plugin can passthrough (also emits
+  ## the stderr warning as a side effect). RAISES on the raise paths:
+  ##   - resolved mode = fmError → raises LeakedInteractionDefect.
+  ##   - resolved mode = fmWarn AND plugin can't passthrough → raises
   ##     OutsideSandboxNoPassthroughDefect.
+  ##
+  ## Resolution: per-plugin entry in `firewall.guards[plugin.name]` wins
+  ## over `firewall.default`. A4'''.5 brings tripwire's
+  ## `[tripwire.firewall]` block into bigfoot-parity (per-key sibling
+  ## form: `default = "..."` plus per-plugin overrides).
   ##
   ## `{.raises: [].}` is load-bearing: both raised types are Defects (not
   ## CatchableErrors), so the empty raises clause is correct (Defects
@@ -67,7 +74,8 @@ proc outsideSandboxShouldPassthrough*(plugin: Plugin, procName: string,
   result = false
   var guardMode = fmError
   try:
-    guardMode = getConfig().firewall.guard
+    let cfg = getConfig()
+    guardMode = cfg.firewall.guards.getOrDefault(plugin.name, cfg.firewall.default)
   except Exception as e:
     # Re-raise Defects (assertion failures, OutOfMemoryError, etc.):
     # `except Exception:` is the only clause that satisfies the effect

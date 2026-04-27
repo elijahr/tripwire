@@ -16,14 +16,17 @@
 ##     ... plugin-specific keys, stashed as TomlValueRef
 ##   [tripwire.firewall]
 ##     allow                = ["plugin-name", ...]    # blanket-allow these plugins
-##     guard                = "warn" | "error"        # default "error"
+##     default              = "warn" | "error"        # default "error"
+##     <plugin-name>        = "warn" | "error"        # per-plugin override
 ##
 ## Bigfoot pedigree
 ## ----------------
 ## The `[tripwire.firewall]` block is modeled on bigfoot's
 ## `[tool.bigfoot.firewall]` (axiomantic/bigfoot, the Python library
-## tripwire ports). `guard = "warn"` mirrors bigfoot's default; tripwire
-## defaults to `"error"` instead. Uses the unified
+## tripwire ports). The per-key form (`default = "..."` plus per-plugin
+## sibling keys) mirrors bigfoot's `[tool.bigfoot.firewall]` exactly;
+## bigfoot's `guard = "warn"` default is replaced here with `default =
+## "error"` for safer-by-default tripwire behavior. Uses the unified
 ## `firewall_types.FirewallMode` so the parsed config maps directly onto
 ## the sandbox-level enum without a parallel translation step.
 
@@ -40,7 +43,10 @@ type
     ## (later-wins rule); this struct supplies the per-sandbox
     ## bootstrap.
     allow*: seq[string]    ## plugin-name shorthands, e.g. ["dns", "socket"]
-    guard*: FirewallMode
+    default*: FirewallMode ## default mode for plugins not in `guards`
+    guards*: Table[string, FirewallMode]
+      ## per-plugin override map; keyed by `Plugin.name`. A lookup miss
+      ## falls back to `default`. Bigfoot-parity sibling-key form.
 
   TripwireConfig* = object
     enabledPlugins*: seq[string]
@@ -55,7 +61,8 @@ proc defaultConfig*(): TripwireConfig =
   TripwireConfig(
     enabledPlugins: @[],
     pluginOptions: initTable[string, TomlValueRef](),
-    firewall: FirewallConfig(allow: @[], guard: fmError),
+    firewall: FirewallConfig(allow: @[], default: fmError,
+                             guards: initTable[string, FirewallMode]()),
     allowPendingAsync: false,
     sources: @["builtin-defaults"])
 
@@ -82,19 +89,38 @@ proc discoverConfigPath*(): Option[string] =
     dir = parent
   none(string)
 
+proc parseFirewallModeStr(label, raw: string): FirewallMode
+    {.raises: [ValueError].} =
+  case raw
+  of "warn": fmWarn
+  of "error": fmError
+  else:
+    raise newException(ValueError,
+      "[tripwire.firewall]." & label & " must be \"warn\" or \"error\"; got: " &
+      raw)
+
 proc parseFirewallConfig(t: TomlValueRef): FirewallConfig =
-  result = FirewallConfig(allow: @[], guard: fmError)
-  if t.hasKey("allow"):
-    result.allow = t["allow"].getElems.mapIt(it.getStr)
-  if t.hasKey("guard"):
-    let gotString = t["guard"].getStr
-    case gotString
-    of "warn": result.guard = fmWarn
-    of "error": result.guard = fmError
+  ## Parse a `[tripwire.firewall]` (or legacy `[firewall]`) table. Keys:
+  ##   - `allow` -> `seq[string]` of blanket-allowed plugin names.
+  ##   - `default` -> top-level FirewallMode for plugins not otherwise
+  ##     keyed.
+  ##   - any other string-valued sibling key -> per-plugin entry stored
+  ##     in `guards[key]`. Plugin name canonicalization is exact (sync
+  ##     `httpclient` and async `chronos_httpclient` are separate keys).
+  ##   - non-string siblings (e.g., future subtables under
+  ##     `[tripwire.firewall]`) are silently ignored - forward-compat.
+  result = FirewallConfig(allow: @[], default: fmError,
+                          guards: initTable[string, FirewallMode]())
+  for k, v in t.tableVal[]:
+    case k
+    of "allow":
+      result.allow = v.getElems.mapIt(it.getStr)
+    of "default":
+      result.default = parseFirewallModeStr("default", v.getStr)
     else:
-      raise newException(ValueError,
-        "[tripwire.firewall].guard must be \"warn\" or \"error\"; got: " &
-        gotString)
+      if v.kind == TomlValueKind.String:
+        result.guards[k] = parseFirewallModeStr(k, v.getStr)
+      # Non-string siblings silently ignored (forward-compat for subtables).
 
 proc loadConfig*(path: Option[string]): TripwireConfig =
   ## Load a `TripwireConfig` from `path`. If `path.isNone`, returns
@@ -120,7 +146,9 @@ proc loadConfig*(path: Option[string]): TripwireConfig =
   for pluginName in result.enabledPlugins:
     if toml.hasKey(pluginName):
       result.pluginOptions[pluginName] = toml[pluginName]
-  if result.firewall.allow.len == 0 and result.firewall.guard == fmError and
+  if result.firewall.allow.len == 0 and
+     result.firewall.default == fmError and
+     result.firewall.guards.len == 0 and
      toml.hasKey("firewall"):
     # Legacy flat [firewall] block — only consult if the bigfoot-style
     # nested form left defaults intact.

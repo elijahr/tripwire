@@ -1,25 +1,32 @@
-## tests/test_outside_sandbox_guard.nim - A4'''.4 outside-sandbox guard mode.
+## tests/test_outside_sandbox_guard.nim - A4'''.4 + A4'''.5 outside-sandbox
+## guard mode (single-scalar `default` plus per-plugin per-key overrides).
 ##
-## Wires `[tripwire.firewall].guard = "warn"` from tripwire.toml into the
-## TRM-body chokepoints (intercept.nim, plugin_intercept.nim). Seven cases
-## per design doc 2026-04-26-tripwire-guard-mode-design.md section 6:
+## Wires `[tripwire.firewall]` (with `default = "..."` and per-plugin
+## `<plugin> = "..."` keys) from tripwire.toml into the TRM-body
+## chokepoints (intercept.nim, plugin_intercept.nim). Cases:
 ##
-##   1. Default config (guard unset): outside-sandbox call raises
+##   1. Default config (default unset): outside-sandbox call raises
 ##      LeakedInteractionDefect.
-##   2. guard = "error" explicit: same as case 1.
-##   3. guard = "warn" + passthrough-capable plugin: stderr warning emitted,
-##      real impl runs, return value matches.
-##   4. guard = "warn" + non-passthrough plugin: raises
+##   2. default = "error" explicit: same as case 1.
+##   3. default = "warn" + passthrough-capable plugin: stderr warning
+##      emitted, real impl runs, return value matches.
+##   4. default = "warn" + non-passthrough plugin: raises
 ##      OutsideSandboxNoPassthroughDefect.
-##   5. guard = "warn" inside sandbox: inside-sandbox UnmockedInteractionDefect
-##      semantics unchanged.
+##   5. default = "warn" inside sandbox: inside-sandbox
+##      UnmockedInteractionDefect semantics unchanged.
 ##   6. Multi-thread isolation: thread-A reload only updates thread-A's
 ##      config memo; thread-B keeps old behavior.
 ##   7. Legacy flat [firewall] block (not [tripwire.firewall]): same wiring.
+##   8. Per-plugin warn beats default error (passthrough plugin).
+##   9. Per-plugin warn for non-passthrough plugin -> NoPassthroughDefect.
+##  10. Per-plugin error beats default warn (passthrough plugin).
+##  11. Per-plugin override does not bleed across plugin names.
+##  12. Typo'd plugin key uses default for the actual plugin.
+##  13. Invalid mode in per-plugin entry raises ValueError at load.
 ##
 ## Stderr capture uses POSIX dup2 to a tempfile.
 
-import std/[unittest, os, options, posix, locks, strutils, times]
+import std/[unittest, os, options, posix, locks, strutils, tables, times]
 import tripwire/[types, errors, timeline, sandbox, verify, intercept,
                  cap_counter, config, firewall_types, plugin_base]
 import tripwire/plugins/plugin_intercept
@@ -59,8 +66,8 @@ proc outsideSandboxPassthroughCall(x: int): int =
       x * 7
 
 # `outsideSandboxNoPassthroughCall` exercises the same combinator with a
-# plugin whose supportsPassthrough()=false. Under guard="warn" this must
-# raise OutsideSandboxNoPassthroughDefect.
+# plugin whose supportsPassthrough()=false. Under a resolved fmWarn mode
+# this must raise OutsideSandboxNoPassthroughDefect.
 proc outsideSandboxNoPassthroughCall(x: int): int =
   tripwirePluginIntercept(noPassthroughPlugin,
     "outsideSandboxNoPassthroughCall",
@@ -68,6 +75,19 @@ proc outsideSandboxNoPassthroughCall(x: int): int =
     NoPassthroughResp):
     {.noRewrite.}:
       x * 11
+
+# Second passthrough-capable plugin instance for case 11. Re-uses
+# PassthroughPlugin so the realize/supportsPassthrough/passthroughFor
+# methods are inherited; only `name` differs.
+let secondPassthroughPlugin* = PassthroughPlugin(name: "secondPassthroughPlug",
+                                                  enabled: true)
+
+proc secondPassthroughCall(x: int): int =
+  tripwirePluginIntercept(secondPassthroughPlugin, "secondPassthroughCall",
+    fingerprintOf("secondPassthroughCall", @[$x]),
+    PassthroughResp):
+    {.noRewrite.}:
+      x * 13
 
 # ---- Helpers ------------------------------------------------------------
 
@@ -167,7 +187,7 @@ proc threadBProc() {.thread.} =
 
 # ---- Suite --------------------------------------------------------------
 
-suite "outside-sandbox guard mode (A4'''.4)":
+suite "outside-sandbox guard mode (A4'''.4 + A4'''.5)":
   setup:
     clearVerifierStack()
     delEnv("TRIPWIRE_CONFIG")
@@ -182,29 +202,33 @@ suite "outside-sandbox guard mode (A4'''.4)":
     # No TRIPWIRE_CONFIG set; reloadConfig() leaves cwd-walk discovery; in
     # the test cwd there should be no tripwire.toml committed at the
     # package root (verified by `loadConfig(none)` returning defaults).
-    check getConfig().firewall.guard == fmError
+    check getConfig().firewall.default == fmError
+    check getConfig().firewall.guards.len == 0
     expect LeakedInteractionDefect:
       discard outsideSandboxNoPassthroughCall(3)
 
-  test "case 2: guard='error' -> LeakedInteractionDefect":
+  test "case 2: default='error' -> LeakedInteractionDefect":
     let path = applyConfig("""
 [tripwire.firewall]
-guard = "error"
+default = "error"
 """)
     try:
-      check getConfig().firewall.guard == fmError
+      check getConfig().firewall.default == fmError
       expect LeakedInteractionDefect:
         discard outsideSandboxNoPassthroughCall(4)
     finally:
       clearConfig(path)
 
-  test "case 3: guard='warn' + passthrough plugin -> stderr+passthrough":
+  test "case 3: default='warn' + passthrough plugin -> stderr+passthrough":
+    # Note: the runtime stderr emission still says "tripwire(guard=warn)"
+    # — that's a hardcoded label in intercept.nim, kept for operator
+    # familiarity. Only the TOML schema renamed `guard` -> `default`.
     let path = applyConfig("""
 [tripwire.firewall]
-guard = "warn"
+default = "warn"
 """)
     try:
-      check getConfig().firewall.guard == fmWarn
+      check getConfig().firewall.default == fmWarn
       var ret = 0
       let captured = captureStderr(proc() {.gcsafe.} =
         ret = outsideSandboxPassthroughCall(6))
@@ -235,13 +259,13 @@ guard = "warn"
     finally:
       clearConfig(path)
 
-  test "case 4: guard='warn' + no-passthrough -> NoPassthroughDefect":
+  test "case 4: default='warn' + no-passthrough -> NoPassthroughDefect":
     let path = applyConfig("""
 [tripwire.firewall]
-guard = "warn"
+default = "warn"
 """)
     try:
-      check getConfig().firewall.guard == fmWarn
+      check getConfig().firewall.default == fmWarn
       var caught: ref OutsideSandboxNoPassthroughDefect = nil
       try:
         discard outsideSandboxNoPassthroughCall(5)
@@ -260,22 +284,23 @@ guard = "warn"
         "' doesn't support outside-sandbox passthrough for " &
         "'outsideSandboxNoPassthroughCall' at " &
         caught.callsite.filename & ":" & $caught.callsite.line &
-        "; install a sandbox or set [tripwire.firewall].guard='error' " &
-        "to make this fail loudly with the standard " &
-        "LeakedInteractionDefect" & FFIScopeFooter
+        "; install a sandbox, set [tripwire.firewall]." &
+        noPassthroughPlugin.name & "='warn' to allow this plugin's " &
+        "passthrough specifically, or set [tripwire.firewall].default='warn' " &
+        "as a project-wide default" & FFIScopeFooter
       check caught.msg == expectedMsg
     finally:
       clearConfig(path)
 
-  test "case 5: guard='warn' inside sandbox -> UnmockedInteractionDefect":
+  test "case 5: default='warn' inside sandbox -> UnmockedInteractionDefect":
     # Inside-sandbox firewall semantics are unchanged. Verifier defaults
     # firewallMode=fmError (per newVerifier) regardless of project config.
     let path = applyConfig("""
 [tripwire.firewall]
-guard = "warn"
+default = "warn"
 """)
     try:
-      check getConfig().firewall.guard == fmWarn
+      check getConfig().firewall.default == fmWarn
       expect UnmockedInteractionDefect:
         sandbox:
           discard outsideSandboxNoPassthroughCall(7)
@@ -284,7 +309,7 @@ guard = "warn"
 
   test "case 6: thread B's threadvar memo isolated from thread A":
     # F2 from design: spawn thread B FIRST, have it memoize default
-    # config and park. Then thread A: write toml with guard='warn',
+    # config and park. Then thread A: write toml with default='warn',
     # set TRIPWIRE_CONFIG, call reloadConfig() on A's thread, do an
     # outside-sandbox passthrough call (must succeed). Signal B.
     # Thread B does its own outside-sandbox call WITHOUT calling
@@ -302,13 +327,13 @@ guard = "warn"
     while not threadBOutcome.threadStarted:
       wait(threadBStartReady, threadBOutcomeLock)
     release(threadBOutcomeLock)
-    # Thread A: apply guard='warn'.
+    # Thread A: apply default='warn'.
     let path = applyConfig("""
 [tripwire.firewall]
-guard = "warn"
+default = "warn"
 """)
     try:
-      check getConfig().firewall.guard == fmWarn
+      check getConfig().firewall.default == fmWarn
       # Thread A passthrough call succeeds.
       var ret = 0
       discard captureStderr(proc() {.gcsafe.} =
@@ -336,17 +361,17 @@ guard = "warn"
       deinitCond(threadBStartReady)
       deinitLock(threadBOutcomeLock)
 
-  test "case 7: legacy flat [firewall] block also wires guard='warn'":
+  test "case 7: legacy flat [firewall] block also wires default='warn'":
     # The legacy fall-through at config.nim's loadConfig consults
     # toml["firewall"] only if the [tripwire.firewall] block left
     # defaults intact, so the flat form must NOT also include a
     # [tripwire.firewall] block.
     let path = applyConfig("""
 [firewall]
-guard = "warn"
+default = "warn"
 """)
     try:
-      check getConfig().firewall.guard == fmWarn
+      check getConfig().firewall.default == fmWarn
       var ret = 0
       let captured = captureStderr(proc() {.gcsafe.} =
         ret = outsideSandboxPassthroughCall(3))
@@ -357,3 +382,121 @@ guard = "warn"
       check captured[captured.len - 1] == '\n'
     finally:
       clearConfig(path)
+
+  # ---- A4'''.5: per-plugin override semantics ---------------------------
+  test "case 8: per-plugin warn beats default error (passthrough plugin)":
+    let path = applyConfig("""
+[tripwire.firewall]
+default = "error"
+passthroughPlug = "warn"
+""")
+    try:
+      check getConfig().firewall.default == fmError
+      check getConfig().firewall.guards.getOrDefault(
+        passthroughPlugin.name, fmError) == fmWarn
+      var ret = 0
+      let captured = captureStderr(proc() {.gcsafe.} =
+        ret = outsideSandboxPassthroughCall(2))
+      check ret == 14  # 2 * 7
+      let expectedPrefix = "tripwire(guard=warn): unmocked " &
+        passthroughPlugin.name & ".outsideSandboxPassthroughCall at "
+      check captured[0 ..< expectedPrefix.len] == expectedPrefix
+    finally:
+      clearConfig(path)
+
+  test "case 9: per-plugin warn for no-passthrough plugin -> NoPassthroughDefect":
+    let path = applyConfig("""
+[tripwire.firewall]
+default = "error"
+noPassthroughPlug = "warn"
+""")
+    try:
+      check getConfig().firewall.default == fmError
+      check getConfig().firewall.guards.getOrDefault(
+        noPassthroughPlugin.name, fmError) == fmWarn
+      expect OutsideSandboxNoPassthroughDefect:
+        discard outsideSandboxNoPassthroughCall(5)
+    finally:
+      clearConfig(path)
+
+  test "case 10: per-plugin error beats default warn":
+    let path = applyConfig("""
+[tripwire.firewall]
+default = "warn"
+passthroughPlug = "error"
+""")
+    try:
+      check getConfig().firewall.default == fmWarn
+      check getConfig().firewall.guards.getOrDefault(
+        passthroughPlugin.name, fmWarn) == fmError
+      expect LeakedInteractionDefect:
+        discard outsideSandboxPassthroughCall(3)
+    finally:
+      clearConfig(path)
+
+  test "case 11: per-plugin override does not bleed across plugin names":
+    # passthroughPlug overridden to warn -> passthrough succeeds.
+    # secondPassthroughPlug NOT overridden -> default (error) applies.
+    # Both plugins share supportsPassthrough()=true; only the per-plugin
+    # firewall key differs, so any cross-plugin lookup bug would route
+    # secondPassthroughCall through the warn branch and erroneously
+    # return 65 instead of raising.
+    let path = applyConfig("""
+[tripwire.firewall]
+default = "error"
+passthroughPlug = "warn"
+""")
+    try:
+      check getConfig().firewall.default == fmError
+      check getConfig().firewall.guards.getOrDefault(
+        passthroughPlugin.name, fmError) == fmWarn
+      check not getConfig().firewall.guards.hasKey(
+        secondPassthroughPlugin.name)
+      var ret = 0
+      discard captureStderr(proc() {.gcsafe.} =
+        ret = outsideSandboxPassthroughCall(4))
+      check ret == 28  # 4 * 7
+      expect LeakedInteractionDefect:
+        discard secondPassthroughCall(5)
+    finally:
+      clearConfig(path)
+
+  test "case 12: typo'd plugin key uses default for actual plugin":
+    # The parser stores any string-valued sibling key under `guards`;
+    # there is no spell-check against enabledPlugins. Documents the
+    # silent-fallback behavior so operators can rely on it (or audit
+    # against it).
+    let path = applyConfig("""
+[tripwire.firewall]
+default = "error"
+passthrouhgPlug = "warn"
+""")
+    try:
+      # Typo'd key parsed and stored under the typo'd name. Actual
+      # passthroughPlug is NOT overridden -> default (error) applies.
+      check getConfig().firewall.guards.hasKey("passthrouhgPlug")
+      check not getConfig().firewall.guards.hasKey(passthroughPlugin.name)
+      expect LeakedInteractionDefect:
+        discard outsideSandboxPassthroughCall(6)
+    finally:
+      clearConfig(path)
+
+  test "case 13: invalid mode in per-plugin entry raises ValueError at load":
+    # Strict validation: the per-plugin parser uses the same helper as
+    # `default`, so any string outside {"warn", "error"} raises at
+    # config-load time regardless of which key it appears under.
+    let path = writeTempToml("""
+[tripwire.firewall]
+default = "warn"
+passthroughPlug = "loud"
+""")
+    putEnv("TRIPWIRE_CONFIG", path)
+    reloadConfig()
+    try:
+      expect ValueError:
+        discard getConfig()
+    finally:
+      delEnv("TRIPWIRE_CONFIG")
+      reloadConfig()
+      if fileExists(path):
+        removeFile(path)

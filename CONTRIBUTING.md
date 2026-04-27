@@ -38,10 +38,11 @@ TRIPWIRE_TEST_CHRONOS=1 nimble test
 ## Code layout
 
 - `src/tripwire/` — core, plugins, integrations.
-- `docs/design/v0.md` — full architecture (140+ pages). Start here if
-  you're changing internals.
-- `docs/plugin-authoring.md` — 13 Plugin Authoring Rules. Required
+- `docs/plugin-authoring.md` — Plugin Authoring Rules. Required
   reading for plugin contributions.
+- `docs/quickstart.md` — install, activate, first test, firewall API.
+- `docs/roadmap-v0.3.md` — what v0 deliberately does not ship and
+  where it is headed in v0.3.
 - `tests/` — one `test_*.nim` per module, all aggregated by
   `tests/all_tests.nim`.
 

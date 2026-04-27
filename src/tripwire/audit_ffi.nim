@@ -32,7 +32,9 @@
 ##   Part 2: opt-in activation gate for `import tripwire` (facade).
 ##   Part 3: this scanner.
 ##
-## See `docs/design/v0.md` §11.2 Part 3 and Appendix B.
+## FFI is out of v0 scope (Nim source calls only); the audit lists
+## what would need a libc-level firewall. See `docs/roadmap-v0.3.md`
+## items 9 and 13.
 when defined(tripwireAuditFFI):
   import std/[strutils, os, compilesettings]
 

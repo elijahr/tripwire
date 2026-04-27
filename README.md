@@ -192,11 +192,9 @@ text was tuned independently to match Nim's stack-trace conventions.
   recipes.
 - [`docs/quickstart.md`](docs/quickstart.md) - install, activate,
   first test.
-- [`docs/plugin-authoring.md`](docs/plugin-authoring.md) - the 13
+- [`docs/plugin-authoring.md`](docs/plugin-authoring.md) - the
   plugin authoring rules. Required reading before writing a new
   plugin.
-- [`docs/design/v0.md`](docs/design/v0.md) - full design (the long
-  version: defenses, TRM mechanics, FFI scope, async drain).
 
 ## License
 

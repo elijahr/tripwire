@@ -4,10 +4,8 @@ This walkthrough takes you from a fresh clone to a passing test in
 under five minutes, then turns the firewall on so unmocked calls
 inside or outside your sandbox fail in a way you can act on.
 
-For the elevator pitch see [`README.md`](../README.md). For the full
-design (TRM mechanics, FFI scope, async drain, defenses) see
-[`docs/design/v0.md`](design/v0.md). For writing your own plugin see
-[`docs/plugin-authoring.md`](plugin-authoring.md).
+For the elevator pitch see [`README.md`](../README.md). For writing
+your own plugin see [`docs/plugin-authoring.md`](plugin-authoring.md).
 
 ## 1. Install
 

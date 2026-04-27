@@ -162,7 +162,7 @@ proc newOutsideSandboxNoPassthroughDefect*(pluginName, procName: string,
   result = (ref OutsideSandboxNoPassthroughDefect)(msg: msg,
     pluginName: pluginName, procName: procName,
     callsite: (filename: callsite.filename, line: callsite.line),
-    threadId: 0)
+    threadId: getThreadId())
 
 proc newPostTestInteractionDefect*(verifierName: string, generation: int,
     pluginName, procName: string):

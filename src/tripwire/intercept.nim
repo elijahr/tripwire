@@ -31,10 +31,10 @@ export cap_counter.tripwireCountRewrite, cap_counter.TripwireCapThreshold
 # unmocked TRM calls outside any sandbox can pass through to the real impl
 # (when the plugin supports it) instead of raising LeakedInteractionDefect.
 #
-# CONSUMPTION SHAPE: this predicate is callable from a TRM body, but only
-# under `-d:tripwireFirewallGuardMode`. See the `tripwireInterceptBody`
-# combinator below for the guarded call site and the SHAPE NOTES on why
-# the matrix-default codepath stays single-raise.
+# CONSUMPTION SHAPE: this predicate is callable from a TRM body and is
+# unconditionally consulted from both `tripwireInterceptBody` (here) and
+# `plugin_intercept.tripwirePluginIntercept`. See the SHAPE NOTES in the
+# combinator below for why the matrix-default codepath stays single-raise.
 proc outsideSandboxShouldPassthrough*(plugin: Plugin, procName: string,
     callsite: tuple[filename: string, line: int]): bool {.raises: [].} =
   ## Outside-sandbox firewall decision, bool form. Returns `true` iff
@@ -55,10 +55,31 @@ proc outsideSandboxShouldPassthrough*(plugin: Plugin, procName: string,
   ## outside-sandbox violation. Operator should see the
   ## LeakedInteractionDefect first; fix the sandbox issue and then fix
   ## any config-file syntax issue separately.
+  # Defensive `result = false` at the top: every path below either raises
+  # or sets `result = true` explicitly. A future refactor that drops one
+  # of the raise paths could otherwise let the proc fall off the end and
+  # silently flip an outside-sandbox call to "passthrough = false",
+  # routing into the verifier path with a nil nfVerifier (NPE). Initial
+  # `result = false` is the implicit Nim default; stating it explicitly
+  # locks the safety property in the source. See A2 in the per-task
+  # gates audit. The corresponding precedent shape (a one-liner free
+  # proc, `firewallShouldRaise`) lives at sandbox.nim:444-452.
+  result = false
   var guardMode = fmError
   try:
     guardMode = getConfig().firewall.guard
-  except Exception:
+  except Exception as e:
+    # Re-raise Defects (assertion failures, OutOfMemoryError, etc.):
+    # `except Exception:` is the only clause that satisfies the effect
+    # tracker because `getConfig()` (and parsetoml under it) carries no
+    # raises annotation, so Nim infers a generic `Exception` raise. The
+    # docstring contract is "swallow IOError, ValueError, parsetoml
+    # errors" — which are all CatchableError subclasses. Defect is a
+    # *sibling* of CatchableError under Exception, so we re-raise it
+    # explicitly. This preserves `{.raises: [].}` (Defects bypass the
+    # effect-system raises tracking) while honoring the docstring.
+    if not (e of CatchableError):
+      raise (ref Defect)(e)
     guardMode = fmError
   case guardMode
   of fmError:
@@ -72,7 +93,8 @@ proc outsideSandboxShouldPassthrough*(plugin: Plugin, procName: string,
           callsite.filename & ":" & $callsite.line)
       except IOError:
         discard  # matches sandbox.emitFirewallWarning precedent
-      return true
+      result = true
+      return
     else:
       raise newOutsideSandboxNoPassthroughDefect(plugin.name, procName,
         (filename: callsite.filename, line: callsite.line))

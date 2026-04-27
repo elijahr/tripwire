@@ -153,15 +153,15 @@ proc newOutsideSandboxNoPassthroughDefect*(pluginName, procName: string,
   ## inside TRM expansions that may sit inside chronos
   ## `async: (raises: [...])` procs. Matches `newLeakedInteractionDefect`'s
   ## annotation. Message format mirrors bigfoot's pedagogical guidance:
-  ## point the operator at either installing a sandbox, narrowing the
-  ## per-plugin entry, or flipping the default back to `"error"` for the
-  ## standard LeakedInteractionDefect.
+  ## install a sandbox, or flip mode to `error` (per-plugin or default) so
+  ## the standard LeakedInteractionDefect raises instead.
   let msg = "plugin '" & pluginName &
     "' doesn't support outside-sandbox passthrough for '" & procName &
     "' at " & callsite.filename & ":" & $callsite.line &
-    "; install a sandbox, set [tripwire.firewall]." & pluginName & "='warn' " &
-    "to allow this plugin's passthrough specifically, or set " &
-    "[tripwire.firewall].default='warn' as a project-wide default" &
+    "; install a sandbox to mock this call, or switch to error mode " &
+    "([tripwire.firewall]." & pluginName & "='error' or " &
+    "[tripwire.firewall].default='error') to raise the standard " &
+    "LeakedInteractionDefect instead" &
     FFIScopeFooter
   result = (ref OutsideSandboxNoPassthroughDefect)(msg: msg,
     pluginName: pluginName, procName: procName,

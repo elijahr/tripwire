@@ -89,6 +89,8 @@ proc discoverConfigPath*(): Option[string] =
     dir = parent
   none(string)
 
+var legacyGuardWarned {.threadvar.}: bool
+
 proc parseFirewallModeStr(label, raw: string): FirewallMode
     {.raises: [ValueError].} =
   case raw
@@ -109,8 +111,18 @@ proc parseFirewallConfig(t: TomlValueRef): FirewallConfig =
   ##     `httpclient` and async `chronos_httpclient` are separate keys).
   ##   - non-string siblings (e.g., future subtables under
   ##     `[tripwire.firewall]`) are silently ignored - forward-compat.
+  ##   - A string-valued sibling literally named `guard` triggers a
+  ##     one-time stderr warning at the first parse encounter (legacy
+  ##     A4'''.4 key, renamed to `default` in A4'''.5); the value is
+  ##     still stored in `guards` for forward-compat but never consulted.
   result = FirewallConfig(allow: @[], default: fmError,
                           guards: initTable[string, FirewallMode]())
+  # parsetoml API dependency: `t.tableVal[]` dereferences a
+  # `TomlTableRef = ref OrderedTable[string, TomlValueRef]` exposed by
+  # parsetoml. Verified at parsetoml 0.7.2 against the worktree at tip
+  # 07db4f3. A bump to a newer parsetoml requires re-verifying that the
+  # `for k, v in t.tableVal[]:` iteration shape still type-checks and
+  # yields per-key (string, TomlValueRef) pairs.
   for k, v in t.tableVal[]:
     case k
     of "allow":
@@ -119,6 +131,15 @@ proc parseFirewallConfig(t: TomlValueRef): FirewallConfig =
       result.default = parseFirewallModeStr("default", v.getStr)
     else:
       if v.kind == TomlValueKind.String:
+        if k == "guard" and not legacyGuardWarned:
+          try:
+            stderr.writeLine("tripwire: ignoring legacy " &
+              "[tripwire.firewall].guard key (renamed to `default` in " &
+              "A4'''.5; treated as per-plugin override for plugin name " &
+              "'guard', which does not exist)")
+          except IOError:
+            discard
+          legacyGuardWarned = true
         result.guards[k] = parseFirewallModeStr(k, v.getStr)
       # Non-string siblings silently ignored (forward-compat for subtables).
 
@@ -166,3 +187,4 @@ proc getConfig*(): TripwireConfig =
 proc reloadConfig*() =
   ## Advanced: drop the memoized config so the next `getConfig()` re-reads.
   configMemo = none(TripwireConfig)
+  legacyGuardWarned = false

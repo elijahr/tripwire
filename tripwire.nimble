@@ -50,6 +50,16 @@ task test, "Run the full test matrix":
   # runtime support it needs. Bigfoot parity: guard='warn' activates
   # purely from tripwire.toml — no compile-time define required.
   exec "nim c --mm:arc --threads:on --define:tripwireActive --import:tripwire/auto -r tests/test_outside_sandbox_guard.nim"
+  # Cell 5e: test_firewall_reserved_keys.nim runs standalone (CI-time
+  # convention enforcement). Asserts no Plugin.name shadows the
+  # reserved [tripwire.firewall] sibling keys (`default`, `allow`).
+  # Imports every catalog plugin module; standalone so cap_counter
+  # cross-pollination from those imports stays out of the cells 1-4
+  # aggregate. No --define:chronos / --define:websock needed because
+  # the imported plugin modules expose Plugin instances unconditionally
+  # (TRM bodies under those defines are gated, but the let-bound
+  # instances themselves are not).
+  exec "nim c --mm:orc --define:tripwireActive -r tests/test_firewall_reserved_keys.nim"
   # Cell 6: orc + chronos — opt-in via env var because chronos isn't in
   # `requires`. Set TRIPWIRE_TEST_CHRONOS=1 to enable; otherwise skip
   # the chronos cell.

@@ -284,10 +284,10 @@ default = "warn"
         "' doesn't support outside-sandbox passthrough for " &
         "'outsideSandboxNoPassthroughCall' at " &
         caught.callsite.filename & ":" & $caught.callsite.line &
-        "; install a sandbox, set [tripwire.firewall]." &
-        noPassthroughPlugin.name & "='warn' to allow this plugin's " &
-        "passthrough specifically, or set [tripwire.firewall].default='warn' " &
-        "as a project-wide default" & FFIScopeFooter
+        "; install a sandbox to mock this call, or switch to error mode " &
+        "([tripwire.firewall]." & noPassthroughPlugin.name & "='error' or " &
+        "[tripwire.firewall].default='error') to raise the standard " &
+        "LeakedInteractionDefect instead" & FFIScopeFooter
       check caught.msg == expectedMsg
     finally:
       clearConfig(path)

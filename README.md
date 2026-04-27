@@ -154,8 +154,14 @@ because Guarantee 1 is the point.
 
 Per-test sugar (`firewallTest "name", [plugins], mode: body`) opens a
 sandbox, blanket-`allow`s each plugin, and sets the mode in one step.
-Project-wide config lives in `tripwire.toml` under `[tripwire.firewall]`
-(`allow = [...]`, `guard = "warn"|"error"`).
+Project-wide config lives in `tripwire.toml` under `[tripwire.firewall]`:
+`allow = [...]` blanket-allows the listed plugins, `default =
+"warn"|"error"` sets the project-wide outside-sandbox disposition, and
+per-plugin sibling keys (`<plugin-name> = "warn"|"error"`) override the
+default for individual plugins. See
+[`docs/quickstart.md`](docs/quickstart.md) for the resolution rules and
+the message format you will see when a firewall-only plugin (e.g.
+`chronos_httpclient`) fires outside any sandbox under `warn`.
 
 ## v0.0.x is alpha
 

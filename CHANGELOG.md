@@ -131,17 +131,22 @@ nimble packages to the transitive walk and is a no-op unless
     lane: emit a `tripwire firewall:` line to stderr and proceed via
     passthrough. Tripwire defaults to `fmError` (NOT bigfoot's `warn`)
     to preserve Guarantee 1; flip per-sandbox via `guard(v, fmWarn)`
-    or project-wide via `[tripwire.firewall] guard = "warn"`.
+    or project-wide via `[tripwire.firewall].default = "warn"` (with
+    optional per-plugin `<plugin-name> = "warn"|"error"` overrides).
   - `firewallTest "name", [plugin1, plugin2], fmWarn: body` — sugared
     test wrapper that opens a sandbox, sets the mode, and blanket-
     allows each plugin in the list before running the body. Mirrors
     bigfoot's `@pytest.mark.allow(...)` per-test marker.
   - `[tripwire.firewall]` section in `tripwire.toml` honors `allow =
-    ["plugin-name", ...]` and `guard = "warn"|"error"`; legacy
-    flat-key `[firewall]` form is still parsed for backward
-    compatibility. Replaces the prior allow-list/deny-all schema (which
-    was parsed-but-unused; bigfoot's vocabulary was always the
-    intent).
+    ["plugin-name", ...]`, `default = "warn"|"error"` (project-wide
+    outside-sandbox disposition), and per-plugin sibling keys
+    (`<plugin-name> = "warn"|"error"`) that override `default` for
+    individual plugins. Per-plugin name canonicalization is exact
+    (sync `httpclient` and async `chronos_httpclient` are separate
+    keys). Legacy flat-key `[firewall]` form is still parsed for
+    backward compatibility. Replaces the prior allow-list/deny-all
+    schema (which was parsed-but-unused; bigfoot's vocabulary was
+    always the intent).
   - Plugin authors writing custom intercept combinators consume the
     decision via `firewallShouldRaise(v, plugin, procName,
     fingerprint)` (returns `bool`, side-effects the warn-side stderr

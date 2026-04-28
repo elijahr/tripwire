@@ -94,10 +94,17 @@ nimble packages to the transitive walk and is a no-op unless
   passes through to the real chronos proc; it never constructs a
   response. Consumers continue to mock HTTP responses via closure-based
   DI at their transport boundary (e.g. an `HttpSender` closure injected
-  into a REST client) for G2/G3 coverage. Intercepts `send(req)` (the
-  network boundary inside chronos's request lifecycle) and
-  `fetch(session, url)` (the URL-only convenience GET); does not
-  intercept `fetch(req)` because its body internally calls `send`.
+  into a REST client) for G2/G3 coverage. Intercepts three surfaces:
+  `send(req)` (the network boundary inside chronos's request
+  lifecycle), `fetch(session, url)` (the URL-only convenience GET),
+  and `fetch(request)` (the request-form convenience that returns
+  `(status, body)`). The earlier assumption that the existing `send`
+  TRM would transitively cover `fetch(req)` was wrong — chronos's
+  `fetch(req)` body compiles outside the tripwire-active compilation
+  unit, so the inner `request.send()` call inside chronos is NOT
+  subject to TRM rewriting. An explicit `fetch(req)` TRM closes that
+  G1 bypass; without it, `req.fetch()` reached the network with no
+  firewall consultation.
   Standalone test cell `tests/test_chronos_httpclient_firewall.nim`
   (gated under `TRIPWIRE_TEST_CHRONOS=1`); standalone because the
   plugin's two TRMs plus the test wrappers would push the chronos

@@ -22,7 +22,8 @@
 ## ONE TRM rewrite to the aggregate harness's compilation-unit cap
 ## (cap_counter.nim, TripwireCapThreshold = 15).
 import std/[unittest, strutils]
-import tripwire/[types, errors, timeline, sandbox, verify, intercept]
+import tripwire/[types, errors, timeline, sandbox, verify, intercept,
+                firewall_types]
 import tripwire/plugins/[plugin_intercept, mock]
 
 # ---- One test plugin + one wrapper proc (= 1 TRM rewrite) ---------------
@@ -46,8 +47,16 @@ let ptPluginA* = PtPluginA(name: "ptA", enabled: true)
 # token-anywhere matcher and would no longer match under the typed
 # format.
 proc fetchA(host: string): string =
+  # `escapeFingerprintField` mirrors the production-plugin shape: every
+  # user-supplied value embedded in a typed-token fingerprint is
+  # whitespace-escaped so `tokenizeMatcherHead` can't be tricked into
+  # splitting a single field across multiple tokens. Hostnames don't
+  # ordinarily contain whitespace, but applying the helper here keeps
+  # the test wrapper robust to weird inputs and consistent with how
+  # `httpclient` / `chronos_httpclient` / `websock` build their
+  # fingerprints.
   tripwirePluginIntercept(ptPluginA, "fetchA",
-    "procName=fetchA host=" & host,
+    "procName=fetchA host=" & escapeFingerprintField(host),
     PtResp):
     {.noRewrite.}:
       "real-A:" & host

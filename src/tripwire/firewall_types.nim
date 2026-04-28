@@ -48,6 +48,30 @@ proc escapeFingerprintField*(s: string): string {.raises: [].} =
   ## a path that round-tripped through a properly-encoded URL is
   ## unaffected.
   ##
+  ## Why whitespace is the COMPLETE escape set (not just a useful
+  ## subset). The fingerprint format is `key1=v1 key2=v2 ... body=B`,
+  ## where individual tokens are split ONLY on whitespace by
+  ## `sandbox.tokenizeMatcherHead`. The matcher then anchors each
+  ## comparison via `tokenValue(prefix=)`, picking the first token
+  ## whose head is `prefix=` and matching the field against the
+  ## substring AFTER `=`. Specifically:
+  ##   * Embedded `=` in a value (e.g., `query=q=foo`) is harmless —
+  ##     the prefix lookup picks the token starting with `query=` and
+  ##     compares the full remainder (`q=foo`) to the matcher field.
+  ##   * Embedded glob characters (`*`, `?`) in a value never get
+  ##     interpreted as patterns: `fieldHitsTokens` checks the MATCHER
+  ##     side for wildcards, not the fingerprint side.
+  ##   * The "head vs body" split inside `tokenizeMatcherHead` uses
+  ##     `find(" body=")` (literal space-body=). A query value
+  ##     containing the literal substring `body=` is still safe
+  ##     because no head token begins with whitespace — the only
+  ##     space-prefixed `body=` in any HTTP-shape fingerprint is the
+  ##     real body separator.
+  ## The single class of input that CAN truncate the head or split a
+  ## value is whitespace, which is what this proc escapes. A future
+  ## change that introduces a new structural delimiter (e.g., a
+  ## different head/body separator) would need to extend this set.
+  ##
   ## Fast path: this proc runs on every intercepted interaction
   ## (path/query of every URL, every header), and the overwhelming
   ## majority of values contain no ASCII whitespace. Scan once and

@@ -220,9 +220,12 @@ default = "error"
       clearConfig(path)
 
   test "case 3: default='warn' + passthrough plugin -> stderr+passthrough":
-    # Note: the runtime stderr emission still says "tripwire(guard=warn)"
-    # — that's a hardcoded label in intercept.nim, kept for operator
-    # familiarity. Only the TOML schema renamed `guard` -> `default`.
+    # Note: the runtime stderr emission says "tripwire firewall:
+    # outside-sandbox passthrough for ..." — the prefix is unified with
+    # `sandbox.emitFirewallWarning` ("tripwire firewall: warn
+    # passthrough for ...") so consumers can grep ONE prefix to collect
+    # all warn-mode passthrough events. The body distinguishes the two
+    # paths (`outside-sandbox passthrough` vs `warn passthrough`).
     let path = applyConfig("""
 [tripwire.firewall]
 default = "warn"
@@ -233,7 +236,8 @@ default = "warn"
       let captured = captureStderr(proc() {.gcsafe.} =
         ret = outsideSandboxPassthroughCall(6))
       check ret == 42  # 6 * 7
-      let expectedPrefix = "tripwire(guard=warn): unmocked " &
+      let expectedPrefix = "tripwire firewall: outside-sandbox " &
+        "passthrough for " &
         passthroughPlugin.name & ".outsideSandboxPassthroughCall at "
       # Exact-equality slice: captured stderr begins with prefix, ends
       # with "\n", and middle is `<file>:<line>` from instantiationInfo()
@@ -376,7 +380,8 @@ default = "warn"
       let captured = captureStderr(proc() {.gcsafe.} =
         ret = outsideSandboxPassthroughCall(3))
       check ret == 21  # 3 * 7
-      let expectedPrefix = "tripwire(guard=warn): unmocked " &
+      let expectedPrefix = "tripwire firewall: outside-sandbox " &
+        "passthrough for " &
         passthroughPlugin.name & ".outsideSandboxPassthroughCall at "
       check captured[0 ..< expectedPrefix.len] == expectedPrefix
       check captured[captured.len - 1] == '\n'
@@ -398,7 +403,8 @@ passthroughPlug = "warn"
       let captured = captureStderr(proc() {.gcsafe.} =
         ret = outsideSandboxPassthroughCall(2))
       check ret == 14  # 2 * 7
-      let expectedPrefix = "tripwire(guard=warn): unmocked " &
+      let expectedPrefix = "tripwire firewall: outside-sandbox " &
+        "passthrough for " &
         passthroughPlugin.name & ".outsideSandboxPassthroughCall at "
       check captured[0 ..< expectedPrefix.len] == expectedPrefix
     finally:

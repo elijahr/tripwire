@@ -202,46 +202,84 @@ proc globMatch*(pat, s: string): bool {.raises: [].} =
     inc pi
   pi == pat.len
 
-proc fieldMatches(pattern, value: string): bool {.inline, raises: [].} =
-  ## Empty pattern = "don't care, always matches". Otherwise glob.
-  pattern.len == 0 or globMatch(pattern, value)
+const FingerprintSeparators = {' ', '/', ':', '?', '&', '=', '|'}
+  ## Punctuation set tripwire's built-in plugin fingerprints use today
+  ## (httpclient: " /:?&=", mock/osproc: "|"). The token-boundary check
+  ## in `fieldHits` splits on this set so single-field matches don't
+  ## accidentally span across glued components (e.g. host + port).
+  ## New plugins SHOULD parse their fingerprints structurally and call
+  ## the structured comparison directly rather than depending on this
+  ## fallback's tokenization.
+
+proc fieldHits(field, fingerprint: string): bool {.inline, raises: [].} =
+  ## Token-boundary match for non-path fields (host, scheme, httpMethod,
+  ## stringified port). The fingerprint is split on
+  ## `FingerprintSeparators` and the field is required to either
+  ## glob-match a whole token (when wildcards are present) or be
+  ## byte-equal to a whole token. Token boundaries are load-bearing for
+  ## firewall safety:
+  ##   * `M(host = "example.com")` MUST NOT match `evil-example.com`.
+  ##   * `M(port = 80)` MUST NOT match port `8080` (substring `:80` of
+  ##     `:8080`).
+  ## Empty `field` is the caller's responsibility to filter; this proc
+  ## treats it as "no token equals the empty string", which conservatively
+  ## returns false for fingerprints whose split yields no empty tokens.
+  if "*" in field or "?" in field:
+    for tok in fingerprint.split(FingerprintSeparators):
+      if globMatch(field, tok): return true
+    return false
+  for tok in fingerprint.split(FingerprintSeparators):
+    if tok == field: return true
+  false
+
+proc pathHits(pattern, fingerprint: string): bool {.inline, raises: [].} =
+  ## Path is special-cased: the path component itself contains `/`, so
+  ## the `FingerprintSeparators` token split shreds it. Instead the
+  ## pattern is matched unanchored against the whole fingerprint:
+  ##   * With wildcards (`*` / `?`): the pattern is wrapped with implicit
+  ##     leading/trailing `*` so the user's wildcards still work but the
+  ##     match isn't required to span the entire fingerprint.
+  ##     `M(path = "/api/*")` matches a fingerprint that contains
+  ##     `/api/users` somewhere.
+  ##   * Without wildcards: literal substring match against the whole
+  ##     fingerprint. Coarser than the host/port boundary checks above
+  ##     because the fingerprint format isn't path-component-tokenized;
+  ##     a plugin with structured URL parsing SHOULD bypass this fallback.
+  if "*" in pattern or "?" in pattern:
+    var p = pattern
+    if not p.startsWith("*"): p = "*" & p
+    if not p.endsWith("*"): p = p & "*"
+    return globMatch(p, fingerprint)
+  pattern in fingerprint
 
 proc matchesFingerprint*(m: Matcher, procName,
                          fingerprint: string): bool {.raises: [].} =
   ## Default Matcher → fingerprint matcher. Plugin authors with
   ## structured call data (httpclient: parse the URL into host/port/
   ## scheme/path) SHOULD do their own structured comparison; this
-  ## fallback walks the fingerprint string, treating each set field as
-  ## a substring/glob constraint.
+  ## fallback tokenizes the fingerprint string for non-path fields and
+  ## treats `path` as an unanchored glob/substring against the whole
+  ## fingerprint.
   ##
-  ## - `procName` (if set) must equal the intercepted proc name (exact).
-  ## - `host`, `path`, `httpMethod`, `scheme` (if set) must each appear
-  ##   as a substring (or glob match) somewhere in the fingerprint.
-  ## - `port` (if >= 0) must appear as `:<port>` in the fingerprint.
+  ## Field semantics (each independent; ALL set fields must match):
+  ##   - `procName` (if set) must equal the intercepted proc name (exact).
+  ##   - `host`, `httpMethod`, `scheme` (if set) must equal a single
+  ##     token of the fingerprint (or glob-match a token under wildcards).
+  ##   - `port` (if >= 0) must equal a single token of the fingerprint
+  ##     (so port 80 does NOT spuriously match port 8080).
+  ##   - `path` (if set) is matched unanchored against the whole
+  ##     fingerprint (substring or glob-with-implicit-`*…*` wrappers).
   if m.procName.len > 0 and m.procName != procName:
     return false
-  if m.host.len > 0:
-    if "*" in m.host or "?" in m.host:
-      # Wildcard: scan tokens for a glob hit. The split set covers the
-      # punctuation forms tripwire's plugin fingerprints use today
-      # (httpclient: " /:?&=", mock/osproc: "|"). New plugins SHOULD
-      # parse their fingerprints structurally before this fallback runs.
-      var anyTok = false
-      for tok in fingerprint.split({' ', '/', ':', '?', '&', '=', '|'}):
-        if globMatch(m.host, tok): anyTok = true; break
-      if not anyTok: return false
-    elif m.host notin fingerprint:
-      return false
-  if m.httpMethod.len > 0 and m.httpMethod notin fingerprint:
+  if m.host.len > 0 and not fieldHits(m.host, fingerprint):
     return false
-  if m.path.len > 0 and not fieldMatches(m.path, fingerprint):
-    # path glob applied against the whole fingerprint as a coarse fallback
-    # — plugins that parse the URL do better.
-    if m.path notin fingerprint:
-      return false
-  if m.scheme.len > 0 and m.scheme notin fingerprint:
+  if m.httpMethod.len > 0 and not fieldHits(m.httpMethod, fingerprint):
     return false
-  if m.port >= 0 and (":" & $m.port) notin fingerprint:
+  if m.path.len > 0 and not pathHits(m.path, fingerprint):
+    return false
+  if m.scheme.len > 0 and not fieldHits(m.scheme, fingerprint):
+    return false
+  if m.port >= 0 and not fieldHits($m.port, fingerprint):
     return false
   true
 

@@ -96,8 +96,16 @@ proc outsideSandboxShouldPassthrough*(plugin: Plugin, procName: string,
   of fmWarn:
     if plugin.supportsPassthrough() and plugin.passthroughFor(procName):
       try:
-        stderr.writeLine("tripwire(guard=warn): unmocked " &
-          plugin.name & "." & procName & " at " &
+        # Log prefix unified with `sandbox.emitFirewallWarning`
+        # (`tripwire firewall:`) so consumers can grep ONE prefix to
+        # collect all warn-mode passthrough events, regardless of
+        # whether they originate in the firewall path (sandbox-level
+        # allow/restrict warn) or the outside-sandbox guard=warn path
+        # (this branch). The message body distinguishes the two:
+        # `warn passthrough for ...` vs the present
+        # `outside-sandbox passthrough for ...`.
+        stderr.writeLine("tripwire firewall: outside-sandbox " &
+          "passthrough for " & plugin.name & "." & procName & " at " &
           callsite.filename & ":" & $callsite.line)
       except IOError:
         discard  # matches sandbox.emitFirewallWarning precedent

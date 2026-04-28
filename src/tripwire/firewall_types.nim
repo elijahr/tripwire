@@ -74,17 +74,18 @@ proc escapeFingerprintField*(s: string): string {.raises: [].} =
   ##
   ## Fast path: this proc runs on every intercepted interaction
   ## (path/query of every URL, every header), and the overwhelming
-  ## majority of values contain no ASCII whitespace. Scan once and
-  ## return the input unchanged when no escaping is needed — that
-  ## avoids the per-character allocation/copy and keeps the hot path
-  ## allocation-free in the common case.
-  var needsEscape = false
+  ## majority of values contain no ASCII whitespace. Scan once,
+  ## counting escape candidates as we go. If the count is zero we
+  ## return the input unchanged (no copy, no allocation). Otherwise
+  ## we pre-size the result buffer to exactly `s.len + escapeCount * 2`
+  ## (each escape replaces 1 byte with 3) so the rebuild loop never
+  ## reallocates the result string.
+  var escapeCount = 0
   for c in s:
     if c in {' ', '\t', '\n', '\r'}:
-      needsEscape = true
-      break
-  if not needsEscape: return s
-  result = newStringOfCap(s.len + 4)
+      inc escapeCount
+  if escapeCount == 0: return s
+  result = newStringOfCap(s.len + escapeCount * 2)
   for c in s:
     case c
     of ' ':  result.add("%20")

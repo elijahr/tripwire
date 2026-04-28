@@ -101,6 +101,28 @@ proc parseFirewallModeStr(label, raw: string): FirewallMode
       "[tripwire.firewall]." & label & " must be \"warn\" or \"error\"; got: " &
       raw)
 
+proc parseFirewallModeStrOrFallback(label, raw: string): FirewallMode
+    {.raises: [].} =
+  ## Variant used by the TOML parser. A bad mode string is operator
+  ## error, but it must NOT crash config loading: the
+  ## "config-load failure must not mask the underlying violation"
+  ## contract documented in `parseFirewallConfig` requires that a
+  ## malformed firewall section degrades gracefully to the default
+  ## `fmError` mode (the safer disposition — unmocked calls raise)
+  ## with a one-line stderr breadcrumb so the operator can correct
+  ## the file. Returning the strict-mode fallback also matches the
+  ## behavior consumers see when there is no `tripwire.toml` at all.
+  try:
+    parseFirewallModeStr(label, raw)
+  except ValueError as e:
+    try:
+      stderr.writeLine("tripwire: ignoring malformed " &
+        "[tripwire.firewall]." & label & "=" & raw &
+        " (" & e.msg & "); falling back to error mode")
+    except IOError:
+      discard
+    fmError
+
 proc parseFirewallConfig(t: TomlValueRef): FirewallConfig =
   ## Parse a `[tripwire.firewall]` (or legacy `[firewall]`) table. Keys:
   ##   - `allow` -> `seq[string]` of blanket-allowed plugin names.
@@ -154,7 +176,7 @@ proc parseFirewallConfig(t: TomlValueRef): FirewallConfig =
       # Type-guard before `getStr`. `default = 123` (int) would
       # otherwise crash on the assertion inside `getStr`.
       if v.kind == TomlValueKind.String:
-        result.default = parseFirewallModeStr("default", v.getStr)
+        result.default = parseFirewallModeStrOrFallback("default", v.getStr)
     else:
       if v.kind == TomlValueKind.String:
         if k == "guard" and not legacyGuardWarned:
@@ -166,7 +188,7 @@ proc parseFirewallConfig(t: TomlValueRef): FirewallConfig =
           except IOError:
             discard
           legacyGuardWarned = true
-        result.guards[k] = parseFirewallModeStr(k, v.getStr)
+        result.guards[k] = parseFirewallModeStrOrFallback(k, v.getStr)
       # Non-string siblings silently ignored (forward-compat for subtables).
 
 proc loadConfig*(path: Option[string]): TripwireConfig =

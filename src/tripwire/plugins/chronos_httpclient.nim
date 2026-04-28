@@ -212,6 +212,44 @@ proc fingerprintChronosFetch*(url: Uri): string =
 # {.dirty.} and inlines its `spyBody` (which references these symbols)
 # at every consumer call site; the symbols must be reachable from those
 # sites.
+#
+# ## Why we trust the no-recursion guarantee
+#
+# The osproc.nim precedent uses a procvar (`let executor = execCmdEx;
+# executor(cmd)`) to defeat TRM rewrites by burying the call behind an
+# indirection. That option is structurally unavailable here: chronos's
+# `async: (raises: [...])` pragma rewrites the proc's IMPLEMENTED return
+# type to `InternalRaisesFuture[T, (E1, E2)]`, a non-portable shape that
+# does not round-trip through a generic `proc(...)` typed `let` binding
+# under nim 2.2.6 / chronos 4.2 (compile error: type-class mismatch on
+# the procvar binding site). So we rely on the rename + `{.noRewrite.}`
+# combination instead, with the following layered defenses:
+#
+#   1. Rename — call sites use `realChronosSend(...)`, not `send(...)`,
+#      so `chronosSendTRM`'s `{send(request)}` pattern cannot match the
+#      call site itself.
+#   2. `{.noRewrite.}` block around the trampoline body's qualified
+#      `httpclient.send(request)` call — suppresses TRM rewrites
+#      within the body.
+#   3. Cap-counter trap — Defense 3's 15-rewrites-per-compilation-unit
+#      cap (`cap_counter.tripwireCountRewrite`) is a compile-time hard
+#      ceiling. Any TRM that did recursively expand against itself
+#      would either trip the cap (loud compile error) or, if the
+#      compiler short-circuited the recursion as a stable fixed point,
+#      exhaust the macro expansion budget. Successful compilation of
+#      this module under aggregate test cells (which combine chronos
+#      TRMs with std-httpclient TRMs and others) is empirical evidence
+#      no recursive expansion occurs.
+#   4. Runtime smoke — test_chronos_httpclient_firewall.nim's
+#      end-to-end suite exercises every trampoline (`send`,
+#      `fetch(uri)`, `fetch(req)`) against a live `httpserver`
+#      fixture. A recursive trampoline would stack-overflow on the
+#      first round-trip, not produce a real `HttpResponseRef`. Those
+#      tests pass.
+#
+# If a future nim version regresses `{.noRewrite.}`, the cap-counter
+# trap (item 3) catches it at compile time before any runtime test
+# is exercised.
 
 proc realChronosSend*(request: HttpClientRequestRef):
                        Future[HttpClientResponseRef] {.

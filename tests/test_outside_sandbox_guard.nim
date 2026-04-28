@@ -487,10 +487,14 @@ passthrouhgPlug = "warn"
     finally:
       clearConfig(path)
 
-  test "case 13: invalid mode in per-plugin entry raises ValueError at load":
-    # Strict validation: the per-plugin parser uses the same helper as
-    # `default`, so any string outside {"warn", "error"} raises at
-    # config-load time regardless of which key it appears under.
+  test "case 13: invalid mode in per-plugin entry falls back to error mode":
+    # Graceful fallback: a malformed mode string is operator error,
+    # but it must NOT crash config loading. The
+    # "config-load failure must not mask the underlying violation"
+    # contract requires that a malformed firewall section degrades
+    # to the default `fmError` mode (the safer disposition — unmocked
+    # calls raise) with a stderr breadcrumb so the operator can
+    # correct the file.
     let path = writeTempToml("""
 [tripwire.firewall]
 default = "warn"
@@ -499,8 +503,28 @@ passthroughPlug = "loud"
     putEnv("TRIPWIRE_CONFIG", path)
     reloadConfig()
     try:
-      expect ValueError:
-        discard getConfig()
+      let cfg = getConfig()
+      # `default` parsed cleanly, so it stays at fmWarn.
+      check cfg.firewall.default == fmWarn
+      # `passthroughPlug = "loud"` is malformed; fallback to fmError.
+      check cfg.firewall.guards.hasKey("passthroughPlug")
+      check cfg.firewall.guards["passthroughPlug"] == fmError
+    finally:
+      delEnv("TRIPWIRE_CONFIG")
+      reloadConfig()
+      if fileExists(path):
+        removeFile(path)
+
+  test "case 13b: invalid `default` mode falls back to error mode":
+    let path = writeTempToml("""
+[tripwire.firewall]
+default = "loud"
+""")
+    putEnv("TRIPWIRE_CONFIG", path)
+    reloadConfig()
+    try:
+      let cfg = getConfig()
+      check cfg.firewall.default == fmError
     finally:
       delEnv("TRIPWIRE_CONFIG")
       reloadConfig()

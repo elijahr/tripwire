@@ -202,6 +202,25 @@ proc globMatch*(pat, s: string): bool {.raises: [].} =
     inc pi
   pi == pat.len
 
+proc tokenizeMatcherHead*(fingerprint: string): seq[string] {.raises: [].} =
+  ## Split the fingerprint on whitespace, stopping when a `body=` token
+  ## is encountered. Body content (and `hdr=`/`mp=` after it) can contain
+  ## whitespace that would otherwise inflate the token list and cost
+  ## per-firewall-decision allocations.
+  ##
+  ## Anchoring at `body=` is safe because every HTTP-shape fingerprint
+  ## builder (`fingerprintHttpRequest`, `fingerprintChronosSend` etc.)
+  ## emits the matcher-relevant fields (method/scheme/host/port/path/
+  ## query) BEFORE `body=`, and the Matcher type only consults those
+  ## fields. Non-HTTP fingerprints (mock/osproc `fingerprintOf`) have no
+  ## `body=` token, so the loop returns the full split — cheap because
+  ## those fingerprints are short and `key=value` -shaped tokens are
+  ## absent so all per-field lookups return "not found" anyway.
+  result = @[]
+  for tok in fingerprint.split(' '):
+    if tok.len >= 5 and tok.startsWith("body="): break
+    result.add(tok)
+
 proc tokenValue(tokens: openArray[string], prefix: string): tuple[found: bool, value: string] {.inline, raises: [].} =
   ## Locate the FIRST whitespace-delimited token that starts with
   ## `<prefix>` and return the substring after the `=`. Used to anchor
@@ -242,6 +261,30 @@ proc pathHitsTokens(pattern: string;
   if not found: return false
   if "*" in pattern or "?" in pattern: globMatch(pattern, value)
   else: pattern == value
+
+proc matchesFingerprintTokens*(m: Matcher, procName: string,
+                                tokens: openArray[string]): bool {.raises: [].} =
+  ## Pre-tokenized variant. The firewall hot loop (`sandboxAllowsFor` /
+  ## `sandboxRestrictsFor`) tokenizes the fingerprint ONCE per call and
+  ## reuses the resulting `seq[string]` across every Matcher entry,
+  ## avoiding O(N_matchers · split) work on sandboxes with many rules.
+  ##
+  ## Callers MUST have already short-circuited the procName check and
+  ## the no-fields-set fast path; this proc assumes both have been
+  ## handled by the caller (`matchesFingerprint` does this before
+  ## delegating).
+  if m.host.len > 0 and not fieldHitsTokens(m.host, tokens, "host="):
+    return false
+  if m.httpMethod.len > 0 and
+     not fieldHitsTokens(m.httpMethod, tokens, "method="):
+    return false
+  if m.path.len > 0 and not pathHitsTokens(m.path, tokens):
+    return false
+  if m.scheme.len > 0 and not fieldHitsTokens(m.scheme, tokens, "scheme="):
+    return false
+  if m.port >= 0 and not fieldHitsTokens($m.port, tokens, "port="):
+    return false
+  true
 
 proc matchesFingerprint*(m: Matcher, procName,
                          fingerprint: string): bool {.raises: [].} =
@@ -287,19 +330,7 @@ proc matchesFingerprint*(m: Matcher, procName,
   if m.host.len == 0 and m.httpMethod.len == 0 and m.path.len == 0 and
      m.scheme.len == 0 and m.port < 0:
     return true
-  let tokens = fingerprint.split(' ')
-  if m.host.len > 0 and not fieldHitsTokens(m.host, tokens, "host="):
-    return false
-  if m.httpMethod.len > 0 and
-     not fieldHitsTokens(m.httpMethod, tokens, "method="):
-    return false
-  if m.path.len > 0 and not pathHitsTokens(m.path, tokens):
-    return false
-  if m.scheme.len > 0 and not fieldHitsTokens(m.scheme, tokens, "scheme="):
-    return false
-  if m.port >= 0 and not fieldHitsTokens($m.port, tokens, "port="):
-    return false
-  true
+  matchesFingerprintTokens(m, procName, tokenizeMatcherHead(fingerprint))
 
 # ---- allow / restrict registration --------------------------------------
 
@@ -369,8 +400,13 @@ proc restrict*(plugin: Plugin, matcher: Matcher) =
 
 # ---- Consultation helpers (used by intercept combinators) ---------------
 
-proc entryMatches(entry: AllowEntry, plugin: Plugin,
-                  procName, fingerprint: string): bool {.raises: [].} =
+proc entryMatchesTokens(entry: AllowEntry, plugin: Plugin,
+                        procName, fingerprint: string;
+                        tokens: openArray[string]): bool {.raises: [].} =
+  ## Per-entry match, taking pre-tokenized fingerprint head so the
+  ## caller's loop avoids re-splitting on every entry. Predicate-form
+  ## entries still receive the raw fingerprint string (they may inspect
+  ## body/hdr/mp content the matcher head doesn't capture).
   if entry.plugin != plugin:
     return false
   case entry.kind
@@ -379,7 +415,25 @@ proc entryMatches(entry: AllowEntry, plugin: Plugin,
   of aekPredicate:
     entry.predicate(procName, fingerprint)
   of aekMatcher:
-    entry.matcher.matchesFingerprint(procName, fingerprint)
+    # Inline the procName check + no-fields-set fast path here to
+    # mirror what `matchesFingerprint` does before delegating, so the
+    # tokens variant can be called directly without re-tokenizing.
+    if entry.matcher.procName.len > 0 and
+       entry.matcher.procName != procName:
+      false
+    elif entry.matcher.host.len == 0 and entry.matcher.httpMethod.len == 0 and
+         entry.matcher.path.len == 0 and entry.matcher.scheme.len == 0 and
+         entry.matcher.port < 0:
+      true
+    else:
+      matchesFingerprintTokens(entry.matcher, procName, tokens)
+
+proc entryMatches(entry: AllowEntry, plugin: Plugin,
+                  procName, fingerprint: string): bool {.raises: [].} =
+  ## Single-entry match for callers that have just one entry to check
+  ## (or that haven't tokenized yet). Tokenizes lazily.
+  entryMatchesTokens(entry, plugin, procName, fingerprint,
+                     tokenizeMatcherHead(fingerprint))
 
 proc sandboxAllowsFor*(v: Verifier, plugin: Plugin,
                        procName, fingerprint: string): bool {.raises: [].} =
@@ -388,9 +442,14 @@ proc sandboxAllowsFor*(v: Verifier, plugin: Plugin,
   ## TRM-body combinators to extend the existing
   ## `plugin.passthroughFor(procName)` gate with a per-sandbox,
   ## fingerprint-aware decision.
+  ##
+  ## Tokenizes the fingerprint ONCE for the entire predicate loop and
+  ## reuses the tokens across every entry — relevant for sandboxes
+  ## carrying many `allow`/`restrict` rules.
   if v.isNil: return false
+  let tokens = tokenizeMatcherHead(fingerprint)
   for entry in v.allowPredicates:
-    if entry.entryMatches(plugin, procName, fingerprint):
+    if entry.entryMatchesTokens(plugin, procName, fingerprint, tokens):
       return true
   false
 
@@ -415,8 +474,9 @@ proc sandboxRestrictsFor*(v: Verifier, plugin: Plugin,
   ##     (the intersection of empty allow with anything is empty).
   if v.isNil or v.restrictPredicates.len == 0:
     return (active: false, allows: false)
+  let tokens = tokenizeMatcherHead(fingerprint)
   for entry in v.restrictPredicates:
-    if entry.entryMatches(plugin, procName, fingerprint):
+    if entry.entryMatchesTokens(plugin, procName, fingerprint, tokens):
       return (active: true, allows: true)
   (active: true, allows: false)
 

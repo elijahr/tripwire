@@ -61,20 +61,33 @@ proc fingerprintHttpRequest*(url: string, httpMethod: HttpMethod,
   ##     `hostname`, so we re-add them when the hostname contains a
   ##     `:`. This keeps the host token a single whitespace-delimited
   ##     unit and lets `M(host="[::1]")` match.
-  ##   * **Missing port** is emitted as the empty token `port=`
-  ##     (rather than dropped) so token positions stay stable and
-  ##     `M(port=80)` cleanly fails to match a no-port URL.
+  ##   * **Missing port** is filled in from the scheme (80 for `http`,
+  ##     443 for `https`) so `M(port=80)` matches URLs that omit the
+  ##     port explicitly. Mirrors the chronos_httpclient/websock plugin
+  ##     behavior for parity. Schemes other than http/https with no
+  ##     port emit `port=` (empty) verbatim.
   ##   * **Missing path** is emitted as `path=` (empty) verbatim so
   ##     `parseUri("http://example.com").path` (which is `""`) is
   ##     reflected unchanged.
+  ##   * **Query string** is included as a `query=<query>` token so
+  ##     requests to the same path with different query parameters
+  ##     produce distinct fingerprints. Without this, mocking
+  ##     `/api?id=1` would also match `/api?id=2` (a Guarantee 1 / 2
+  ##     interaction-uniqueness violation). Empty query emits `query=`.
   let u = parseUri(url)
   let host =
     if u.hostname.len > 0 and ':' in u.hostname:
       "[" & u.hostname & "]"   # re-bracket IPv6 (parseUri strips them)
     else:
       u.hostname
+  let port =
+    if u.port.len > 0: u.port
+    elif u.scheme == "https": "443"
+    elif u.scheme == "http":  "80"
+    else: ""
   "method=" & $httpMethod & " scheme=" & u.scheme & " host=" & host &
-  " port=" & u.port & " path=" & u.path & " body=" & body &
+  " port=" & port & " path=" & u.path & " query=" & u.query &
+  " body=" & body &
   " hdr=" & (if headers.isNil: "nil" else: $headers) &
   " mp=" & (if multipart.isNil: "nil" else: "multipart")
 

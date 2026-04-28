@@ -469,26 +469,37 @@ proc sandboxRestrictsFor*(v: Verifier, plugin: Plugin,
   ## Computes the ceiling side of the firewall decision. The runtime
   ## decision (in `firewallDecideRaw`) is "allow ∩ restrict" at call
   ## time: passthrough requires a matching `allow` AND, if any
-  ## `restrict` entries are configured, a matching `restrict`.
+  ## `restrict` entries are configured FOR THIS PLUGIN, a matching
+  ## `restrict`.
+  ##
+  ## Per-plugin scoping is load-bearing: a `restrict(httpclient, ...)`
+  ## entry must NOT reject a call intercepted by `osproc`. The
+  ## `active` flag therefore tracks whether any restrict entry exists
+  ## *for this plugin specifically* — not whether the verifier has any
+  ## restrict entries at all.
   ##
   ## Returns `(active, allows)`:
-  ##   - `active = false` means the verifier has no `restrict` entries;
-  ##     the ceiling is open, so the decision reduces to "does some
-  ##     allow match?".
+  ##   - `active = false` means no `restrict` entry targets this plugin;
+  ##     the ceiling is open for this plugin, so the decision reduces
+  ##     to "does some allow match?".
   ##   - `active = true, allows = true` means at least one `restrict`
-  ##     entry matched `(plugin, procName, fingerprint)`; the ceiling
-  ##     admits this call.
+  ##     entry for this plugin matched `(procName, fingerprint)`; the
+  ##     ceiling admits this call.
   ##   - `active = true, allows = false` means restrict is configured
-  ##     but no entry matches — the ceiling rejects regardless of
-  ##     `allow`. With no `allow` registered the ceiling also rejects
-  ##     (the intersection of empty allow with anything is empty).
+  ##     for this plugin but no entry matches — the ceiling rejects
+  ##     regardless of `allow`. With no `allow` registered the ceiling
+  ##     also rejects (the intersection of empty allow with anything
+  ##     is empty).
   if v.isNil or v.restrictPredicates.len == 0:
     return (active: false, allows: false)
   let tokens = tokenizeMatcherHead(fingerprint)
+  var hasRestrictionsForPlugin = false
   for entry in v.restrictPredicates:
-    if entry.entryMatchesTokens(plugin, procName, fingerprint, tokens):
-      return (active: true, allows: true)
-  (active: true, allows: false)
+    if entry.plugin == plugin:
+      hasRestrictionsForPlugin = true
+      if entry.entryMatchesTokens(plugin, procName, fingerprint, tokens):
+        return (active: true, allows: true)
+  (active: hasRestrictionsForPlugin, allows: false)
 
 # ---- Firewall mode helpers ----------------------------------------------
 

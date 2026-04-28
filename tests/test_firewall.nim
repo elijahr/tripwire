@@ -229,6 +229,25 @@ suite "firewall":
         allow(ptPluginA)
         discard fetchA("8.8.8.8")
 
+  test "restrict on a different plugin does not reject this plugin's calls":
+    # Regression for the cross-plugin restrict scoping bug: a
+    # `restrict(mockPluginInstance, ...)` must NOT cause ptPluginA's
+    # calls to be rejected. Pre-fix, `sandboxRestrictsFor` returned
+    # `(active=true, allows=false)` whenever ANY restrict entry existed
+    # on the verifier, regardless of which plugin it targeted; that
+    # caused the ceiling-side intersection to reject every plugin's
+    # calls as soon as any plugin had a restrict registered.
+    sandbox:
+      let v = currentVerifier()
+      # Restrict a DIFFERENT plugin with a never-matching predicate.
+      # If scoping is broken this entry will spuriously reject ptA's
+      # calls; if scoping is correct it has no effect on ptA.
+      restrict(mockPluginInstance,
+               proc(procName, fp: string): bool = false)
+      allow(ptPluginA)
+      check fetchA("anyhost") == "real-A:anyhost"
+      v.timeline.markAsserted(v.timeline.entries[0])
+
   # ---- firewallMode -----------------------------------------------------
 
   test "firewallMode fmError (default) raises on unmocked":

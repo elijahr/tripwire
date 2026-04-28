@@ -162,8 +162,8 @@ nimble packages to the transitive walk and is a no-op unless
   - Plugin-level base methods `supportsPassthrough` /
     `passthroughFor` moved from `tripwire/intercept` to
     `tripwire/plugin_base` so the firewall decision logic in
-    `tripwire/sandbox` can call them without an import cycle. No call-
-    site changes for plugin authors who already extended these.
+    `tripwire/sandbox` can call them without an import cycle. No
+    call-site changes for plugin authors who already extended these.
 - **`tripwire/threads`** — worker-thread TRM interception with
   parent-verifier inheritance. Canonical form `withTripwireThread do:
   body` pushes the parent `Verifier` onto the child thread's

@@ -227,8 +227,8 @@ nimble packages to the transitive walk and is a no-op unless
 ### Fixed
 - `OutsideSandboxNoPassthroughDefect` message no longer recommends
   settings that re-raise the same defect. The pre-fix message
-  suggested setting `[tripwire.firewall].<plugin>='warn'` or
-  `[tripwire.firewall].default='warn'` for plugins that lack
+  suggested setting `[tripwire.firewall].<plugin>="warn"` or
+  `[tripwire.firewall].default="warn"` for plugins that lack
   passthrough; both keep the plugin in `warn` mode where the
   no-passthrough defect raises. The corrected message points the
   operator at the two real fixes: install a sandbox to mock the call,

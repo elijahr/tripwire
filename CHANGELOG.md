@@ -6,6 +6,8 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.0.2] - 2026-04-28
+
 In-development work past v0.0.1. NOT yet validated against any
 real consumer project — the alpha banner still applies. Adds
 worker-thread TRM interception, opt-in sandboxed-async spawn

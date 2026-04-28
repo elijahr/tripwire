@@ -202,84 +202,102 @@ proc globMatch*(pat, s: string): bool {.raises: [].} =
     inc pi
   pi == pat.len
 
-const FingerprintSeparators = {' ', '/', ':', '?', '&', '=', '|'}
-  ## Punctuation set tripwire's built-in plugin fingerprints use today
-  ## (httpclient: " /:?&=", mock/osproc: "|"). The token-boundary check
-  ## in `fieldHits` splits on this set so single-field matches don't
-  ## accidentally span across glued components (e.g. host + port).
-  ## New plugins SHOULD parse their fingerprints structurally and call
-  ## the structured comparison directly rather than depending on this
-  ## fallback's tokenization.
+proc tokenValue(tokens: openArray[string], prefix: string): tuple[found: bool, value: string] {.inline, raises: [].} =
+  ## Locate the FIRST whitespace-delimited token that starts with
+  ## `<prefix>` and return the substring after the `=`. Used to anchor
+  ## Matcher fields to their typed key in the fingerprint.
+  for tok in tokens:
+    if tok.len >= prefix.len and tok.startsWith(prefix):
+      return (true, tok[prefix.len .. ^1])
+  (false, "")
 
-proc fieldHits(field, fingerprint: string): bool {.inline, raises: [].} =
-  ## Token-boundary match for non-path fields (host, scheme, httpMethod,
-  ## stringified port). The fingerprint is split on
-  ## `FingerprintSeparators` and the field is required to either
-  ## glob-match a whole token (when wildcards are present) or be
-  ## byte-equal to a whole token. Token boundaries are load-bearing for
-  ## firewall safety:
-  ##   * `M(host = "example.com")` MUST NOT match `evil-example.com`.
-  ##   * `M(port = 80)` MUST NOT match port `8080` (substring `:80` of
-  ##     `:8080`).
-  ## Empty `field` is the caller's responsibility to filter; this proc
-  ## treats it as "no token equals the empty string", which conservatively
-  ## returns false for fingerprints whose split yields no empty tokens.
-  if "*" in field or "?" in field:
-    for tok in fingerprint.split(FingerprintSeparators):
-      if globMatch(field, tok): return true
-    return false
-  for tok in fingerprint.split(FingerprintSeparators):
-    if tok == field: return true
-  false
+proc fieldHitsTokens(field: string;
+                     tokens: openArray[string]; prefix: string): bool {.
+    inline, raises: [].} =
+  ## Anchored typed-token match. Looks up the `prefix=` token in the
+  ## already-tokenized fingerprint and matches `field` against the
+  ## value-after-`=` (glob if wildcards, equality otherwise).
+  ##
+  ## Token-anchored match is load-bearing for firewall safety: the
+  ## previous "any whitespace-token equals field" rule produced
+  ## false positives whenever the fingerprint contained the literal
+  ## string anywhere (e.g., a query value `?target=127.0.0.1`
+  ## spuriously matched `M(host="127.0.0.1")`). Anchoring to
+  ## `host=`, `port=`, etc. eliminates that class.
+  let (found, value) = tokenValue(tokens, prefix)
+  if not found: return false
+  if "*" in field or "?" in field: globMatch(field, value)
+  else: field == value
 
-proc pathHits(pattern, fingerprint: string): bool {.inline, raises: [].} =
-  ## Path is special-cased: the path component itself contains `/`, so
-  ## the `FingerprintSeparators` token split shreds it. Instead the
-  ## pattern is matched unanchored against the whole fingerprint:
-  ##   * With wildcards (`*` / `?`): the pattern is wrapped with implicit
-  ##     leading/trailing `*` so the user's wildcards still work but the
-  ##     match isn't required to span the entire fingerprint.
-  ##     `M(path = "/api/*")` matches a fingerprint that contains
-  ##     `/api/users` somewhere.
-  ##   * Without wildcards: literal substring match against the whole
-  ##     fingerprint. Coarser than the host/port boundary checks above
-  ##     because the fingerprint format isn't path-component-tokenized;
-  ##     a plugin with structured URL parsing SHOULD bypass this fallback.
-  if "*" in pattern or "?" in pattern:
-    var p = pattern
-    if not p.startsWith("*"): p = "*" & p
-    if not p.endsWith("*"): p = p & "*"
-    return globMatch(p, fingerprint)
-  pattern in fingerprint
+proc pathHitsTokens(pattern: string;
+                    tokens: openArray[string]): bool {.inline, raises: [].} =
+  ## Anchored path match. `path=<value>` is a single token under the
+  ## new typed format, so `path` is treated like host/port/scheme/method
+  ## (anchor on `path=` and match the value). The legacy "unanchored
+  ## glob across the whole fingerprint" semantics are gone — they were
+  ## a workaround for the path containing `/` characters that the old
+  ## token split shredded. Without wildcards, equality on the value;
+  ## with wildcards, glob against the value.
+  let (found, value) = tokenValue(tokens, "path=")
+  if not found: return false
+  if "*" in pattern or "?" in pattern: globMatch(pattern, value)
+  else: pattern == value
 
 proc matchesFingerprint*(m: Matcher, procName,
                          fingerprint: string): bool {.raises: [].} =
-  ## Default Matcher → fingerprint matcher. Plugin authors with
-  ## structured call data (httpclient: parse the URL into host/port/
-  ## scheme/path) SHOULD do their own structured comparison; this
-  ## fallback tokenizes the fingerprint string for non-path fields and
-  ## treats `path` as an unanchored glob/substring against the whole
-  ## fingerprint.
+  ## Default Matcher → fingerprint matcher.
   ##
-  ## Field semantics (each independent; ALL set fields must match):
-  ##   - `procName` (if set) must equal the intercepted proc name (exact).
-  ##   - `host`, `httpMethod`, `scheme` (if set) must equal a single
-  ##     token of the fingerprint (or glob-match a token under wildcards).
-  ##   - `port` (if >= 0) must equal a single token of the fingerprint
-  ##     (so port 80 does NOT spuriously match port 8080).
-  ##   - `path` (if set) is matched unanchored against the whole
-  ##     fingerprint (substring or glob-with-implicit-`*…*` wrappers).
+  ## ## Fingerprint format
+  ##
+  ## HTTP-shape plugins (httpclient, chronos_httpclient, websock) emit
+  ## fingerprints as a space-separated `key=value` token sequence:
+  ##
+  ##   `method=GET scheme=http host=127.0.0.1 port=80 path=/api ...`
+  ##
+  ## Matcher fields anchor on these typed keys: `host` looks for a
+  ## `host=` token, `port` for a `port=` token, etc. The match is on
+  ## the value after `=`.
+  ##
+  ## ## Field semantics (each independent; ALL set fields must match)
+  ##
+  ##   * `procName` (if set) — exact equality with the intercepted
+  ##     proc name argument.
+  ##   * `host`, `httpMethod`, `scheme`, `path` (if set) — anchored on
+  ##     the corresponding `<key>=` token. Wildcards (`*`, `?`) trigger
+  ##     glob match against the value; otherwise equality.
+  ##   * `port` (if >= 0) — anchored on `port=`; value compared as a
+  ##     stringified int (so `M(port=80)` cleanly rejects port 8080).
+  ##
+  ## ## Backward compatibility
+  ##
+  ## Non-HTTP plugins (mock, osproc) still use the generic
+  ## `fingerprintOf(procName, args)` shape (`procName|arg0|arg1|...`).
+  ## Such fingerprints have no `<key>=` tokens, so any set Matcher
+  ## field returns false (the keyed token isn't found). Predicate-based
+  ## `allow(plugin, proc(...))` is the escape hatch for non-HTTP
+  ## fingerprints.
+  ##
+  ## ## Performance
+  ##
+  ## Tokenization happens ONCE at the top of this proc; field lookups
+  ## then scan the cached `seq[string]`. Avoids re-splitting per field.
   if m.procName.len > 0 and m.procName != procName:
     return false
-  if m.host.len > 0 and not fieldHits(m.host, fingerprint):
+  # No Matcher field set → trivially matches (procName already checked).
+  if m.host.len == 0 and m.httpMethod.len == 0 and m.path.len == 0 and
+     m.scheme.len == 0 and m.port < 0:
+    return true
+  let tokens = fingerprint.split(' ')
+  if m.host.len > 0 and not fieldHitsTokens(m.host, tokens, "host="):
     return false
-  if m.httpMethod.len > 0 and not fieldHits(m.httpMethod, fingerprint):
+  if m.httpMethod.len > 0 and
+     not fieldHitsTokens(m.httpMethod, tokens, "method="):
     return false
-  if m.path.len > 0 and not pathHits(m.path, fingerprint):
+  if m.path.len > 0 and not pathHitsTokens(m.path, tokens):
     return false
-  if m.scheme.len > 0 and not fieldHits(m.scheme, fingerprint):
+  if m.scheme.len > 0 and not fieldHitsTokens(m.scheme, tokens, "scheme="):
     return false
-  if m.port >= 0 and not fieldHits($m.port, fingerprint):
+  if m.port >= 0 and not fieldHitsTokens($m.port, tokens, "port="):
     return false
   true
 

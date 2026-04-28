@@ -39,9 +39,42 @@ type
 proc fingerprintHttpRequest*(url: string, httpMethod: HttpMethod,
                              body: string, headers: HttpHeaders,
                              multipart: MultipartData): string =
-  ## Canonicalize a request's identifying fields into a stable string.
-  ## `headers` and `multipart` may be nil — $nil prints as "nil".
-  $httpMethod & " " & url & " body=" & body &
+  ## Canonicalize a request's identifying fields into a stable
+  ## space-separated `key=value` fingerprint string. `headers` and
+  ## `multipart` may be nil — `$nil` prints as "nil".
+  ##
+  ## Format:
+  ##   `method=<HttpMethod> scheme=<scheme> host=<host> port=<port>
+  ##    path=<path> body=<body> hdr=<headers> mp=<multipart>`
+  ##
+  ## The typed `key=value` shape is load-bearing for the matcher DSL:
+  ## `sandbox.matchesFingerprint` anchors each Matcher field (host,
+  ## port, scheme, httpMethod, path) to its keyed token, so a query
+  ## value cannot spuriously collide with the host field
+  ## (`M(host="127.0.0.1")` no longer matches a fingerprint whose
+  ## query string happens to contain the literal `127.0.0.1`).
+  ##
+  ## ### Choices baked in
+  ##
+  ##   * **IPv6 hosts** are emitted wrapped in `[]` (e.g.
+  ##     `host=[::1]`). `std/uri.parseUri` strips the brackets from
+  ##     `hostname`, so we re-add them when the hostname contains a
+  ##     `:`. This keeps the host token a single whitespace-delimited
+  ##     unit and lets `M(host="[::1]")` match.
+  ##   * **Missing port** is emitted as the empty token `port=`
+  ##     (rather than dropped) so token positions stay stable and
+  ##     `M(port=80)` cleanly fails to match a no-port URL.
+  ##   * **Missing path** is emitted as `path=` (empty) verbatim so
+  ##     `parseUri("http://example.com").path` (which is `""`) is
+  ##     reflected unchanged.
+  let u = parseUri(url)
+  let host =
+    if u.hostname.len > 0 and ':' in u.hostname:
+      "[" & u.hostname & "]"   # re-bracket IPv6 (parseUri strips them)
+    else:
+      u.hostname
+  "method=" & $httpMethod & " scheme=" & u.scheme & " host=" & host &
+  " port=" & u.port & " path=" & u.path & " body=" & body &
   " hdr=" & (if headers.isNil: "nil" else: $headers) &
   " mp=" & (if multipart.isNil: "nil" else: "multipart")
 

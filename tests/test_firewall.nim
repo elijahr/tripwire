@@ -37,9 +37,17 @@ let ptPluginA* = PtPluginA(name: "ptA", enabled: true)
 
 # Real-call body returns a sentinel string so tests can distinguish spy
 # mode (sentinel returned) from mocked mode (mock value returned).
+#
+# Fingerprint shape: `procName=fetchA host=<host>` — the typed-token
+# format the matcher DSL anchors on (see `sandbox.matchesFingerprint`).
+# Non-HTTP plugins that want to interoperate with `M(host=...)` style
+# matchers MUST emit `host=<value>` tokens; the previous bare-host
+# `fingerprintOf("fetchA", @[host])` shape relied on the legacy
+# token-anywhere matcher and would no longer match under the typed
+# format.
 proc fetchA(host: string): string =
   tripwirePluginIntercept(ptPluginA, "fetchA",
-    fingerprintOf("fetchA", @[host]),
+    "procName=fetchA host=" & host,
     PtResp):
     {.noRewrite.}:
       "real-A:" & host
@@ -133,7 +141,7 @@ suite "firewall":
 
   # ---- Matcher DSL ------------------------------------------------------
 
-  test "allow(plugin, M(host=...)) matches by host substring":
+  test "allow(plugin, M(host=...)) matches by typed host token":
     sandbox:
       let v = currentVerifier()
       allow(ptPluginA, M(host = "127.0.0.1"))
@@ -280,10 +288,71 @@ suite "firewall":
         # Register a mock so the call goes the mocked path, not the
         # firewall path.
         v.registerMock("ptA",
-          newMock("fetchA", fingerprintOf("fetchA", @["zzz"]),
+          newMock("fetchA", "procName=fetchA host=zzz",
                   PtResp(val: "mocked-A"), instantiationInfo()))
         check fetchA("zzz") == "mocked-A"
         check v.timeline.entries.len == 1
         check v.timeline.entries[0].kind == ikMockMatched
         # Deliberately NOT calling markAsserted. Sandbox teardown
         # MUST raise UnassertedInteractionsDefect.
+
+  # ---- Matcher-precision regression guards ------------------------------
+  #
+  # These tests pin down the false-positive classes the typed-token
+  # fingerprint format eliminates. Pre-fix, the matcher's "any
+  # whitespace-token equals field" rule caused spurious matches when
+  # the field value appeared anywhere in the fingerprint (e.g., a
+  # query-string value, or a method name appearing inside the host).
+
+  test "M(host) does not collide with prefix-extended host":
+    # `host=evil-example.com` MUST NOT match `M(host="example.com")`:
+    # the value-after-`host=` is `evil-example.com`, not equal.
+    expect UnmockedInteractionDefect:
+      sandbox:
+        allow(ptPluginA, M(host = "example.com"))
+        discard fetchA("evil-example.com")
+
+  test "M(port=80) does not collide with port 8080":
+    # The fingerprint contains `port=8080`; the value after `port=` is
+    # `8080`, not `80`. Pre-fix this leaked because `:8080` contained
+    # the substring `:80` under the colon-tokenized splitter.
+    # Direct `matchesFingerprint` check (avoids needing a separate
+    # plugin proc with a port-bearing fingerprint shape).
+    let m = M(port = 80)
+    check m.matchesFingerprint(
+      "fetchA",
+      "procName=fetchA method=GET host=foo.com port=8080") == false
+
+  test "M(host=GET) does not match request whose method is GET":
+    # Pre-fix `M(host="GET")` matched any GET request because `GET`
+    # appeared as a whitespace token. With anchoring the value after
+    # `host=` is `foo.com`, never `GET`.
+    let m = M(host = "GET")
+    check m.matchesFingerprint(
+      "fetchA",
+      "procName=fetchA method=GET host=foo.com") == false
+
+  test "M(host=[::1]) matches IPv6 loopback fingerprint":
+    # IPv6 hosts go in the `host=` token wrapped in square brackets so
+    # the host token stays a single whitespace-delimited unit. Pre-fix
+    # the colon-splitter shredded `[::1]` into `[`, ``, ``, `1]` and
+    # the matcher couldn't match either bracketed or bare forms.
+    let m = M(host = "[::1]")
+    check m.matchesFingerprint(
+      "fetchA",
+      "procName=fetchA method=GET host=[::1] port=80 path=/") == true
+
+  test "non-HTTP fingerprint shape rejects host matcher":
+    # Backward-compat doc: a fingerprintOf-shaped fingerprint
+    # (`procName|arg0|...`) has no `host=` token, so M(host=...) MUST
+    # return false rather than coincidentally matching some substring.
+    # Predicate-based allow remains the escape hatch.
+    let m = M(host = "anything")
+    check m.matchesFingerprint("fetchA", "fetchA|anything|x") == false
+
+  test "non-HTTP fingerprint shape: matcher with no fields trivially matches":
+    # Only procName set: an empty Matcher with just procName MUST
+    # match regardless of fingerprint shape, since no token-anchored
+    # fields are required to be present.
+    let m = M(procName = "fetchA")
+    check m.matchesFingerprint("fetchA", "fetchA|anything|x") == true

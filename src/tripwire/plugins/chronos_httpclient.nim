@@ -125,54 +125,63 @@ registerPlugin(chronosHttpPluginInstance)
 
 # ---- Fingerprinting ------------------------------------------------------
 
+proc bracketIfV6(host: string): string {.inline.} =
+  ## Re-bracket IPv6 hostnames so the host token stays a single
+  ## whitespace-delimited unit (matches the convention in
+  ## `plugins/httpclient.fingerprintHttpRequest`).
+  if host.len > 0 and ':' in host: "[" & host & "]" else: host
+
 proc fingerprintChronosSend*(meth: HttpMethod, addr0: HttpAddress): string =
-  ## Canonicalize a `send(request)` call to a stable fingerprint string.
-  ## Includes method + scheme + hostname + port + path so the matcher DSL
-  ## can pattern-match by host / port / path / method against it.
+  ## Canonicalize a `send(request)` call to a stable typed-token
+  ## fingerprint string.
   ##
-  ## Format: `"send <METHOD> <SCHEME>://<HOST>:<PORT><PATH>"`. Matches
-  ## the fingerprint shape sandbox.matchesFingerprint expects (host
-  ## substring or glob match; `:<port>` substring; method substring).
+  ## Format:
+  ##   `procName=send method=<METHOD> scheme=<scheme> host=<host>
+  ##    port=<port> path=<path>`
+  ##
+  ## Matches the `key=value` shape that
+  ## `sandbox.matchesFingerprint` anchors against, so M(host=...) /
+  ## M(port=...) / M(scheme=...) / M(httpMethod=...) / M(path=...)
+  ## filter precisely on the corresponding token's value rather than
+  ## any whitespace-delimited substring.
   let scheme =
     case addr0.scheme
     of HttpClientScheme.NonSecure: "http"
     of HttpClientScheme.Secure: "https"
-  "send " & $meth & " " & scheme & "://" & addr0.hostname & ":" &
-    $addr0.port & addr0.path
+  "procName=send method=" & $meth & " scheme=" & scheme &
+    " host=" & bracketIfV6(addr0.hostname) & " port=" & $addr0.port &
+    " path=" & addr0.path
 
 proc fingerprintChronosFetchReq*(meth: HttpMethod, addr0: HttpAddress): string =
   ## Canonicalize a `fetch(request)` call. Mirrors `fingerprintChronosSend`
-  ## but with a `fetch` surface tag so the matcher DSL can distinguish
-  ## the two surfaces. The request's method may be any HTTP verb (POST,
-  ## PUT, DELETE, etc.) — chronos `fetch(req)` does not coerce GET; it
-  ## just sends whatever the request was built with.
-  ##
-  ## Format: `"fetch <METHOD> <SCHEME>://<HOST>:<PORT><PATH>"`. Same
-  ## fingerprint shape as `fingerprintChronosSend` modulo the leading
-  ## verb tag; the matcher DSL pattern-matches by host / port / path /
-  ## method substring against either.
+  ## but with `procName=fetch` so the matcher DSL can distinguish the
+  ## two surfaces if needed. The request's method may be any HTTP verb
+  ## — chronos `fetch(req)` doesn't coerce GET.
   let scheme =
     case addr0.scheme
     of HttpClientScheme.NonSecure: "http"
     of HttpClientScheme.Secure: "https"
-  "fetch " & $meth & " " & scheme & "://" & addr0.hostname & ":" &
-    $addr0.port & addr0.path
+  "procName=fetch method=" & $meth & " scheme=" & scheme &
+    " host=" & bracketIfV6(addr0.hostname) & " port=" & $addr0.port &
+    " path=" & addr0.path
 
 proc fingerprintChronosFetch*(url: Uri): string =
   ## Canonicalize a `fetch(session, url)` call. Always GET (chronos's
-  ## URL-only fetch hardcodes GET). Format mirrors `fingerprintChronosSend`
-  ## so matchers can apply uniformly across both surfaces.
+  ## URL-only fetch hardcodes GET). Same typed-token shape as
+  ## `fingerprintChronosSend` so matchers apply uniformly.
   ##
-  ## Note: chronos's URL-fetch follows redirects internally. We
-  ## fingerprint the originally-requested URL only — redirects happen
-  ## under the hood via `request.redirect()` which builds a NEW
-  ## `HttpClientRequestRef` and calls `send` on it. That `send` call is
+  ## Default ports filled in (80 for http, 443 for https) so
+  ## `M(port=80)` works against `http://host/path` URIs that omit the
+  ## port. Redirects happen under the hood via `request.redirect()`
+  ## which builds a new request and `send`s it; that inner `send` is
   ## intercepted by `sendTRM` separately, so each redirect hop is
   ## firewall-checked.
   var port = url.port
   if port.len == 0:
     port = (if url.scheme == "https": "443" else: "80")
-  "fetch GET " & url.scheme & "://" & url.hostname & ":" & port & url.path
+  "procName=fetch method=GET scheme=" & url.scheme &
+    " host=" & bracketIfV6(url.hostname) & " port=" & port &
+    " path=" & url.path
 
 # ---- Real-proc trampolines (avoid TRM self-recursion) -------------------
 # Following the precedent established in `plugins/osproc.nim`

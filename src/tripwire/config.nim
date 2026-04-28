@@ -138,9 +138,23 @@ proc parseFirewallConfig(t: TomlValueRef): FirewallConfig =
   for k, v in t.tableVal[]:
     case k
     of "allow":
-      result.allow = v.getElems.mapIt(it.getStr)
+      # Type-guard the array container AND every element. parsetoml's
+      # `getElems`/`getStr` assert (AssertionDefect) on wrong-typed
+      # values, which would crash the process on a malformed
+      # `tripwire.toml` like `allow = "plugin"` (string instead of
+      # array) or `allow = ["x", 123]` (mixed). Silent ignore is
+      # consistent with the "non-string siblings silently ignored"
+      # rule below and the "config-load failure must NOT mask the
+      # underlying violation" contract documented above.
+      if v.kind == TomlValueKind.Array:
+        for elem in v.getElems:
+          if elem.kind == TomlValueKind.String:
+            result.allow.add(elem.getStr)
     of "default":
-      result.default = parseFirewallModeStr("default", v.getStr)
+      # Type-guard before `getStr`. `default = 123` (int) would
+      # otherwise crash on the assertion inside `getStr`.
+      if v.kind == TomlValueKind.String:
+        result.default = parseFirewallModeStr("default", v.getStr)
     else:
       if v.kind == TomlValueKind.String:
         if k == "guard" and not legacyGuardWarned:

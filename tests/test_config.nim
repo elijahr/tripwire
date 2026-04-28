@@ -39,3 +39,28 @@ suite "config":
     let c = loadConfig(none(string))
     check c.sources == @["builtin-defaults"]
     check c.enabledPlugins.len == 0
+
+  test "malformed [tripwire.firewall] keys do not crash the parser":
+    # Regression guard: a wrong-typed `allow` (string instead of array)
+    # or `default` (int instead of string) used to crash via
+    # parsetoml's getElems/getStr asserts (AssertionDefect). The
+    # parser now type-guards each key and silently ignores
+    # wrong-typed values, consistent with the "config-load failure
+    # must NOT mask the underlying violation" contract.
+    let tmp = getTempDir() / "tripwire-malformed.toml"
+    writeFile(tmp, """
+[tripwire.firewall]
+allow = "not-an-array"
+default = 123
+mock = "warn"
+""")
+    defer: removeFile(tmp)
+    # MUST NOT raise.
+    let c = loadConfig(some(tmp))
+    # Wrong-typed `allow` → empty.
+    check c.firewall.allow.len == 0
+    # Wrong-typed `default` → unchanged (builtin default fmError).
+    check c.firewall.default == fmError
+    # Per-plugin override survives because it's a valid string.
+    check c.firewall.guards.getOrDefault("mock", fmError) == fmWarn
+

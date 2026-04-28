@@ -165,13 +165,21 @@ registerPlugin(websockPluginInstance)
 # ---- Fingerprinting ------------------------------------------------------
 
 proc fingerprintWebsockConnect*(uri: Uri): string =
-  ## Canonicalize a `WebSocket.connect(uri)` call to a stable fingerprint
-  ## string. Includes scheme + hostname + port + path so the matcher DSL
-  ## can pattern-match by host / port / path / scheme against it.
+  ## Canonicalize a `WebSocket.connect(uri)` call to a stable typed-token
+  ## fingerprint string.
   ##
-  ## Format: `"connect <SCHEME>://<HOST>:<PORT><PATH>"`. Matches the
-  ## fingerprint shape `sandbox.matchesFingerprint` expects (host
-  ## substring or glob match; `:<port>` substring; scheme substring).
+  ## Format:
+  ##   `procName=connect scheme=<scheme> host=<host> port=<port>
+  ##    path=<path>`
+  ##
+  ## Matches the `key=value` shape that
+  ## `sandbox.matchesFingerprint` anchors against, so M(host=...) /
+  ## M(port=...) / M(scheme=...) / M(path=...) filter precisely on
+  ## the corresponding token's value.
+  ##
+  ## IPv6 hostnames are re-bracketed (parseUri strips the brackets
+  ## from `hostname`) so the host token stays a single
+  ## whitespace-delimited unit.
   ##
   ## Default ports are filled in (80 for ws, 443 for wss) so a matcher
   ## using `M(port = 80)` works against `ws://host/path` URIs that
@@ -179,7 +187,13 @@ proc fingerprintWebsockConnect*(uri: Uri): string =
   var port = uri.port
   if port.len == 0:
     port = (if uri.scheme == "wss": "443" else: "80")
-  "connect " & uri.scheme & "://" & uri.hostname & ":" & port & uri.path
+  let host =
+    if uri.hostname.len > 0 and ':' in uri.hostname:
+      "[" & uri.hostname & "]"
+    else:
+      uri.hostname
+  "procName=connect scheme=" & uri.scheme & " host=" & host &
+    " port=" & port & " path=" & uri.path
 
 # ---- Real-proc trampolines (avoid TRM self-recursion) -------------------
 # Following the precedent established in `plugins/osproc.nim`

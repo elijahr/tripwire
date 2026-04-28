@@ -445,6 +445,19 @@ proc entryMatches(entry: AllowEntry, plugin: Plugin,
   entryMatchesTokens(entry, plugin, procName, fingerprint,
                      tokenizeMatcherHead(fingerprint))
 
+proc sandboxAllowsForTokens(v: Verifier, plugin: Plugin,
+                            procName, fingerprint: string,
+                            tokens: seq[string]): bool {.raises: [].} =
+  ## Internal tokens-already-computed variant. Lets `firewallDecideRaw`
+  ## tokenize the fingerprint once and reuse those tokens across both
+  ## the allow loop and the restrict loop, rather than tokenizing
+  ## twice per intercepted call.
+  if v.isNil: return false
+  for entry in v.allowPredicates:
+    if entry.entryMatchesTokens(plugin, procName, fingerprint, tokens):
+      return true
+  false
+
 proc sandboxAllowsFor*(v: Verifier, plugin: Plugin,
                        procName, fingerprint: string): bool {.raises: [].} =
   ## OR over all per-sandbox `allow` entries registered against `plugin`
@@ -457,11 +470,25 @@ proc sandboxAllowsFor*(v: Verifier, plugin: Plugin,
   ## reuses the tokens across every entry — relevant for sandboxes
   ## carrying many `allow`/`restrict` rules.
   if v.isNil: return false
-  let tokens = tokenizeMatcherHead(fingerprint)
-  for entry in v.allowPredicates:
-    if entry.entryMatchesTokens(plugin, procName, fingerprint, tokens):
-      return true
-  false
+  sandboxAllowsForTokens(v, plugin, procName, fingerprint,
+                         tokenizeMatcherHead(fingerprint))
+
+proc sandboxRestrictsForTokens(v: Verifier, plugin: Plugin,
+                               procName, fingerprint: string,
+                               tokens: seq[string]):
+                               tuple[active: bool, allows: bool]
+                               {.raises: [].} =
+  ## Internal tokens-already-computed variant of `sandboxRestrictsFor`.
+  ## See `sandboxAllowsForTokens` for rationale.
+  if v.isNil or v.restrictPredicates.len == 0:
+    return (active: false, allows: false)
+  var hasRestrictionsForPlugin = false
+  for entry in v.restrictPredicates:
+    if entry.plugin == plugin:
+      hasRestrictionsForPlugin = true
+      if entry.entryMatchesTokens(plugin, procName, fingerprint, tokens):
+        return (active: true, allows: true)
+  (active: hasRestrictionsForPlugin, allows: false)
 
 proc sandboxRestrictsFor*(v: Verifier, plugin: Plugin,
                           procName, fingerprint: string):
@@ -490,16 +517,8 @@ proc sandboxRestrictsFor*(v: Verifier, plugin: Plugin,
   ##     regardless of `allow`. With no `allow` registered the ceiling
   ##     also rejects (the intersection of empty allow with anything
   ##     is empty).
-  if v.isNil or v.restrictPredicates.len == 0:
-    return (active: false, allows: false)
-  let tokens = tokenizeMatcherHead(fingerprint)
-  var hasRestrictionsForPlugin = false
-  for entry in v.restrictPredicates:
-    if entry.plugin == plugin:
-      hasRestrictionsForPlugin = true
-      if entry.entryMatchesTokens(plugin, procName, fingerprint, tokens):
-        return (active: true, allows: true)
-  (active: hasRestrictionsForPlugin, allows: false)
+  sandboxRestrictsForTokens(v, plugin, procName, fingerprint,
+                            tokenizeMatcherHead(fingerprint))
 
 # ---- Firewall mode helpers ----------------------------------------------
 
@@ -569,10 +588,19 @@ proc firewallDecideRaw*(v: Verifier, plugin: Plugin, procName,
                      plugin.passthroughFor(procName)
   if pluginPasses:
     return fdAllow
-  let r = sandboxRestrictsFor(v, plugin, procName, fingerprint)
+  # Hot-path optimization: tokenize the fingerprint ONCE per call and
+  # share the tokens across both ceiling (`restrict`) and floor
+  # (`allow`) loops. The pre-refactor shape called the public
+  # `sandboxRestrictsFor` and `sandboxAllowsFor` procs, each of which
+  # internally re-tokenized the same string — wasteful in sandboxes
+  # carrying many rules where this proc runs on every intercepted
+  # interaction.
+  let tokens = tokenizeMatcherHead(fingerprint)
+  let r = sandboxRestrictsForTokens(v, plugin, procName, fingerprint,
+                                    tokens)
   if r.active and not r.allows:
     return (if v.firewallMode == fmWarn: fdWarn else: fdRaise)
-  if sandboxAllowsFor(v, plugin, procName, fingerprint):
+  if sandboxAllowsForTokens(v, plugin, procName, fingerprint, tokens):
     return fdAllow
   if v.firewallMode == fmWarn: fdWarn else: fdRaise
 

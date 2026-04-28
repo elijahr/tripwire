@@ -47,7 +47,20 @@ proc escapeFingerprintField*(s: string): string {.raises: [].} =
   ## `%20` passes through unchanged because `%` is not whitespace), so
   ## a path that round-tripped through a properly-encoded URL is
   ## unaffected.
-  result = newStringOfCap(s.len)
+  ##
+  ## Fast path: this proc runs on every intercepted interaction
+  ## (path/query of every URL, every header), and the overwhelming
+  ## majority of values contain no ASCII whitespace. Scan once and
+  ## return the input unchanged when no escaping is needed — that
+  ## avoids the per-character allocation/copy and keeps the hot path
+  ## allocation-free in the common case.
+  var needsEscape = false
+  for c in s:
+    if c in {' ', '\t', '\n', '\r'}:
+      needsEscape = true
+      break
+  if not needsEscape: return s
+  result = newStringOfCap(s.len + 4)
   for c in s:
     case c
     of ' ':  result.add("%20")

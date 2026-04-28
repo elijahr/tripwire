@@ -80,7 +80,8 @@ template tripwirePluginIntercept*(plugin: Plugin, procName: string,
       let nfOutsideHandled = nfVerifier.isNil and
           outsideSandboxShouldPassthrough(plugin, procName,
             (filename: instantiationInfo().filename,
-             line: instantiationInfo().line))
+             line: instantiationInfo().line,
+             column: instantiationInfo().column))
       if nfVerifier.isNil and not nfOutsideHandled:
         raise newLeakedInteractionDefect(getThreadId(), instantiationInfo())
       if not nfOutsideHandled:

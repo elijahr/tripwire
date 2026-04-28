@@ -231,14 +231,58 @@ proc tokenizeMatcherHead*(fingerprint: string): seq[string] {.raises: [].} =
     else: fingerprint
   result = head.split(' ')
 
-proc tokenValue(tokens: openArray[string], prefix: string): tuple[found: bool, value: string] {.inline, raises: [].} =
+proc tokenValueRef(tokens: openArray[string], prefix: string):
+    tuple[found: bool, tok: int, valueStart: int]
+    {.inline, raises: [].} =
   ## Locate the FIRST whitespace-delimited token that starts with
-  ## `<prefix>` and return the substring after the `=`. Used to anchor
-  ## Matcher fields to their typed key in the fingerprint.
-  for tok in tokens:
+  ## `<prefix>` and return the index of that token plus the byte
+  ## offset where the value (substring after `<prefix>`) begins.
+  ## Returning a `(tok, offset)` pair instead of a sliced
+  ## `tok[prefix.len .. ^1]` substring lets callers compare the
+  ## value against a matcher field WITHOUT allocating a fresh
+  ## string per field per matcher per intercepted call.
+  for i, tok in tokens:
     if tok.len >= prefix.len and tok.startsWith(prefix):
-      return (true, tok[prefix.len .. ^1])
-  (false, "")
+      return (true, i, prefix.len)
+  (false, -1, 0)
+
+proc equalsAt(tok: string; start: int; s: string): bool
+    {.inline, raises: [].} =
+  ## Compare `s` against the substring `tok[start .. ^1]` in-place.
+  ## Equivalent to `tok[start .. ^1] == s` but does not allocate.
+  if tok.len - start != s.len: return false
+  for i in 0 ..< s.len:
+    if tok[start + i] != s[i]: return false
+  true
+
+proc globMatchAt(pat: string; s: string; sStart: int): bool
+    {.inline, raises: [].} =
+  ## Glob match where `s` is treated as starting at byte `sStart`.
+  ## Mirrors the structure of `globMatch` exactly; only differs in
+  ## that `si` and `starSi` index from `sStart` instead of 0. Used
+  ## by the firewall hot path to glob-match a matcher pattern
+  ## against `tok[valueStart .. ^1]` without allocating the slice.
+  if pat.len == 0: return sStart == s.len
+  var pi = 0
+  var si = sStart
+  var starPi = -1
+  var starSi = sStart
+  while si < s.len:
+    if pi < pat.len and (pat[pi] == '?' or pat[pi] == s[si]):
+      inc pi; inc si
+    elif pi < pat.len and pat[pi] == '*':
+      starPi = pi
+      starSi = si
+      inc pi
+    elif starPi != -1:
+      pi = starPi + 1
+      inc starSi
+      si = starSi
+    else:
+      return false
+  while pi < pat.len and pat[pi] == '*':
+    inc pi
+  pi == pat.len
 
 proc fieldHitsTokens(field: string;
                      tokens: openArray[string]; prefix: string): bool {.
@@ -253,10 +297,16 @@ proc fieldHitsTokens(field: string;
   ## string anywhere (e.g., a query value `?target=127.0.0.1`
   ## spuriously matched `M(host="127.0.0.1")`). Anchoring to
   ## `host=`, `port=`, etc. eliminates that class.
-  let (found, value) = tokenValue(tokens, prefix)
+  ##
+  ## Allocation note: uses the `*Ref` / `*At` helpers so the
+  ## per-field/per-matcher hot path does NOT allocate a sliced
+  ## value string.
+  let (found, tokIdx, valueStart) = tokenValueRef(tokens, prefix)
   if not found: return false
-  if "*" in field or "?" in field: globMatch(field, value)
-  else: field == value
+  if "*" in field or "?" in field:
+    globMatchAt(field, tokens[tokIdx], valueStart)
+  else:
+    equalsAt(tokens[tokIdx], valueStart, field)
 
 proc pathHitsTokens(pattern: string;
                     tokens: openArray[string]): bool {.inline, raises: [].} =
@@ -267,10 +317,12 @@ proc pathHitsTokens(pattern: string;
   ## a workaround for the path containing `/` characters that the old
   ## token split shredded. Without wildcards, equality on the value;
   ## with wildcards, glob against the value.
-  let (found, value) = tokenValue(tokens, "path=")
+  let (found, tokIdx, valueStart) = tokenValueRef(tokens, "path=")
   if not found: return false
-  if "*" in pattern or "?" in pattern: globMatch(pattern, value)
-  else: pattern == value
+  if "*" in pattern or "?" in pattern:
+    globMatchAt(pattern, tokens[tokIdx], valueStart)
+  else:
+    equalsAt(tokens[tokIdx], valueStart, pattern)
 
 proc matchesFingerprintTokens*(m: Matcher, procName: string,
                                 tokens: openArray[string]): bool {.raises: [].} =

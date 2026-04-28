@@ -41,7 +41,7 @@ type
     ## sandbox is loud at the standard `LeakedInteractionDefect` site.
     pluginName*: string
     procName*: string
-    callsite*: tuple[filename: string, line: int]
+    callsite*: tuple[filename: string, line: int, column: int]
     threadId*: int
 
   PostTestInteractionDefect* = object of TripwireDefect
@@ -147,7 +147,7 @@ proc newLeakedInteractionDefect*(threadId: int,
   result = (ref LeakedInteractionDefect)(msg: msg, threadId: threadId)
 
 proc newOutsideSandboxNoPassthroughDefect*(pluginName, procName: string,
-    callsite: tuple[filename: string, line: int]):
+    callsite: tuple[filename: string, line: int, column: int]):
       ref OutsideSandboxNoPassthroughDefect {.raises: [].} =
   ## `{.raises: [].}` is load-bearing: the constructor is called from
   ## inside TRM expansions that may sit inside chronos
@@ -165,7 +165,8 @@ proc newOutsideSandboxNoPassthroughDefect*(pluginName, procName: string,
     FFIScopeFooter
   result = (ref OutsideSandboxNoPassthroughDefect)(msg: msg,
     pluginName: pluginName, procName: procName,
-    callsite: (filename: callsite.filename, line: callsite.line),
+    callsite: (filename: callsite.filename, line: callsite.line,
+               column: callsite.column),
     threadId: getThreadId())
 
 proc newPostTestInteractionDefect*(verifierName: string, generation: int,

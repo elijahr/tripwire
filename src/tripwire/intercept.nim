@@ -44,7 +44,8 @@ export cap_counter.tripwireCountRewrite, cap_counter.TripwireCapThreshold
 # `plugin_intercept.tripwirePluginIntercept`. See the SHAPE NOTES in the
 # combinator below for why the matrix-default codepath stays single-raise.
 proc outsideSandboxShouldPassthrough*(plugin: Plugin, procName: string,
-    callsite: tuple[filename: string, line: int]): bool {.raises: [].} =
+    callsite: tuple[filename: string, line: int, column: int]): bool
+    {.raises: [].} =
   ## Outside-sandbox firewall decision, bool form. Returns `true` iff
   ## resolved mode = fmWarn AND the plugin can passthrough (also emits
   ## the stderr warning as a side effect). RAISES on the raise paths:
@@ -98,7 +99,8 @@ proc outsideSandboxShouldPassthrough*(plugin: Plugin, procName: string,
   case guardMode
   of fmError:
     raise newLeakedInteractionDefect(getThreadId(),
-      (filename: callsite.filename, line: callsite.line, column: 0))
+      (filename: callsite.filename, line: callsite.line,
+       column: callsite.column))
   of fmWarn:
     if plugin.supportsPassthrough() and plugin.passthroughFor(procName):
       try:
@@ -119,7 +121,8 @@ proc outsideSandboxShouldPassthrough*(plugin: Plugin, procName: string,
       return
     else:
       raise newOutsideSandboxNoPassthroughDefect(plugin.name, procName,
-        (filename: callsite.filename, line: callsite.line))
+        (filename: callsite.filename, line: callsite.line,
+         column: callsite.column))
 
 # ---- Defense 6 primitive -------------------------------------------------
 template tripwireGuard*(plugin: Plugin, procName: string): untyped {.dirty.} =
@@ -202,7 +205,8 @@ template tripwireInterceptBody*(plugin: Plugin, procName: string,
     let nfOutsideHandled = nfVerifier.isNil and
         outsideSandboxShouldPassthrough(plugin, procName,
           (filename: instantiationInfo().filename,
-           line: instantiationInfo().line))
+           line: instantiationInfo().line,
+           column: instantiationInfo().column))
     if nfVerifier.isNil and not nfOutsideHandled:
       raise newLeakedInteractionDefect(getThreadId(), instantiationInfo())
     if not nfOutsideHandled:

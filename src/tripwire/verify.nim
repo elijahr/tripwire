@@ -21,7 +21,14 @@ proc popMatchingMock*(v: Verifier, pluginName, procName,
   ## procs without leaking `KeyError`. Uses `withValue` to avoid raising on
   ## table key absence (the `notin`-then-`[]` pattern that Nim's effect
   ## inference can't prove safe).
+  ##
+  ## Defensive nil-guard: this proc is exported and embedded in TRM
+  ## expansions that may evaluate before any sandbox is open (e.g.,
+  ## an instrumented call that fires from module-init code, or a
+  ## test that exercises the pop path directly). Without the guard,
+  ## `v.mockQueues.withValue` SIGSEGVs.
   result = none(Mock)
+  if v.isNil: return
   v.mockQueues.withValue(pluginName, qPtr):
     # Take mutable pointer via withValue; field assignment persists
     # because MockQueue carries a Deque[Mock] (ref-backed).

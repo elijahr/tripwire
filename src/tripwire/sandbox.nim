@@ -555,6 +555,16 @@ proc firewallDecideRaw*(v: Verifier, plugin: Plugin, procName,
   ## down to entries that fall under it. With `restrict` empty, the
   ## ceiling is open and the rule reduces to "iff some allow matches."
   ## With `allow` empty, no call passes regardless of `restrict`.
+  ##
+  ## Defensive nil-guard: this proc is exported and may be called by
+  ## plugin-author intercept combinators that race against sandbox
+  ## teardown, by unit tests that pass a synthetic `Verifier`, or
+  ## from outside-sandbox paths where no verifier is active. Without
+  ## this guard, dereferencing `v.firewallMode` later in the body
+  ## SIGSEGVs. With no verifier the answer is "raise" (no firewall
+  ## is configured to permit the call).
+  if v.isNil:
+    return fdRaise
   let pluginPasses = plugin.supportsPassthrough() and
                      plugin.passthroughFor(procName)
   if pluginPasses:

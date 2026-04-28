@@ -17,7 +17,13 @@ proc nfCollectMockFingerprints*(v: Verifier, pluginName: string):
   ## procs that may declare strict raises clauses (e.g., chronos
   ## `async: (raises: [HttpError])`). `withValue` is used in lieu of
   ## `mockQueues[pluginName]` to keep the table access non-raising.
+  ##
+  ## Defensive nil-guard: callers (TRM expansions, error-message
+  ## builders) may invoke this with no active verifier — the safe
+  ## answer is "no fingerprints to suggest." Without the guard,
+  ## `v.mockQueues.withValue` SIGSEGVs.
   result = @[]
+  if v.isNil: return
   v.mockQueues.withValue(pluginName, qPtr):
     for m in qPtr[].mocks:
       result.add(m.argFingerprint)

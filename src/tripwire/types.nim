@@ -23,6 +23,24 @@ type
   MockQueue* = object
     mocks*: Deque[Mock]
 
+  InteractionKind* = enum
+    ## Kinds of recorded interactions.
+    ##
+    ## - `ikMockMatched`: the call matched a registered mock (or a
+    ##   plugin-recorded passthrough that the user is expected to
+    ##   assert via DSLs like `responded()` / `assertMock`). Subject to
+    ##   Guarantee 2 — must be marked asserted before sandbox teardown
+    ##   or `UnassertedInteractionsDefect` fires.
+    ## - `ikFirewallPassthrough`: the call was authorized by the
+    ##   per-sandbox firewall (a matching `allow` / `restrict` predicate)
+    ##   and passed through to the real implementation. The user's
+    ##   `allow(plugin, M(...))` IS the assertion — Guarantee 2 SKIPS
+    ##   these entries. Eliminates the per-test boilerplate
+    ##   `for entry in v.timeline.entries: v.timeline.markAsserted(entry)`
+    ##   that every firewall passthrough test would otherwise need.
+    ikMockMatched
+    ikFirewallPassthrough
+
   Interaction* = ref object
     sequence*: int
     plugin*: Plugin
@@ -30,6 +48,7 @@ type
     args*: OrderedTable[string, string]
     response*: MockResponse
     asserted*: bool
+    kind*: InteractionKind
     site*: tuple[file: string, line, column: int]
     createdAt*: MonoTime
 

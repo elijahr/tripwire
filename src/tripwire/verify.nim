@@ -15,29 +15,39 @@ proc registerMock*(v: Verifier, pluginName: string, m: Mock) =
   v.mockQueues[pluginName].mocks.addLast(m)
 
 proc popMatchingMock*(v: Verifier, pluginName, procName,
-                     fingerprint: string): Option[Mock] =
-  if pluginName notin v.mockQueues: return none(Mock)
-  # Take mutable reference via table access; field assignment persists
-  # because Table[string, MockQueue] holds MockQueue by value but MockQueue
-  # carries a Deque[Mock] (ref-backed).
-  if v.mockQueues[pluginName].mocks.len == 0: return none(Mock)
-  let head = v.mockQueues[pluginName].mocks[0]
-  if head.procName == procName and head.argFingerprint == fingerprint:
-    return some(v.mockQueues[pluginName].mocks.popFirst())
-  if v.context.inAnyOrderActive:
-    let q = v.mockQueues[pluginName]
-    for i in 0 ..< q.mocks.len:
-      if q.mocks[i].procName == procName and
-         q.mocks[i].argFingerprint == fingerprint:
-        # Capture BEFORE mutating the deque (§4.1 regression guard).
-        let matched = q.mocks[i]
-        var tmp: seq[Mock]
-        for j in 0 ..< q.mocks.len:
-          if j != i: tmp.add(q.mocks[j])
-        v.mockQueues[pluginName].mocks.clear()
-        for mm in tmp: v.mockQueues[pluginName].mocks.addLast(mm)
-        return some(matched)
-  none(Mock)
+                     fingerprint: string): Option[Mock] {.raises: [].} =
+  ## Hot-path TRM helper. Annotated `{.raises: [].}` so `tripwireInterceptBody`
+  ## / `tripwirePluginIntercept` can sit inside chronos `async: (raises: [...])`
+  ## procs without leaking `KeyError`. Uses `withValue` to avoid raising on
+  ## table key absence (the `notin`-then-`[]` pattern that Nim's effect
+  ## inference can't prove safe).
+  ##
+  ## Defensive nil-guard: this proc is exported and embedded in TRM
+  ## expansions that may evaluate before any sandbox is open (e.g.,
+  ## an instrumented call that fires from module-init code, or a
+  ## test that exercises the pop path directly). Without the guard,
+  ## `v.mockQueues.withValue` SIGSEGVs.
+  result = none(Mock)
+  if v.isNil: return
+  v.mockQueues.withValue(pluginName, qPtr):
+    # Take mutable pointer via withValue; field assignment persists
+    # because MockQueue carries a Deque[Mock] (ref-backed).
+    if qPtr[].mocks.len == 0: return
+    let head = qPtr[].mocks[0]
+    if head.procName == procName and head.argFingerprint == fingerprint:
+      return some(qPtr[].mocks.popFirst())
+    if v.context.inAnyOrderActive:
+      for i in 0 ..< qPtr[].mocks.len:
+        if qPtr[].mocks[i].procName == procName and
+           qPtr[].mocks[i].argFingerprint == fingerprint:
+          # Capture BEFORE mutating the deque (§4.1 regression guard).
+          let matched = qPtr[].mocks[i]
+          var tmp: seq[Mock]
+          for j in 0 ..< qPtr[].mocks.len:
+            if j != i: tmp.add(qPtr[].mocks[j])
+          qPtr[].mocks.clear()
+          for mm in tmp: qPtr[].mocks.addLast(mm)
+          return some(matched)
 
 proc verifyAll*(v: Verifier) =
   ## Check the three guarantees. Raises the FIRST violation.

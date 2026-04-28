@@ -25,7 +25,8 @@ import std/[tables, options]
 import ../[types, errors, timeline, sandbox, verify, cap_counter, intercept]
 export options.isSome, options.isNone, options.get
 
-proc nfRecordFingerprint*(t: var OrderedTable[string, string], fp: string) =
+proc nfRecordFingerprint*(t: var OrderedTable[string, string],
+                          fp: string) {.raises: [].} =
   ## Helper to stuff the call-site fingerprint into an Interaction.args
   ## table without tripping the httpclient/HttpHeaders `[]=` overload
   ## shadowing at TRM expansion sites.
@@ -38,44 +39,92 @@ template tripwirePluginIntercept*(plugin: Plugin, procName: string,
   ## Plugin-facing intercept combinator. Identical semantics to
   ## `tripwire/intercept.tripwireInterceptBody`; differs only in the
   ## `respType` parameter being `untyped` to survive TRM expansion.
+  ##
+  ## Firewall consultation order for an unmocked call:
+  ##   1. plugin's own `passthroughFor(procName)`        (legacy/blanket)
+  ##   2. `restrict` gate                                (inverse ceiling)
+  ##   3. `allow` gate                                   (per-sandbox firewall)
+  ##   4. `firewallMode` decides defect-or-warn
   bind tripwireCountRewrite, currentVerifier, newLeakedInteractionDefect,
     newPostTestInteractionDefect, getThreadId, instantiationInfo,
     newUnmockedInteractionDefect, popMatchingMock, record, fingerprintOf,
-    supportsPassthrough, passthroughFor, realize,
+    realize,
     initOrderedTable, isSome, isNil, get, nfRecordFingerprint,
-    nfCollectMockFingerprints
+    nfCollectMockFingerprints, firewallShouldRaise,
+    tagFirewallPassthrough, outsideSandboxShouldPassthrough
   # block: wrapper gives each expansion its own scope so a plugin module
   # holding two TRMs (e.g. osproc's execProcessSeqTRM + execCmdExTRM) does
   # not emit duplicate `let nfVerifier` bindings in the same module scope.
   # Without this, {.dirty.} template expansion produces
   # "redefinition of 'nfVerifier'" during the second TRM's instantiation.
-  block:
-    tripwireCountRewrite()
-    let nfVerifier = currentVerifier()
-    if nfVerifier.isNil:
-      raise newLeakedInteractionDefect(getThreadId(), instantiationInfo())
-    if not nfVerifier.active:
-      raise newPostTestInteractionDefect(nfVerifier.name,
-        nfVerifier.generation, plugin.name, procName)
-    let nfMockOpt = nfVerifier.popMatchingMock(plugin.name, procName,
-                                                fingerprint)
-    let nfSite = instantiationInfo()
-    # Record the call-site fingerprint in args[".fp"] so assertMock can
-    # match by (procName, fingerprint) rather than procName alone.
-    # Routed through nfRecordFingerprint (a real proc) so the TRM expansion
-    # site does NOT try to overload-resolve tables.[]= against any nearby
-    # HttpHeaders.[]= etc.
-    var nfArgs = initOrderedTable[string, string]()
-    nfRecordFingerprint(nfArgs, fingerprint)
-    discard nfVerifier.timeline.record(plugin, procName, nfArgs,
-      (if nfMockOpt.isSome: nfMockOpt.get.response else: nil),
-      (file: nfSite.filename, line: nfSite.line, column: nfSite.column))
-    if nfMockOpt.isNone:
-      if plugin.supportsPassthrough() and plugin.passthroughFor(procName):
-        spyBody
+  #
+  # `{.cast(gcsafe).}` is load-bearing: the TRM body inlines into
+  # consumer call sites, which under chronos `async: (raises: [...])`
+  # are forced to gcsafe. The TRM body legitimately reads top-level
+  # `let` plugin instances (e.g. `chronosHttpPluginInstance`) and a
+  # threadvar verifier stack — both gcsafe-equivalent in practice but
+  # not provably so to Nim's effect system. The cast asserts gcsafe
+  # over the entire expansion, including spyBody (which the plugin
+  # author owns and is responsible for keeping gcsafe-clean).
+  {.cast(gcsafe).}:
+    block:
+      tripwireCountRewrite()
+      let nfVerifier = currentVerifier()
+      # See `tripwire/intercept.tripwireInterceptBody` SHAPE NOTES for
+      # the rationale.  The `if nfVerifier.isNil:` branch must hold a
+      # single statement under Nim 2.2.8 refc + unittest2 (vmgen 1821).
+      # Hoist the guard='warn' decision into an out-of-band `let` so
+      # the if-isNil branch stays a single raise; the
+      # `if nfOutsideHandled:` block is structurally separate.  See:
+      #   docs/upstream-bugs/nim-2.2.8-vmgen-1821-multi-statement-if-body.md
+      let nfOutsideHandled = nfVerifier.isNil and
+          outsideSandboxShouldPassthrough(plugin, procName,
+            (filename: instantiationInfo().filename,
+             line: instantiationInfo().line,
+             column: instantiationInfo().column))
+      if nfVerifier.isNil and not nfOutsideHandled:
+        raise newLeakedInteractionDefect(getThreadId(), instantiationInfo())
+      if not nfOutsideHandled:
+        if not nfVerifier.active:
+          raise newPostTestInteractionDefect(nfVerifier.name,
+            nfVerifier.generation, plugin.name, procName)
+        let nfMockOpt = nfVerifier.popMatchingMock(plugin.name, procName,
+                                                    fingerprint)
+        let nfSite = instantiationInfo()
+        # Record the call-site fingerprint in args[".fp"] so assertMock can
+        # match by (procName, fingerprint) rather than procName alone.
+        # Routed through nfRecordFingerprint (a real proc) so the TRM expansion
+        # site does NOT try to overload-resolve tables.[]= against any nearby
+        # HttpHeaders.[]= etc.
+        var nfArgs = initOrderedTable[string, string]()
+        nfRecordFingerprint(nfArgs, fingerprint)
+        # `kind` discrimination is done via a post-record
+        # `tagFirewallPassthrough` mutation inside the existing
+        # `if nfMockOpt.isNone:` branch — see
+        # `tripwire/intercept.tripwireInterceptBody` for the
+        # vmgen / unittest2 / refc rationale.
+        let nfRec = nfVerifier.timeline.record(plugin, procName, nfArgs,
+          (if nfMockOpt.isSome: nfMockOpt.get.response else: nil),
+          (file: nfSite.filename, line: nfSite.line, column: nfSite.column))
+        if nfMockOpt.isNone:
+          tagFirewallPassthrough(nfRec)
+          # See the matching commentary in tripwire/intercept.nim: TRM body
+          # MUST stay structurally simple (single conditional branch) to
+          # avoid a Nim-2.2.8 rewriter SIGSEGV. `firewallDecide` does the
+          # warn-side stderr emission as a side effect so the body here is
+          # just `if fdRaise: raise; spyBody`.
+          if firewallShouldRaise(nfVerifier, plugin, procName, fingerprint):
+            raise newUnmockedInteractionDefect(plugin.name, procName,
+              fingerprint,
+              (file: nfSite.filename, line: nfSite.line, column: nfSite.column),
+              nil, nfCollectMockFingerprints(nfVerifier, plugin.name))
+          spyBody
+        else:
+          respType(nfMockOpt.get.response).realize()
       else:
-        raise newUnmockedInteractionDefect(plugin.name, procName, fingerprint,
-          (file: nfSite.filename, line: nfSite.line, column: nfSite.column),
-          nil, nfCollectMockFingerprints(nfVerifier, plugin.name))
-    else:
-      respType(nfMockOpt.get.response).realize()
+        # guard='warn' passthrough: see the matching `else: spyBody` in
+        # `tripwire/intercept.tripwireInterceptBody`.  Trailing-expression
+        # form (NOT `result = spyBody; return`) so the combinator survives
+        # expression-context call sites such as `discard c.request(...)`
+        # where the consumer has no `result` variable in scope.
+        spyBody

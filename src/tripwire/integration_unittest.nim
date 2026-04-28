@@ -27,7 +27,7 @@
 ## templates; our `test:` / `suite:` templates forward to whichever is
 ## active via the `backend` alias.
 import std/exitprocs
-import ./[sandbox, verify, errors, futures]
+import ./[types, sandbox, verify, errors, futures]
 
 when defined(tripwireUnittest2):
   import unittest2 as backend
@@ -102,6 +102,29 @@ template test*(name: string, body: untyped) =
       discard popVerifier()
       if getCurrentException() == nil:
         nfV.verifyAll()
+
+template firewallTest*(name: string, allowPlugins: openArray[Plugin],
+                       guardMode: FirewallMode, body: untyped) =
+  ## Sugared test wrapper that binds a firewall configuration to the
+  ## inner sandbox before running `body`. `allowPlugins` is shorthand
+  ## for `for p in allowPlugins: allow(p)` (blanket-allow each) and
+  ## `guardMode` flips `currentVerifier().firewallMode`.
+  ##
+  ## Mirrors bigfoot's `@pytest.mark.allow("dns", "socket")` /
+  ## `@pytest.mark.firewall(guard="warn")` per-test markers, in a
+  ## tripwire-idiomatic shape (no decorator system in Nim's unittest).
+  ##
+  ## Closure / matcher predicates are NOT expressible in this sugar;
+  ## reach for the explicit `sandbox: ... allow(...) ...` form when
+  ## you need them.
+  bind allow, guard, currentVerifier
+  test name:
+    sandbox:
+      let nfV = currentVerifier()
+      guard(nfV, guardMode)
+      for p in allowPlugins:
+        allow(p)
+      body
 
 template suite*(name: string, body: untyped) =
   ## Pass-through to the active backend's `suite`. Exists so `import

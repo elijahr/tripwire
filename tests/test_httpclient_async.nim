@@ -1,6 +1,11 @@
 ## tests/test_httpclient_async.nim — F5: async TRM + Uri overload.
-import std/[unittest, httpclient, uri, asyncdispatch, options, tables]
-import tripwire/[types, errors, timeline, sandbox, verify, intercept]
+import std/[unittest, httpclient, uri, asyncdispatch]
+import tripwire/auto
+# `newMock`, `registerMock`, `markAsserted`, `fingerprintHttpRequest`,
+# `HttpAsyncMockResponse`, and `HttpMockResponse` are all
+# plugin-author-facing helpers. They're intentionally not exported
+# through `tripwire/auto`, so this test still imports them directly.
+import tripwire/[types, verify, timeline]
 import tripwire/plugins/httpclient as nfhttp
 
 proc doAsyncRequest(c: AsyncHttpClient, url: string): Future[AsyncResponse] =

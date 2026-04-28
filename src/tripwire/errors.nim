@@ -31,6 +31,19 @@ type
     threadId*: int
     procName*: string
 
+  OutsideSandboxNoPassthroughDefect* = object of TripwireDefect
+    ## Raised when a TRM fires outside any sandbox under a resolved
+    ## `fmWarn` firewall mode (either `[tripwire.firewall].<plugin>=
+    ## "warn"` or `[tripwire.firewall].default = "warn"`) for a plugin
+    ## that does not support passthrough. The remediation is in the
+    ## message: install a sandbox, narrow the per-plugin entry to
+    ## `"error"`, or flip the default back to `"error"` so the missing
+    ## sandbox is loud at the standard `LeakedInteractionDefect` site.
+    pluginName*: string
+    procName*: string
+    callsite*: tuple[filename: string, line: int, column: int]
+    threadId*: int
+
   PostTestInteractionDefect* = object of TripwireDefect
     verifierName*: string
     generation*: int
@@ -64,7 +77,7 @@ const FFIScopeFooter* = "\n(tripwire intercepts Nim source calls only. " &
 # ---- Nearest-mock hints --------------------------------------------------
 
 proc nearestMockHints*(actual: string, candidates: openArray[string],
-                       maxDistance: int = 1): seq[string] =
+                       maxDistance: int = 1): seq[string] {.raises: [].} =
   ## Returns candidates whose Levenshtein distance from `actual` is within
   ## (0, maxDistance]. Exact matches (distance 0) are suppressed because
   ## they would have matched upstream in `popMatchingMock` and never
@@ -83,7 +96,8 @@ proc nearestMockHints*(actual: string, candidates: openArray[string],
 proc newUnmockedInteractionDefect*(pluginName, procName, fingerprint: string,
     site: tuple[file: string, line, column: int],
     plugin: Plugin = nil,
-    candidates: openArray[string] = []): ref UnmockedInteractionDefect =
+    candidates: openArray[string] = []):
+      ref UnmockedInteractionDefect {.raises: [].} =
   ## If `plugin` is provided, the header uses `plugin.formatInteraction` for
   ## a verbose rendering; otherwise it falls back to `<plugin>.<proc>`.
   ##
@@ -111,27 +125,53 @@ proc newUnmockedInteractionDefect*(pluginName, procName, fingerprint: string,
     site: site, nearestMockHints: hints)
 
 proc newUnassertedInteractionsDefect*(verifierName: string,
-    interactions: seq[Interaction]): ref UnassertedInteractionsDefect =
+    interactions: seq[Interaction]):
+      ref UnassertedInteractionsDefect {.raises: [].} =
   let msg = $interactions.len & " interactions recorded but not asserted " &
     "in verifier '" & verifierName & "'" & FFIScopeFooter
   result = (ref UnassertedInteractionsDefect)(msg: msg,
     verifierName: verifierName, interactions: interactions)
 
 proc newUnusedMocksDefect*(verifierName: string,
-    mocks: seq[Mock]): ref UnusedMocksDefect =
+    mocks: seq[Mock]): ref UnusedMocksDefect {.raises: [].} =
   let msg = $mocks.len & " mocks registered but never consumed in verifier '" &
     verifierName & "'" & FFIScopeFooter
   result = (ref UnusedMocksDefect)(msg: msg,
     verifierName: verifierName, mocks: mocks)
 
 proc newLeakedInteractionDefect*(threadId: int,
-    site: tuple[filename: string, line: int, column: int]): ref LeakedInteractionDefect =
+    site: tuple[filename: string, line: int, column: int]):
+      ref LeakedInteractionDefect {.raises: [].} =
   let msg = "TRM fired on thread " & $threadId & " with no active verifier " &
     "at " & site.filename & ":" & $site.line & FFIScopeFooter
   result = (ref LeakedInteractionDefect)(msg: msg, threadId: threadId)
 
+proc newOutsideSandboxNoPassthroughDefect*(pluginName, procName: string,
+    callsite: tuple[filename: string, line: int, column: int]):
+      ref OutsideSandboxNoPassthroughDefect {.raises: [].} =
+  ## `{.raises: [].}` is load-bearing: the constructor is called from
+  ## inside TRM expansions that may sit inside chronos
+  ## `async: (raises: [...])` procs. Matches `newLeakedInteractionDefect`'s
+  ## annotation. Message format mirrors bigfoot's pedagogical guidance:
+  ## install a sandbox, or flip mode to `error` (per-plugin or default) so
+  ## the standard LeakedInteractionDefect raises instead.
+  let msg = "plugin '" & pluginName &
+    "' doesn't support outside-sandbox passthrough for '" & procName &
+    "' at " & callsite.filename & ":" & $callsite.line &
+    "; install a sandbox to mock this call, or switch to error mode " &
+    "([tripwire.firewall]." & pluginName & "='error' or " &
+    "[tripwire.firewall].default='error') to raise the standard " &
+    "LeakedInteractionDefect instead" &
+    FFIScopeFooter
+  result = (ref OutsideSandboxNoPassthroughDefect)(msg: msg,
+    pluginName: pluginName, procName: procName,
+    callsite: (filename: callsite.filename, line: callsite.line,
+               column: callsite.column),
+    threadId: getThreadId())
+
 proc newPostTestInteractionDefect*(verifierName: string, generation: int,
-    pluginName, procName: string): ref PostTestInteractionDefect =
+    pluginName, procName: string):
+      ref PostTestInteractionDefect {.raises: [].} =
   let msg = "TRM fired against popped verifier '" & verifierName &
     "' (generation " & $generation & "): " & pluginName & "." & procName &
     FFIScopeFooter

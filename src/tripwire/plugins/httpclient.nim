@@ -39,13 +39,60 @@ type
 proc fingerprintHttpRequest*(url: string, httpMethod: HttpMethod,
                              body: string, headers: HttpHeaders,
                              multipart: MultipartData): string =
-  ## Canonicalize a request's identifying fields into a stable string.
-  ## `headers` and `multipart` may be nil — $nil prints as "nil".
-  $httpMethod & " " & url & " body=" & body &
+  ## Canonicalize a request's identifying fields into a stable
+  ## space-separated `key=value` fingerprint string. `headers` and
+  ## `multipart` may be nil — `$nil` prints as "nil".
+  ##
+  ## Format:
+  ##   `method=<HttpMethod> scheme=<scheme> host=<host> port=<port>
+  ##    path=<path> body=<body> hdr=<headers> mp=<multipart>`
+  ##
+  ## The typed `key=value` shape is load-bearing for the matcher DSL:
+  ## `sandbox.matchesFingerprint` anchors each Matcher field (host,
+  ## port, scheme, httpMethod, path) to its keyed token, so a query
+  ## value cannot spuriously collide with the host field
+  ## (`M(host="127.0.0.1")` no longer matches a fingerprint whose
+  ## query string happens to contain the literal `127.0.0.1`).
+  ##
+  ## ### Choices baked in
+  ##
+  ##   * **IPv6 hosts** are emitted wrapped in `[]` (e.g.
+  ##     `host=[::1]`). `std/uri.parseUri` strips the brackets from
+  ##     `hostname`, so we re-add them when the hostname contains a
+  ##     `:`. This keeps the host token a single whitespace-delimited
+  ##     unit and lets `M(host="[::1]")` match.
+  ##   * **Missing port** is filled in from the scheme (80 for `http`,
+  ##     443 for `https`) so `M(port=80)` matches URLs that omit the
+  ##     port explicitly. Mirrors the chronos_httpclient/websock plugin
+  ##     behavior for parity. Schemes other than http/https with no
+  ##     port emit `port=` (empty) verbatim.
+  ##   * **Missing path** is emitted as `path=` (empty) verbatim so
+  ##     `parseUri("http://example.com").path` (which is `""`) is
+  ##     reflected unchanged.
+  ##   * **Query string** is included as a `query=<query>` token so
+  ##     requests to the same path with different query parameters
+  ##     produce distinct fingerprints. Without this, mocking
+  ##     `/api?id=1` would also match `/api?id=2` (a Guarantee 1 / 2
+  ##     interaction-uniqueness violation). Empty query emits `query=`.
+  let u = parseUri(url)
+  let host =
+    if u.hostname.len > 0 and ':' in u.hostname:
+      "[" & u.hostname & "]"   # re-bracket IPv6 (parseUri strips them)
+    else:
+      u.hostname
+  let port =
+    if u.port.len > 0: u.port
+    elif u.scheme == "https": "443"
+    elif u.scheme == "http":  "80"
+    else: ""
+  "method=" & $httpMethod & " scheme=" & u.scheme & " host=" & host &
+  " port=" & port & " path=" & escapeFingerprintField(u.path) &
+  " query=" & escapeFingerprintField(u.query) &
+  " body=" & body &
   " hdr=" & (if headers.isNil: "nil" else: $headers) &
   " mp=" & (if multipart.isNil: "nil" else: "multipart")
 
-method realize*(r: HttpMockResponse): Response {.base.} =
+method realize*(r: HttpMockResponse): Response {.base, raises: [Defect].} =
   ## Build a Response that mirrors what the real httpclient would produce.
   ## `body` is read lazily from `bodyStream` via the `httpclient.body()`
   ## getter, so we set only `bodyStream` (the `body` field is not
@@ -57,7 +104,7 @@ method realize*(r: HttpMockResponse): Response {.base.} =
     bodyStream: newStringStream(r.body))
 
 method realize*(r: HttpAsyncMockResponse): asyncdispatch.Future[AsyncResponse]
-    {.base.} =
+    {.base, raises: [Defect].} =
   ## Async counterpart. `AsyncResponse.body` is also unexported; we set
   ## only the fields we can construct and let the stdlib's `body()`
   ## future lazily materialize the body string.

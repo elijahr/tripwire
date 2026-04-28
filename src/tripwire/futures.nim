@@ -25,18 +25,74 @@ import std/asyncdispatch
 export asyncdispatch except hasPendingOperations
 
 proc makeCompletedFuture*[T](value: sink T,
-                             label: string = ""): Future[T] =
+                             label: string = ""): Future[T] {.raises: [].} =
   ## Build a Future[T] already completed with `value`. `label` is an
   ## optional debug tag forwarded to `newFuture[T]`.
+  ##
+  ## The unqualified `Future[T]` here resolves to `asyncdispatch.Future`
+  ## because `import chronos` is positioned BELOW this proc — see the
+  ## comment on the chronos-import block. Re-ordering risks ambiguity.
+  ##
+  ## `raises: []` is load-bearing for plugin TRM raises composition.
+  ## `complete` (asyncdispatch) declares `raises: [ValueError]` because
+  ## it raises if the future is already finished — but `newFuture[T]`
+  ## above produces a freshly-allocated, not-yet-finished future, so
+  ## that branch is unreachable here. We swallow the impossible
+  ## ValueError so plugin `realize` overrides that delegate to this
+  ## helper can be `{.raises: [Defect].}`-annotated and compose with
+  ## strict-raises consumer procs.
   result = newFuture[T](label)
-  result.complete(value)
+  # `except Exception:` is load-bearing here: `asyncdispatch.complete`
+  # declares no raises clause, so Nim infers its raises set as `Exception`
+  # (callbacks could raise anything in principle). `except CatchableError`
+  # would NOT satisfy the effect tracker because Defect is a sibling of
+  # CatchableError under Exception, and `Exception` is what `complete`
+  # is inferred to raise. Wrap the block in a local
+  # `{.push warning[BareExcept]:off.}` so the `--define:tripwireActive`
+  # CI build does not emit the BareExcept hint at every consumer call
+  # site that imports this proc transitively.
+  {.push warning[BareExcept]:off.}
+  try:
+    result.complete(value)
+  except Exception:
+    discard  # unreachable on a fresh future:
+             # On a freshly-`newFuture`d Future no callbacks are
+             # registered, so neither the `checkFinished` ValueError
+             # nor any callback exception can fire here. We swallow the
+             # impossible `Exception` so plugin `realize` overrides that
+             # delegate to this helper can be `{.raises: [Defect].}`-
+             # annotated and compose with strict-raises consumer procs.
+  {.pop.}
 
 proc makeFailedFuture*[T](err: ref Exception,
-                          label: string = ""): Future[T] =
+                          label: string = ""): Future[T] {.raises: [].} =
   ## Build a Future[T] already failed with `err`. Awaiting or
   ## `waitFor`-ing the future re-raises `err`.
+  ##
+  ## See note on `makeCompletedFuture` re: unqualified `Future[T]` and
+  ## the `raises: []` rationale (impossible-ValueError suppression on a
+  ## freshly-minted future).
   result = newFuture[T](label)
-  result.fail(err)
+  # See `makeCompletedFuture` for the full rationale on why
+  # `except Exception:` is required here (asyncdispatch.fail has no
+  # raises clause -> inferred `Exception`) and why we suppress the
+  # BareExcept hint locally rather than narrowing to CatchableError.
+  {.push warning[BareExcept]:off.}
+  try:
+    result.fail(err)
+  except Exception:
+    discard  # unreachable on a fresh future.
+  {.pop.}
+
+# `import chronos` is positioned HERE — after the unqualified-`Future[T]`
+# helpers above (which need `Future` to resolve to asyncdispatch.Future),
+# but before `hasPendingOperations` below (which needs
+# `chronos.pendingFuturesCount` in scope under
+# `-d:chronos -d:chronosFutureTracking`). Folding this with the second
+# `when defined(chronos):` block below would force the helpers above to
+# qualify every `Future` reference; keeping it here is the minimal change.
+when defined(chronos):
+  import chronos
 
 proc hasPendingOperations*(): bool =
   ## True if the async dispatcher has outstanding callbacks.
@@ -53,7 +109,6 @@ proc hasPendingOperations*(): bool =
       result = result or chronos.pendingFuturesCount() > 0
 
 when defined(chronos):
-  import chronos
   export chronos
 
   # Chronos's `newFuture[T]` is a template whose `fromProc` parameter is

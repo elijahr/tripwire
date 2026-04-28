@@ -11,6 +11,14 @@ import ./test_registry
 import ./test_timeline
 import ./test_sandbox
 import ./test_sandbox_named
+# test_firewall.nim deliberately excluded from the aggregate —
+# its single `tripwirePluginIntercept`-backed wrapper proc adds 1 TRM
+# rewrite which pushes the aggregate over Defense 3's 15-rewrites-per-
+# compilation-unit cap (cap_counter.nim). Mirrors the
+# `test_osproc_arrays.nim` exclusion above. Run it directly:
+#   nim c -r tests/test_firewall.nim
+# It is also wired as a dedicated cell in `tripwire.nimble` so
+# `nimble test` exercises it.
 import ./test_verifier
 import ./test_context
 import ./test_intercept
@@ -33,7 +41,16 @@ import ./test_osproc_plugin
 #   nim c -r tests/test_osproc_arrays.nim
 import ./test_integration_unittest
 import ./test_integration_unittest2  # gated internally by `when defined(tripwireUnittest2)`
-import ./test_auto_umbrella
+# test_auto_umbrella.nim deliberately excluded from the aggregate harness —
+# its “auto-only consumer” regression-guard tests each emit a fresh TRM
+# rewrite (one for the wrapper proc, one for the firewall behavioral
+# check), and combined with every other test file's wrappers they push
+# the aggregate over Defense 3's 15-rewrites-per-compilation-unit cap
+# (cap_counter.nim). Mirrors the `test_osproc_arrays.nim` and
+# `test_firewall.nim` exclusions above. Run it directly:
+#   nim c -r tests/test_auto_umbrella.nim
+# It is also wired as a dedicated cell in `tripwire.nimble` so
+# `nimble test` exercises it.
 import ./test_defenses
 # H2: framework's existence proof (three guarantees).
 import ./test_self_three_guarantees

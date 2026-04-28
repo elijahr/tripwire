@@ -63,6 +63,107 @@ nimble packages to the transitive walk and is a no-op unless
 `src/tripwire/audit_ffi.nim` for the scanner's scope rules.
 
 ### Added
+- One-time stderr warning at config parse time when
+  `[tripwire.firewall].guard = "..."` is encountered. The `guard` key
+  was renamed to `default` in A4'''.5; pre-warning, stale
+  `tripwire.toml` files using `guard = "warn"` silently reverted to
+  `fmError` defaults with no operator signal. The warning prints once
+  per `reloadConfig()` cycle. (`src/tripwire/config.nim`)
+- CI-time enforcement test for plugin-name reserved-key collisions
+  (`tests/test_firewall_reserved_keys.nim`). Asserts that no `Plugin`
+  instance shadows the reserved `[tripwire.firewall]` sibling keys
+  `default` or `allow`. A future plugin author who picks one of these
+  names would silently misroute through the parser; the test catches
+  it before merge.
+- Pinned parsetoml version comment in `parseFirewallConfig`
+  (`src/tripwire/config.nim`). Documents the `t.tableVal[]` API
+  surface relied upon and the verified parsetoml version (0.7.2) so
+  future bumps trigger re-verification.
+- Case 13 (invalid mode in per-plugin entry raises `ValueError` at
+  config load) is now part of the standing matrix in
+  `tests/test_outside_sandbox_guard.nim` (was specified as optional in
+  the original A4'''.5 implementation plan; now mandatory).
+- **Chronos httpclient firewall-only plugin
+  (`tripwire/plugins/chronos_httpclient`).** Auto-registers when
+  `-d:chronos` is set. Enforces Guarantee #1 (every external call is
+  pre-authorized) on chronos HTTP. Mocking is NOT supported on this
+  surface — chronos's `HttpClientResponse.state` is private with no
+  public constructor, so a synthetic-response plugin would require
+  `cast` or `unsafeNew`. The firewall-only path sidesteps the wall
+  entirely: the TRM body either raises `UnmockedInteractionDefect` or
+  passes through to the real chronos proc; it never constructs a
+  response. Consumers continue to mock HTTP responses via closure-based
+  DI at their transport boundary (e.g. an `HttpSender` closure injected
+  into a REST client) for G2/G3 coverage. Intercepts three surfaces:
+  `send(req)` (the network boundary inside chronos's request
+  lifecycle), `fetch(session, url)` (the URL-only convenience GET),
+  and `fetch(request)` (the request-form convenience that returns
+  `(status, body)`). The earlier assumption that the existing `send`
+  TRM would transitively cover `fetch(req)` was wrong — chronos's
+  `fetch(req)` body compiles outside the tripwire-active compilation
+  unit, so the inner `request.send()` call inside chronos is NOT
+  subject to TRM rewriting. An explicit `fetch(req)` TRM closes that
+  G1 bypass; without it, `req.fetch()` reached the network with no
+  firewall consultation.
+  Standalone test cell `tests/test_chronos_httpclient_firewall.nim`
+  (gated under `TRIPWIRE_TEST_CHRONOS=1`); standalone because the
+  plugin's two TRMs plus the test wrappers would push the chronos
+  aggregate over Defense 3's 15-rewrites-per-compilation-unit cap.
+- **Firewall API: `sandbox.allow` / `sandbox.restrict` / `M(...)` /
+  `firewallMode`.** The per-sandbox passthrough surface is renamed and
+  expanded to match
+  [axiomantic/bigfoot](https://github.com/axiomantic/bigfoot)'s
+  vocabulary (the Python library tripwire ports). Pre-release: NO
+  deprecation aliases — callers must move to the new names.
+  - `sandbox.allow(plugin)` — blanket plugin-name shorthand. Any call
+    routed through `plugin` falls through to the real implementation.
+  - `sandbox.allow(plugin, predicate)` — closure escape hatch
+    (`proc(procName, fingerprint: string): bool`).
+  - `sandbox.allow(plugin, M(host = "*.example.com", httpMethod = "GET",
+    path = ..., port = ..., scheme = ..., procName = ...))` — matcher
+    DSL with glob wildcards (`*` zero-or-more, `?` exactly one).
+    Plugins SHOULD honor structured fields when present; the default
+    fingerprint-substring fallback works for any plugin out of the
+    box.
+  - `sandbox.restrict(plugin[, predicate|matcher])` — ceiling on
+    `allow`. Bigfoot's mental model: `allow` lists what the sandbox
+    PERMITS; `restrict` shrinks the permission set down to calls that
+    fall inside the ceiling. A call passes iff some `allow` matches
+    AND, if any `restrict` is configured for the plugin, some
+    `restrict` matches too. `restrict` alone authorizes nothing — it
+    filters the permission set, it does not grant. Most useful as a
+    broad `allow(plugin)` narrowed by a `restrict(plugin, M(...))`.
+  - `firewallMode: FirewallMode` on `Verifier` (default `fmError`,
+    flippable to `fmWarn`). `fmWarn` mirrors bigfoot's `guard = "warn"`
+    lane: emit a `tripwire firewall:` line to stderr and proceed via
+    passthrough. Tripwire defaults to `fmError` (NOT bigfoot's `warn`)
+    to preserve Guarantee 1; flip per-sandbox via `guard(v, fmWarn)`
+    or project-wide via `[tripwire.firewall].default = "warn"` (with
+    optional per-plugin `<plugin-name> = "warn"|"error"` overrides).
+  - `firewallTest "name", [plugin1, plugin2], fmWarn: body` — sugared
+    test wrapper that opens a sandbox, sets the mode, and blanket-
+    allows each plugin in the list before running the body. Mirrors
+    bigfoot's `@pytest.mark.allow(...)` per-test marker.
+  - `[tripwire.firewall]` section in `tripwire.toml` honors `allow =
+    ["plugin-name", ...]`, `default = "warn"|"error"` (project-wide
+    outside-sandbox disposition), and per-plugin sibling keys
+    (`<plugin-name> = "warn"|"error"`) that override `default` for
+    individual plugins. Per-plugin name canonicalization is exact
+    (sync `httpclient` and async `chronos_httpclient` are separate
+    keys). Legacy flat-key `[firewall]` form is still parsed for
+    backward compatibility. Replaces the prior allow-list/deny-all
+    schema (which was parsed-but-unused; bigfoot's vocabulary was
+    always the intent).
+  - Plugin authors writing custom intercept combinators consume the
+    decision via `firewallShouldRaise(v, plugin, procName,
+    fingerprint)` (returns `bool`, side-effects the warn-side stderr
+    line) or the lower-level `firewallDecideRaw` (pure, returns
+    `FirewallDecision = fdAllow | fdWarn | fdRaise`).
+  - Plugin-level base methods `supportsPassthrough` /
+    `passthroughFor` moved from `tripwire/intercept` to
+    `tripwire/plugin_base` so the firewall decision logic in
+    `tripwire/sandbox` can call them without an import cycle. No
+    call-site changes for plugin authors who already extended these.
 - **`tripwire/threads`** — worker-thread TRM interception with
   parent-verifier inheritance. Canonical form `withTripwireThread do:
   body` pushes the parent `Verifier` onto the child thread's
@@ -122,6 +223,17 @@ nimble packages to the transitive walk and is a no-op unless
   the gate after is the user-visible `PendingAsyncDefect` raise site.
   Users who never call `asyncCheckInSandbox` see no behavioral change
   (the registry stays empty; drain is a no-op).
+
+### Fixed
+- `OutsideSandboxNoPassthroughDefect` message no longer recommends
+  settings that re-raise the same defect. The pre-fix message
+  suggested setting `[tripwire.firewall].<plugin>="warn"` or
+  `[tripwire.firewall].default="warn"` for plugins that lack
+  passthrough; both keep the plugin in `warn` mode where the
+  no-passthrough defect raises. The corrected message points the
+  operator at the two real fixes: install a sandbox to mock the call,
+  or switch to `error` mode (per-plugin or default) to raise the
+  standard `LeakedInteractionDefect` instead. (`src/tripwire/errors.nim`)
 
 ### Deferred to v0.3
 - **Env-var replacements.** `TRIPWIRE_FFI_SCAN_PATHS` and

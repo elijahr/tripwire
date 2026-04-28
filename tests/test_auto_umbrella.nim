@@ -26,6 +26,29 @@ import tripwire/[types, registry]
 # import any tripwire submodule beyond `tripwire/auto`.
 import std/httpclient
 
+# ---- Module-scope wrappers ------------------------------------------------
+# Nim 2.2.x's TRM rewriter only fires the same pattern once per compilation
+# unit when the call site is inside a nested scope (e.g. `test:` body).
+# Module-scope procs each get their own pattern fire reliably, so every
+# `c.request(...)` site that needs TRM rewrite is hoisted to a module-scope
+# wrapper. The `discard` is to silence "discardable" hints; the real signal
+# is that the wrapper proc compiles (TRM-expansion regression guard) and
+# that calling it through a sandbox emits the firewall defect at runtime.
+proc autoOnlyTrmCompiles*(c: HttpClient, url: string): Response =
+  ## Module-scope TRM-rewrite carrier #1: bare `c.request(url)` to prove
+  ## the request TRM expands successfully when the only tripwire import
+  ## is `tripwire/auto`. Test "auto-only consumer can compile a
+  ## plugin-intercepted call" uses this proc as its compile-time signal.
+  c.request(url)
+
+proc autoOnlyFirewallRequest*(c: HttpClient, url: string): Response =
+  ## Module-scope TRM-rewrite carrier #2: identical body to
+  ## `autoOnlyTrmCompiles` but a distinct proc symbol so each carrier
+  ## site rewrites independently. Test "auto-only consumer reaches the
+  ## firewall path through sandbox" calls this from inside a sandbox to
+  ## drive the full firewall decision through the TRM expansion.
+  c.request(url)
+
 suite "auto umbrella":
   test "all plugins registered when tripwireActive":
     when defined(tripwireActive):
@@ -62,16 +85,17 @@ suite "auto umbrella":
     # signal. Behavioral coverage of the same TRM lives in
     # `test_httpclient_plugin.nim` and `test_firewall.nim`.
     when defined(tripwireActive):
-      # The presence of this proc body forces TRM expansion. If TRM
-      # expansion at the consumer site (where the only tripwire import
-      # is `tripwire/auto`) cannot resolve a framework symbol, this
-      # whole test file fails to compile and never reaches runtime —
-      # so the “OK” you see for this test is itself the regression
-      # signal. The runtime body just records the proc address into
-      # `discardable`-ish storage so dead-code elimination cannot
-      # silently drop the wrapper before the codegen verifier sees it.
-      proc autoOnlyTrmCompiles(c: HttpClient, url: string): Response =
-        c.request(url)
+      # The proc `autoOnlyTrmCompiles` is defined at module scope above
+      # (NOT inside this test block) because Nim 2.2.x's TRM rewriter
+      # only fires the same pattern (here `request(c, url, ...)`) once
+      # per compilation unit when the call site is inside a nested scope
+      # such as a `test:` body. Hoisting each TRM-rewrite site to
+      # module scope gives every wrapper its own pattern fire. We just
+      # capture the proc address here so dead-code elimination cannot
+      # silently drop the wrapper before the codegen verifier sees it —
+      # the compile-time success of the proc body is the regression
+      # signal. Behavioral coverage of the same TRM lives in
+      # `test_httpclient_plugin.nim` and `test_firewall.nim`.
       var sink: pointer = cast[pointer](autoOnlyTrmCompiles)
       check sink != nil
 
@@ -113,4 +137,13 @@ suite "auto umbrella":
           # 127.0.0.1:1 is unbound on every supported host; the call
           # never escapes the firewall layer because the matcher
           # rejects it before any spyBody passthrough is attempted.
-          discard c.request("http://127.0.0.1:1/")
+          # The call is routed through `autoOnlyFirewallRequest`
+          # (module-scope wrapper above) because Nim 2.2.x's TRM
+          # rewriter only fires the same pattern once per compilation
+          # unit when the call site lives in a nested scope (here, a
+          # `test:` body). The wrapper hoists this site to module scope
+          # so the firewall-decision TRM expansion fires at runtime;
+          # the previous test's compile-only carrier
+          # (`autoOnlyTrmCompiles`) does not consume the rewrite slot
+          # for this wrapper.
+          discard autoOnlyFirewallRequest(c, "http://127.0.0.1:1/")

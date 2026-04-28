@@ -11,7 +11,7 @@ import std/unittest
 import tripwire/plugins/[
   mock, httpclient, chronos_httpclient, osproc, websock]
 
-const ReservedFirewallKeys = ["default", "allow"]
+const ReservedFirewallKeys = ["default", "allow", "guard"]
 
 suite "firewall reserved-key enforcement":
   test "no plugin shadows a reserved [tripwire.firewall] sibling key":

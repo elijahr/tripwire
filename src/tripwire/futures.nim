@@ -42,19 +42,27 @@ proc makeCompletedFuture*[T](value: sink T,
   ## helper can be `{.raises: [Defect].}`-annotated and compose with
   ## strict-raises consumer procs.
   result = newFuture[T](label)
+  # `except Exception:` is load-bearing here: `asyncdispatch.complete`
+  # declares no raises clause, so Nim infers its raises set as `Exception`
+  # (callbacks could raise anything in principle). `except CatchableError`
+  # would NOT satisfy the effect tracker because Defect is a sibling of
+  # CatchableError under Exception, and `Exception` is what `complete`
+  # is inferred to raise. Wrap the block in a local
+  # `{.push warning[BareExcept]:off.}` so the `--define:tripwireActive`
+  # CI build does not emit the BareExcept hint at every consumer call
+  # site that imports this proc transitively.
+  {.push warning[BareExcept]:off.}
   try:
     result.complete(value)
   except Exception:
     discard  # unreachable on a fresh future:
-             # `asyncdispatch.complete` declares no raises clause, so its
-             # inferred set is `Exception` (callbacks could raise anything
-             # in principle). On a freshly-`newFuture`d Future no callbacks
-             # are registered, so neither the `checkFinished` ValueError
-             # nor any callback exception can fire here. We catch
-             # CatchableError to satisfy the compiler's effect inference
-             # so plugin `realize` overrides that delegate to this helper
-             # can be `{.raises: [Defect].}`-annotated and compose with
-             # strict-raises consumer procs.
+             # On a freshly-`newFuture`d Future no callbacks are
+             # registered, so neither the `checkFinished` ValueError
+             # nor any callback exception can fire here. We swallow the
+             # impossible `Exception` so plugin `realize` overrides that
+             # delegate to this helper can be `{.raises: [Defect].}`-
+             # annotated and compose with strict-raises consumer procs.
+  {.pop.}
 
 proc makeFailedFuture*[T](err: ref Exception,
                           label: string = ""): Future[T] {.raises: [].} =
@@ -65,12 +73,16 @@ proc makeFailedFuture*[T](err: ref Exception,
   ## the `raises: []` rationale (impossible-ValueError suppression on a
   ## freshly-minted future).
   result = newFuture[T](label)
+  # See `makeCompletedFuture` for the full rationale on why
+  # `except Exception:` is required here (asyncdispatch.fail has no
+  # raises clause -> inferred `Exception`) and why we suppress the
+  # BareExcept hint locally rather than narrowing to CatchableError.
+  {.push warning[BareExcept]:off.}
   try:
     result.fail(err)
   except Exception:
-    discard  # unreachable on a fresh future. See `makeCompletedFuture`
-             # for the full rationale on why CatchableError is the
-             # correct breadth here.
+    discard  # unreachable on a fresh future.
+  {.pop.}
 
 # `import chronos` is positioned HERE — after the unqualified-`Future[T]`
 # helpers above (which need `Future` to resolve to asyncdispatch.Future),

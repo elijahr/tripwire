@@ -123,6 +123,18 @@ proc parseFirewallConfig(t: TomlValueRef): FirewallConfig =
   # 07db4f3. A bump to a newer parsetoml requires re-verifying that the
   # `for k, v in t.tableVal[]:` iteration shape still type-checks and
   # yields per-key (string, TomlValueRef) pairs.
+  #
+  # Defensive guard: `t` is the value at key `[tripwire.firewall]` /
+  # `[firewall]`. parsetoml will return whatever TOML structure the user
+  # wrote there - if a user wrote `firewall = "warn"` (a scalar) instead
+  # of a table, `t.tableVal[]` would raise FieldDefect / AssertionDefect
+  # and short-circuit firewall config loading entirely. Returning the
+  # empty default here preserves the "config-load failure must NOT mask
+  # the underlying [...] violation" contract documented in
+  # `intercept.outsideSandboxShouldPassthrough` (the operator should see
+  # the LeakedInteractionDefect first; fix the sandbox issue and then
+  # fix any config-file syntax issue separately).
+  if t.kind != TomlValueKind.Table: return result
   for k, v in t.tableVal[]:
     case k
     of "allow":

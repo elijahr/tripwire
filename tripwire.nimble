@@ -52,14 +52,24 @@ task test, "Run the full test matrix":
   exec "nim c --mm:arc --threads:on --define:tripwireActive --import:tripwire/auto -r tests/test_outside_sandbox_guard.nim"
   # Cell 5e: test_firewall_reserved_keys.nim runs standalone (CI-time
   # convention enforcement). Asserts no Plugin.name shadows the
-  # reserved [tripwire.firewall] sibling keys (`default`, `allow`).
-  # Imports every catalog plugin module; standalone so cap_counter
-  # cross-pollination from those imports stays out of the cells 1-4
-  # aggregate. No --define:chronos / --define:websock needed because
-  # the imported plugin modules expose Plugin instances unconditionally
-  # (TRM bodies under those defines are gated, but the let-bound
-  # instances themselves are not).
+  # reserved [tripwire.firewall] sibling keys (`default`, `allow`,
+  # `guard`). Standalone so cap_counter cross-pollination from those
+  # imports stays out of the cells 1-4 aggregate.
+  #
+  # The `chronos_httpclient` and `websock` plugin modules
+  # unconditionally `import chronos` / `import websock` at module top,
+  # so they only compile when the matching `-d:chronos` / `-d:websock`
+  # define is active AND the package is installed. The test file
+  # gates those imports under `when defined(...)` blocks (and runs
+  # their name checks only when those defines are active), so the
+  # default cell here covers the always-installed plugin subset
+  # (mock, httpclient, osproc). The chronos/websock variants get
+  # exercised under cells 6 / 6b / 6d which set those defines.
   exec "nim c --mm:orc --define:tripwireActive -r tests/test_firewall_reserved_keys.nim"
+  if existsEnv("TRIPWIRE_TEST_CHRONOS"):
+    exec "nim c --mm:orc --define:tripwireActive --define:chronos -r tests/test_firewall_reserved_keys.nim"
+  if existsEnv("TRIPWIRE_TEST_WEBSOCK"):
+    exec "nim c --mm:orc --define:tripwireActive --define:chronos --define:websock -r tests/test_firewall_reserved_keys.nim"
   # Cell 6: orc + chronos — opt-in via env var because chronos isn't in
   # `requires`. Set TRIPWIRE_TEST_CHRONOS=1 to enable; otherwise skip
   # the chronos cell.

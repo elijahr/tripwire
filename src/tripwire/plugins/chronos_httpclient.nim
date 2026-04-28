@@ -137,20 +137,23 @@ proc fingerprintChronosSend*(meth: HttpMethod, addr0: HttpAddress): string =
   ##
   ## Format:
   ##   `procName=send method=<METHOD> scheme=<scheme> host=<host>
-  ##    port=<port> path=<path>`
+  ##    port=<port> path=<path> query=<query>`
   ##
   ## Matches the `key=value` shape that
   ## `sandbox.matchesFingerprint` anchors against, so M(host=...) /
   ## M(port=...) / M(scheme=...) / M(httpMethod=...) / M(path=...)
   ## filter precisely on the corresponding token's value rather than
-  ## any whitespace-delimited substring.
+  ## any whitespace-delimited substring. `query=` is included so two
+  ## sends to the same path with different query strings produce
+  ## distinct fingerprints (Guarantee 1 / 2 interaction-uniqueness).
   let scheme =
     case addr0.scheme
     of HttpClientScheme.NonSecure: "http"
     of HttpClientScheme.Secure: "https"
   "procName=send method=" & $meth & " scheme=" & scheme &
     " host=" & bracketIfV6(addr0.hostname) & " port=" & $addr0.port &
-    " path=" & addr0.path
+    " path=" & escapeFingerprintField(addr0.path) &
+    " query=" & escapeFingerprintField(addr0.query)
 
 proc fingerprintChronosFetchReq*(meth: HttpMethod, addr0: HttpAddress): string =
   ## Canonicalize a `fetch(request)` call. Mirrors `fingerprintChronosSend`
@@ -163,7 +166,8 @@ proc fingerprintChronosFetchReq*(meth: HttpMethod, addr0: HttpAddress): string =
     of HttpClientScheme.Secure: "https"
   "procName=fetch method=" & $meth & " scheme=" & scheme &
     " host=" & bracketIfV6(addr0.hostname) & " port=" & $addr0.port &
-    " path=" & addr0.path
+    " path=" & escapeFingerprintField(addr0.path) &
+    " query=" & escapeFingerprintField(addr0.query)
 
 proc fingerprintChronosFetch*(url: Uri): string =
   ## Canonicalize a `fetch(session, url)` call. Always GET (chronos's
@@ -172,16 +176,19 @@ proc fingerprintChronosFetch*(url: Uri): string =
   ##
   ## Default ports filled in (80 for http, 443 for https) so
   ## `M(port=80)` works against `http://host/path` URIs that omit the
-  ## port. Redirects happen under the hood via `request.redirect()`
-  ## which builds a new request and `send`s it; that inner `send` is
-  ## intercepted by `sendTRM` separately, so each redirect hop is
-  ## firewall-checked.
+  ## port. `query=` is included so two fetches to the same path with
+  ## different query strings produce distinct fingerprints (G1 / G2
+  ## interaction-uniqueness). Redirects happen under the hood via
+  ## `request.redirect()` which builds a new request and `send`s it;
+  ## that inner `send` is intercepted by `sendTRM` separately, so each
+  ## redirect hop is firewall-checked.
   var port = url.port
   if port.len == 0:
     port = (if url.scheme == "https": "443" else: "80")
   "procName=fetch method=GET scheme=" & url.scheme &
     " host=" & bracketIfV6(url.hostname) & " port=" & port &
-    " path=" & url.path
+    " path=" & escapeFingerprintField(url.path) &
+    " query=" & escapeFingerprintField(url.query)
 
 # ---- Real-proc trampolines (avoid TRM self-recursion) -------------------
 # Following the precedent established in `plugins/osproc.nim`

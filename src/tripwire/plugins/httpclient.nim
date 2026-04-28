@@ -86,7 +86,8 @@ proc fingerprintHttpRequest*(url: string, httpMethod: HttpMethod,
     elif u.scheme == "http":  "80"
     else: ""
   "method=" & $httpMethod & " scheme=" & u.scheme & " host=" & host &
-  " port=" & port & " path=" & u.path & " query=" & u.query &
+  " port=" & port & " path=" & escapeFingerprintField(u.path) &
+  " query=" & escapeFingerprintField(u.query) &
   " body=" & body &
   " hdr=" & (if headers.isNil: "nil" else: $headers) &
   " mp=" & (if multipart.isNil: "nil" else: "multipart")

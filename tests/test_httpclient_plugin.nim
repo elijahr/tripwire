@@ -48,6 +48,21 @@ suite "httpclient plugin":
     check "port=80" in httpFp
     check "port=443" in httpsFp
 
+  test "fingerprintHttpRequest escapes whitespace in path/query":
+    # Raw whitespace inside `path` or `query` would let
+    # `sandbox.tokenizeMatcherHead` split the fingerprint mid-field,
+    # breaking the per-field anchored matcher. The fingerprint builder
+    # percent-encodes whitespace in path/query so each field stays a
+    # single whitespace-delimited token.
+    let fp = fingerprintHttpRequest("http://x/p with sp?q=a b",
+                                    HttpGet, "", nil, nil)
+    check "path=/p%20with%20sp" in fp
+    check "query=q=a%20b" in fp
+    # Sanity: the matcher-head split (used by sandbox.matchesFingerprint)
+    # finds the path and query as single tokens, not shredded fragments.
+    check " path=/p%20with%20sp " in (" " & fp)
+    check " query=q=a%20b " in fp
+
   test "sync request TRM binds and returns mocked response":
     ## CRITICAL EARLY INTEGRATION: verifies TRM default (headers = nil)
     ## matches stdlib 2.2.6. If this fails, the plugin is broken at

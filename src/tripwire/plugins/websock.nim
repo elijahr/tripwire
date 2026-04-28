@@ -170,7 +170,7 @@ proc fingerprintWebsockConnect*(uri: Uri): string =
   ##
   ## Format:
   ##   `procName=connect scheme=<scheme> host=<host> port=<port>
-  ##    path=<path>`
+  ##    path=<path> query=<query>`
   ##
   ## Matches the `key=value` shape that
   ## `sandbox.matchesFingerprint` anchors against, so M(host=...) /
@@ -184,6 +184,10 @@ proc fingerprintWebsockConnect*(uri: Uri): string =
   ## Default ports are filled in (80 for ws, 443 for wss) so a matcher
   ## using `M(port = 80)` works against `ws://host/path` URIs that
   ## omit the port.
+  ##
+  ## `query=` is included so two connects to the same path with
+  ## different query strings produce distinct fingerprints (G1 / G2
+  ## interaction-uniqueness).
   var port = uri.port
   if port.len == 0:
     port = (if uri.scheme == "wss": "443" else: "80")
@@ -193,7 +197,8 @@ proc fingerprintWebsockConnect*(uri: Uri): string =
     else:
       uri.hostname
   "procName=connect scheme=" & uri.scheme & " host=" & host &
-    " port=" & port & " path=" & uri.path
+    " port=" & port & " path=" & escapeFingerprintField(uri.path) &
+    " query=" & escapeFingerprintField(uri.query)
 
 # ---- Real-proc trampolines (avoid TRM self-recursion) -------------------
 # Following the precedent established in `plugins/osproc.nim`

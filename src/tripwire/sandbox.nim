@@ -203,23 +203,33 @@ proc globMatch*(pat, s: string): bool {.raises: [].} =
   pi == pat.len
 
 proc tokenizeMatcherHead*(fingerprint: string): seq[string] {.raises: [].} =
-  ## Split the fingerprint on whitespace, stopping when a `body=` token
-  ## is encountered. Body content (and `hdr=`/`mp=` after it) can contain
-  ## whitespace that would otherwise inflate the token list and cost
-  ## per-firewall-decision allocations.
+  ## Split the matcher-relevant prefix of the fingerprint on whitespace.
+  ## Body content (and `hdr=`/`mp=` after it) can contain whitespace
+  ## that would otherwise inflate the token list and cost per-decision
+  ## allocations.
+  ##
+  ## Implementation: locate the ` body=` separator with a single
+  ## `find` call (memchr-style scan), then split only the head slice.
+  ## This avoids producing seq-yielded sub-strings for every space
+  ## inside the body content under the iterator, even though the
+  ## previous loop-and-break shape did short-circuit yielding once
+  ## `body=` was reached — `find` performs the scan in one allocation-
+  ## free pass and the head slice is a tighter input to `split`.
   ##
   ## Anchoring at `body=` is safe because every HTTP-shape fingerprint
   ## builder (`fingerprintHttpRequest`, `fingerprintChronosSend` etc.)
   ## emits the matcher-relevant fields (method/scheme/host/port/path/
   ## query) BEFORE `body=`, and the Matcher type only consults those
-  ## fields. Non-HTTP fingerprints (mock/osproc `fingerprintOf`) have no
-  ## `body=` token, so the loop returns the full split — cheap because
-  ## those fingerprints are short and `key=value` -shaped tokens are
-  ## absent so all per-field lookups return "not found" anyway.
-  result = @[]
-  for tok in fingerprint.split(' '):
-    if tok.len >= 5 and tok.startsWith("body="): break
-    result.add(tok)
+  ## fields. Non-HTTP fingerprints (mock/osproc `fingerprintOf`) have
+  ## no ` body=` substring, so `find` returns -1 and the entire
+  ## fingerprint is split — cheap because those fingerprints are
+  ## short and have no `key=value`-shaped tokens, so per-field lookups
+  ## return "not found" anyway.
+  let bodyIdx = fingerprint.find(" body=")
+  let head =
+    if bodyIdx >= 0: fingerprint.substr(0, bodyIdx - 1)
+    else: fingerprint
+  result = head.split(' ')
 
 proc tokenValue(tokens: openArray[string], prefix: string): tuple[found: bool, value: string] {.inline, raises: [].} =
   ## Locate the FIRST whitespace-delimited token that starts with

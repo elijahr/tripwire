@@ -8,12 +8,15 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [0.0.2] - 2026-04-28
 
-In-development work past v0.0.1. NOT yet validated against any
-real consumer project — the alpha banner still applies. Adds
-worker-thread TRM interception, opt-in sandboxed-async spawn
-registry, compile-time FFI audit auto-scope, and a named-sandbox
-overload. Two breaking changes are queued for the next release,
-both with compile-time guards and explicit migration recipes.
+v0.0.2. Validated against the seven-cell internal matrix and one
+consumer project (paperplanes). The alpha banner still applies.
+Adds worker-thread TRM interception, opt-in sandboxed-async spawn
+registry, compile-time FFI audit auto-scope, a named-sandbox
+overload, and the bigfoot-parity firewall API
+(`allow`/`restrict`/`guard`, matcher DSL, per-plugin
+`[tripwire.firewall]` config) plus chronos and websock firewall-only
+plugins. Two breaking changes ship in this release, both with
+compile-time guards and explicit migration recipes.
 
 ### Breaking
 
@@ -42,18 +45,18 @@ FFI-audit callers must drop the env-var form and move to compile
 defines. `TRIPWIRE_CONFIG` (config-file locator) is unchanged.
 
 ```bash
-# Direct scope — before (v0.1):
+# Direct scope, before (v0.1):
 export TRIPWIRE_FFI_SCAN_PATHS="src"
 nim c -r -d:tripwireAuditFFI mytest.nim
 
-# Direct scope — after (v0.2):
+# Direct scope, after (v0.2):
 nim c -r -d:tripwireAuditFFI mytest.nim
 
-# Transitive scope — before (v0.1):
+# Transitive scope, before (v0.1):
 export TRIPWIRE_FFI_TRANSITIVE_PATHS="/usr/lib/nim"
 nim c -r -d:tripwireAuditFFI mytest.nim
 
-# Transitive scope — after (v0.2):
+# Transitive scope, after (v0.2):
 nim c -r -d:tripwireAuditFFI -d:tripwireAuditFFITransitive mytest.nim
 ```
 
@@ -89,7 +92,7 @@ nimble packages to the transitive walk and is a no-op unless
   (`tripwire/plugins/chronos_httpclient`).** Auto-registers when
   `-d:chronos` is set. Enforces Guarantee #1 (every external call is
   pre-authorized) on chronos HTTP. Mocking is NOT supported on this
-  surface — chronos's `HttpClientResponse.state` is private with no
+  surface: chronos's `HttpClientResponse.state` is private with no
   public constructor, so a synthetic-response plugin would require
   `cast` or `unsafeNew`. The firewall-only path sidesteps the wall
   entirely: the TRM body either raises `UnmockedInteractionDefect` or
@@ -101,7 +104,7 @@ nimble packages to the transitive walk and is a no-op unless
   lifecycle), `fetch(session, url)` (the URL-only convenience GET),
   and `fetch(request)` (the request-form convenience that returns
   `(status, body)`). The earlier assumption that the existing `send`
-  TRM would transitively cover `fetch(req)` was wrong — chronos's
+  TRM would transitively cover `fetch(req)` was wrong. Chronos's
   `fetch(req)` body compiles outside the tripwire-active compilation
   unit, so the inner `request.send()` call inside chronos is NOT
   subject to TRM rewriting. An explicit `fetch(req)` TRM closes that
@@ -116,23 +119,23 @@ nimble packages to the transitive walk and is a no-op unless
   expanded to match
   [axiomantic/bigfoot](https://github.com/axiomantic/bigfoot)'s
   vocabulary (the Python library tripwire ports). Pre-release: NO
-  deprecation aliases — callers must move to the new names.
-  - `sandbox.allow(plugin)` — blanket plugin-name shorthand. Any call
+  deprecation aliases. Callers must move to the new names.
+  - `sandbox.allow(plugin)`: blanket plugin-name shorthand. Any call
     routed through `plugin` falls through to the real implementation.
-  - `sandbox.allow(plugin, predicate)` — closure escape hatch
+  - `sandbox.allow(plugin, predicate)`: closure escape hatch
     (`proc(procName, fingerprint: string): bool`).
   - `sandbox.allow(plugin, M(host = "*.example.com", httpMethod = "GET",
-    path = ..., port = ..., scheme = ..., procName = ...))` — matcher
+    path = ..., port = ..., scheme = ..., procName = ...))`: matcher
     DSL with glob wildcards (`*` zero-or-more, `?` exactly one).
     Plugins SHOULD honor structured fields when present; the default
     fingerprint-substring fallback works for any plugin out of the
     box.
-  - `sandbox.restrict(plugin[, predicate|matcher])` — ceiling on
+  - `sandbox.restrict(plugin[, predicate|matcher])`: ceiling on
     `allow`. Bigfoot's mental model: `allow` lists what the sandbox
     PERMITS; `restrict` shrinks the permission set down to calls that
     fall inside the ceiling. A call passes iff some `allow` matches
     AND, if any `restrict` is configured for the plugin, some
-    `restrict` matches too. `restrict` alone authorizes nothing — it
+    `restrict` matches too. `restrict` alone authorizes nothing: it
     filters the permission set, it does not grant. Most useful as a
     broad `allow(plugin)` narrowed by a `restrict(plugin, M(...))`.
   - `firewallMode: FirewallMode` on `Verifier` (default `fmError`,
@@ -142,7 +145,7 @@ nimble packages to the transitive walk and is a no-op unless
     to preserve Guarantee 1; flip per-sandbox via `guard(v, fmWarn)`
     or project-wide via `[tripwire.firewall].default = "warn"` (with
     optional per-plugin `<plugin-name> = "warn"|"error"` overrides).
-  - `firewallTest "name", [plugin1, plugin2], fmWarn: body` — sugared
+  - `firewallTest "name", [plugin1, plugin2], fmWarn: body`: sugared
     test wrapper that opens a sandbox, sets the mode, and blanket-
     allows each plugin in the list before running the body. Mirrors
     bigfoot's `@pytest.mark.allow(...)` per-test marker.
@@ -166,7 +169,7 @@ nimble packages to the transitive walk and is a no-op unless
     `tripwire/plugin_base` so the firewall decision logic in
     `tripwire/sandbox` can call them without an import cycle. No
     call-site changes for plugin authors who already extended these.
-- **`tripwire/threads`** — worker-thread TRM interception with
+- **`tripwire/threads`**: worker-thread TRM interception with
   parent-verifier inheritance. Canonical form `withTripwireThread do:
   body` pushes the parent `Verifier` onto the child thread's
   verifier stack via `runWithVerifier`. Low-level building blocks:
@@ -177,28 +180,28 @@ nimble packages to the transitive walk and is a no-op unless
   `NestedTripwireThreadDefect` if `tripwireThread` fires from inside
   another `tripwireThread` block; `LeakedInteractionDefect` if there
   is no active parent verifier.
-- **`tripwire/async_registry`** — opt-in sandboxed-async spawn
+- **`tripwire/async_registry`**: opt-in sandboxed-async spawn
   registry. `asyncCheckInSandbox(fut)` registers a Future on the
   current verifier so leak detection is scoped to the sandbox (plain
   `asyncCheck` cross-contaminates across tests). `withAsyncSandbox do:
   body` wraps a sandbox with the registry attached. chronos Futures
   are rejected at compile time with a diagnostic (chronos registration
   deferred to v0.3).
-- **`drainPendingAsync(v)`** in `tripwire/verify` — sync proc that
+- **`drainPendingAsync(v)`** in `tripwire/verify`: sync proc that
   loops `poll(timeout = 50)` until every registered Future has
   completed or `tripwireAsyncDrainTimeoutMs` elapses. Exposes
   per-Future spawn-site diagnostics when drain times out.
-- **`-d:tripwireAsyncDrainTimeoutMs:N`** (intdefine) — drain-loop
+- **`-d:tripwireAsyncDrainTimeoutMs:N`** (intdefine): drain-loop
   timeout in milliseconds. Default 5000.
-- **`-d:tripwireAuditFFITransitive`** — opt-in transitive FFI scope
+- **`-d:tripwireAuditFFITransitive`**: opt-in transitive FFI scope
   with per-package aggregation from `.nimble` requires. Default-off.
-- **`template sandbox*(name: static string, body: untyped)`** — named
+- **`template sandbox*(name: static string, body: untyped)`**: named
   overload. The user-provided label propagates to `Verifier.name` and
   embeds in `UnassertedInteractionsDefect` / `UnusedMocksDefect`
   messages. Semantics otherwise identical to the unnamed form. Both
   overloads disambiguate cleanly: `sandbox: body` (unnamed),
   `sandbox "label": body` (named).
-- **FFI audit scope** — direct scope now auto-detects from
+- **FFI audit scope**: direct scope now auto-detects from
   `querySetting(projectPath)`; transitive scope aggregates per
   `.nimble` package under the opt-in define above. Replaces the v0.1
   env-var contract.
@@ -206,11 +209,11 @@ nimble packages to the transitive walk and is a no-op unless
   `NestedTripwireThreadDefect`. New `PendingAsyncDefect(msg, parent)`
   overload for drain-loop diagnostic paths (carries the underlying
   exception as `parent`).
-- **Matrix cell #7 — arc+threads.** `tripwire.nimble` adds
+- **Matrix cell #7 (arc+threads).** `tripwire.nimble` adds
   `--mm:arc --threads:on` cell exercising the new threads module.
   (arc rather than orc because Nim 2.2.6's orc cycle collector still
   has issues under `--threads:on`.)
-- **Compile-time rejection of refc+threads** — nimble F2 guard
+- **Compile-time rejection of refc+threads**: nimble F2 guard
   asserts that `nim check --gc:refc --threads:on -d:tripwireActive`
   exits non-zero with the string
   `tripwireThread requires --gc:orc or --gc:arc` in stderr.

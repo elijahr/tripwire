@@ -110,7 +110,7 @@ template firewallTest*(name: string, allowPlugins: openArray[Plugin],
   ## for `for p in allowPlugins: allow(p)` (blanket-allow each) and
   ## `guardMode` flips `currentVerifier().firewallMode`.
   ##
-  ## Mirrors bigfoot's `@pytest.mark.allow("dns", "socket")` /
+  ## Mirrors python-tripwire's `@pytest.mark.allow("dns", "socket")` /
   ## `@pytest.mark.firewall(guard="warn")` per-test markers, in a
   ## tripwire-idiomatic shape (no decorator system in Nim's unittest).
   ##

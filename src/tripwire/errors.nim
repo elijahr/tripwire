@@ -152,7 +152,7 @@ proc newOutsideSandboxNoPassthroughDefect*(pluginName, procName: string,
   ## `{.raises: [].}` is load-bearing: the constructor is called from
   ## inside TRM expansions that may sit inside chronos
   ## `async: (raises: [...])` procs. Matches `newLeakedInteractionDefect`'s
-  ## annotation. Message format mirrors bigfoot's pedagogical guidance:
+  ## annotation. Message format mirrors python-tripwire's pedagogical guidance:
   ## install a sandbox, or flip mode to `error` (per-plugin or default) so
   ## the standard LeakedInteractionDefect raises instead.
   let msg = "plugin '" & pluginName &

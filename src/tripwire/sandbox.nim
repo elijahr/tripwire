@@ -1,8 +1,8 @@
 ## tripwire/sandbox.nim — Verifier type, thread-local stack, sandbox template,
 ## firewall API (`allow` / `restrict` / matchers).
 ##
-## Firewall vocabulary (modeled on axiomantic/bigfoot, the Python library
-## tripwire ports):
+## Firewall vocabulary (modeled on axiomantic/python-tripwire, the Python
+## library tripwire ports; formerly named `bigfoot`):
 ##
 ##   * `sandbox.allow(plugin)`              — ALL calls intercepted by `plugin`
 ##                                            may fall through to the real impl.
@@ -12,7 +12,7 @@
 ##                                          — matcher DSL; plugins receive the
 ##                                            Matcher via `AllowMatch` and SHOULD
 ##                                            honor host/port/method/path.
-##   * `sandbox.restrict(...)`              — ceiling on `allow`. Bigfoot's
+##   * `sandbox.restrict(...)`              — ceiling on `allow`. python-tripwire's
 ##                                            mental model: `allow` lists what
 ##                                            the sandbox PERMITS; `restrict`
 ##                                            shrinks the permission set down to
@@ -48,7 +48,7 @@
 ## Tripwire today has a single (flat) sandbox scope. When nested sandboxes
 ## land in a future release, the ceiling extends naturally: an inner
 ## `restrict` filters the union of outer + inner allows, so an inner block
-## can only TIGHTEN the ceiling, never widen it (bigfoot's "inner blocks
+## can only TIGHTEN the ceiling, never widen it (python-tripwire's "inner blocks
 ## cannot widen" guarantee).
 ##
 ## Consultation order in the intercept combinators
@@ -170,7 +170,7 @@ proc initMatcher*(host = ""; port = -1; httpMethod = ""; path = "";
           scheme: scheme, procName: procName)
 
 template M*(args: varargs[untyped]): Matcher =
-  ## Keyword-arg matcher constructor. Mirrors bigfoot's `M(...)`. Only
+  ## Keyword-arg matcher constructor. Mirrors python-tripwire's `M(...)`. Only
   ## the named fields you supply are populated; everything else stays
   ## unset (empty string / -1).
   ##
@@ -399,7 +399,7 @@ proc matchesFingerprint*(m: Matcher, procName,
 proc allow*(plugin: Plugin) =
   ## Plugin-name shorthand: any call intercepted by `plugin` falls
   ## through to its real implementation. Equivalent in spirit to
-  ## bigfoot's `allow("dns")`.
+  ## python-tripwire's `allow("dns")`.
   let v = currentVerifier()
   if v.isNil:
     raise newLeakedInteractionDefect(getThreadId(), instantiationInfo())
@@ -577,7 +577,7 @@ proc sandboxRestrictsFor*(v: Verifier, plugin: Plugin,
 proc guard*(v: Verifier, mode: FirewallMode) =
   ## Set firewall mode on a verifier (also reachable as
   ## `currentVerifier().firewallMode = ...`). The `guard=` form is the
-  ## bigfoot-aligned spelling for in-test toggles.
+  ## python-tripwire-aligned spelling for in-test toggles.
   if v.isNil:
     raise newLeakedInteractionDefect(getThreadId(), instantiationInfo())
   v.firewallMode = mode
@@ -609,7 +609,7 @@ proc firewallDecideRaw*(v: Verifier, plugin: Plugin, procName,
   ## Pure decision proc — exposed for unit tests and plugin authors
   ## writing custom intercept combinators. Side-effect-free.
   ##
-  ## Decision rule (bigfoot ceiling model in flat-scope semantics):
+  ## Decision rule (python-tripwire ceiling model in flat-scope semantics):
   ##
   ##   1. Plugin-level blanket passthrough (e.g., MockPlugin's
   ##      `passthroughFor` over every procName) → fdAllow. This is a

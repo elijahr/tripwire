@@ -1,5 +1,8 @@
 # tripwire
 
+[![CI](https://github.com/axiomantic/nim-tripwire/actions/workflows/ci.yml/badge.svg)](https://github.com/axiomantic/nim-tripwire/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
 Test mocking framework for Nim that refuses to lie about coverage.
 
 `unittest.mock` and friends pass when the test says nothing. tripwire
@@ -9,9 +12,11 @@ registered mock must be consumed. Violations raise non-catchable
 defects that abort the test binary with a stack trace naming the
 offending call.
 
-Nim port of [axiomantic/bigfoot](https://github.com/axiomantic/bigfoot).
-Bigfoot is the canonical UX reference; the firewall vocabulary (`allow`,
-`restrict`, `M(...)`, `guard`) is taken directly from it.
+Nim port of
+[axiomantic/python-tripwire](https://github.com/axiomantic/python-tripwire)
+(formerly `bigfoot`). python-tripwire is the canonical UX reference; the
+firewall vocabulary (`allow`, `restrict`, `M(...)`, `guard`) is taken
+directly from it.
 
 ## What tripwire is, and isn't
 
@@ -28,7 +33,7 @@ Bigfoot is the canonical UX reference; the firewall vocabulary (`allow`,
   every call that isn't pre-authorized."
 - **Isn't:** v1.0. See the alpha banner below.
 
-## Three guarantees (30 seconds)
+## Three guarantees
 
 1. **G1 - pre-authorization.** Every external call routed through a
    tripwire plugin must have a queued mock OR a matching `allow`.
@@ -44,9 +49,9 @@ Bigfoot is the canonical UX reference; the firewall vocabulary (`allow`,
 Defects derive from `Defect`, not `CatchableError`. Test code cannot
 swallow them.
 
-## Activate (30 seconds)
+## Install and activate
 
-Install:
+Install from nimble:
 
 ```bash
 nimble install tripwire
@@ -94,8 +99,8 @@ nim c -r tests/test_user.nim
 ```
 
 Drop the `expectHttp` block and the test fails with
-`UnmockedInteractionDefect: get(...)`. Drop the `assertHttp` block and
-it fails with `UnassertedInteractionsDefect`. That's G1 and G2 firing.
+`UnmockedInteractionDefect: get(...)` (G1). Drop the `assertHttp` block
+and it fails with `UnassertedInteractionsDefect` (G2).
 
 ## Plugin coverage
 
@@ -149,8 +154,8 @@ too. `restrict` alone authorizes nothing.
 
 `guard(currentVerifier(), fmWarn)` flips the per-sandbox mode from
 "unmocked = raise" to "unmocked = log to stderr and pass through,"
-matching bigfoot's `guard = "warn"`. tripwire defaults to `fmError`
-because Guarantee 1 is the point.
+matching python-tripwire's `guard = "warn"`. tripwire defaults to
+`fmError` because Guarantee 1 is the point.
 
 Per-test sugar (`firewallTest "name", [plugins], mode: body`) opens a
 sandbox, blanket-`allow`s each plugin, and sets the mode in one step.
@@ -181,10 +186,10 @@ v0.0.2:
 
 ## Inspirations
 
-[axiomantic/bigfoot](https://github.com/axiomantic/bigfoot) is the
-design source. Three-guarantee model, plugin shape, firewall
-vocabulary, and the loud-failure ethos all come from there. Defect
-text was tuned independently to match Nim's stack-trace conventions.
+[axiomantic/python-tripwire](https://github.com/axiomantic/python-tripwire)
+is the design source. The three-guarantee model, plugin shape, firewall
+vocabulary, and loud-failure ethos all come from there. Defect text was
+tuned independently to match Nim's stack-trace conventions.
 
 ## Status and development
 
@@ -196,6 +201,12 @@ text was tuned independently to match Nim's stack-trace conventions.
   plugin authoring rules. Required reading before writing a new
   plugin.
 
+## Contributing
+
+Bug reports and PRs are welcome. See
+[`CONTRIBUTING.md`](CONTRIBUTING.md) for prerequisites, the test matrix,
+and the conventions a PR is expected to follow.
+
 ## License
 
-MIT.
+MIT - see [LICENSE](LICENSE).

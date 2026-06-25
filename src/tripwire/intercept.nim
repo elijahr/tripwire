@@ -55,7 +55,7 @@ proc outsideSandboxShouldPassthrough*(plugin: Plugin, procName: string,
   ##
   ## Resolution: per-plugin entry in `firewall.guards[plugin.name]` wins
   ## over `firewall.default`. A4'''.5 brings tripwire's
-  ## `[tripwire.firewall]` block into bigfoot-parity (per-key sibling
+  ## `[tripwire.firewall]` block into python-tripwire-parity (per-key sibling
   ## form: `default = "..."` plus per-plugin overrides).
   ##
   ## `{.raises: [].}` is load-bearing: both raised types are Defects (not

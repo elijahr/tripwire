@@ -12,7 +12,7 @@ v0.0.2. Validated against the seven-cell internal matrix and one
 consumer project (paperplanes). The alpha banner still applies.
 Adds worker-thread TRM interception, opt-in sandboxed-async spawn
 registry, compile-time FFI audit auto-scope, a named-sandbox
-overload, and the bigfoot-parity firewall API
+overload, and the python-tripwire-parity firewall API
 (`allow`/`restrict`/`guard`, matcher DSL, per-plugin
 `[tripwire.firewall]` config) plus chronos and websock firewall-only
 plugins. Two breaking changes ship in this release, both with
@@ -117,8 +117,9 @@ nimble packages to the transitive walk and is a no-op unless
 - **Firewall API: `sandbox.allow` / `sandbox.restrict` / `M(...)` /
   `firewallMode`.** The per-sandbox passthrough surface is renamed and
   expanded to match
-  [axiomantic/bigfoot](https://github.com/axiomantic/bigfoot)'s
-  vocabulary (the Python library tripwire ports). Pre-release: NO
+  [axiomantic/python-tripwire](https://github.com/axiomantic/python-tripwire)'s
+  vocabulary (the Python library tripwire ports; formerly named
+  `bigfoot`). Pre-release: NO
   deprecation aliases. Callers must move to the new names.
   - `sandbox.allow(plugin)`: blanket plugin-name shorthand. Any call
     routed through `plugin` falls through to the real implementation.
@@ -131,7 +132,7 @@ nimble packages to the transitive walk and is a no-op unless
     fingerprint-substring fallback works for any plugin out of the
     box.
   - `sandbox.restrict(plugin[, predicate|matcher])`: ceiling on
-    `allow`. Bigfoot's mental model: `allow` lists what the sandbox
+    `allow`. python-tripwire's mental model: `allow` lists what the sandbox
     PERMITS; `restrict` shrinks the permission set down to calls that
     fall inside the ceiling. A call passes iff some `allow` matches
     AND, if any `restrict` is configured for the plugin, some
@@ -139,16 +140,17 @@ nimble packages to the transitive walk and is a no-op unless
     filters the permission set, it does not grant. Most useful as a
     broad `allow(plugin)` narrowed by a `restrict(plugin, M(...))`.
   - `firewallMode: FirewallMode` on `Verifier` (default `fmError`,
-    flippable to `fmWarn`). `fmWarn` mirrors bigfoot's `guard = "warn"`
-    lane: emit a `tripwire firewall:` line to stderr and proceed via
-    passthrough. Tripwire defaults to `fmError` (NOT bigfoot's `warn`)
+    flippable to `fmWarn`). `fmWarn` mirrors python-tripwire's
+    `guard = "warn"` lane: emit a `tripwire firewall:` line to stderr
+    and proceed via passthrough. Tripwire defaults to `fmError` (NOT
+    python-tripwire's `warn`)
     to preserve Guarantee 1; flip per-sandbox via `guard(v, fmWarn)`
     or project-wide via `[tripwire.firewall].default = "warn"` (with
     optional per-plugin `<plugin-name> = "warn"|"error"` overrides).
   - `firewallTest "name", [plugin1, plugin2], fmWarn: body`: sugared
     test wrapper that opens a sandbox, sets the mode, and blanket-
     allows each plugin in the list before running the body. Mirrors
-    bigfoot's `@pytest.mark.allow(...)` per-test marker.
+    python-tripwire's `@pytest.mark.allow(...)` per-test marker.
   - `[tripwire.firewall]` section in `tripwire.toml` honors `allow =
     ["plugin-name", ...]`, `default = "warn"|"error"` (project-wide
     outside-sandbox disposition), and per-plugin sibling keys
@@ -157,7 +159,7 @@ nimble packages to the transitive walk and is a no-op unless
     (sync `httpclient` and async `chronos_httpclient` are separate
     keys). Legacy flat-key `[firewall]` form is still parsed for
     backward compatibility. Replaces the prior allow-list/deny-all
-    schema (which was parsed-but-unused; bigfoot's vocabulary was
+    schema (which was parsed-but-unused; python-tripwire's vocabulary was
     always the intent).
   - Plugin authors writing custom intercept combinators consume the
     decision via `firewallShouldRaise(v, plugin, procName,
@@ -258,9 +260,9 @@ nimble packages to the transitive walk and is a no-op unless
 ## [0.0.1] - 2026-04-23
 
 Initial release. Tripwire is the Nim port of
-[bigfoot](https://github.com/axiomantic/bigfoot). Project was developed
-under the working name `nimfoot` (see rename commit 3f60ac2) and
-published as `tripwire`.
+[python-tripwire](https://github.com/axiomantic/python-tripwire)
+(formerly `bigfoot`). Project was developed under the working name
+`nimfoot` (see rename commit 3f60ac2) and published as `tripwire`.
 
 ### Added
 - **Three-guarantee model** — `sandbox:` template and `verifyAll()`
@@ -375,5 +377,5 @@ published as `tripwire`.
 ### Reference implementation
 - Architectural concepts (three guarantees, Verifier/Timeline/Sandbox,
   plugin-authoring rules, loud-failure defects) are ported from
-  [axiomantic/bigfoot](https://github.com/axiomantic/bigfoot) (pytest)
+  [axiomantic/python-tripwire](https://github.com/axiomantic/python-tripwire) (pytest)
   and re-expressed in Nim 2.2.6 via term-rewriting macros.

@@ -1,7 +1,7 @@
 ## tests/test_firewall.nim — per-sandbox firewall: `allow`, `restrict`,
 ## matchers, and `firewallMode`.
 ##
-## Covers the bigfoot-style firewall surface registered against the
+## Covers the python-tripwire-style firewall surface registered against the
 ## current verifier:
 ##   * `allow(plugin)`                 — blanket plugin-name shorthand.
 ##   * `allow(plugin, predicate)`      — closure escape hatch.
@@ -199,7 +199,7 @@ suite "firewall":
         discard fetchA("8.8.8.8")
 
   test "blanket allow + restrict matcher: ceiling narrows broad permission":
-    # The canonical bigfoot pattern. `allow(plugin)` permits every
+    # The canonical python-tripwire pattern. `allow(plugin)` permits every
     # call the plugin intercepts; `restrict(plugin, M(...))` is the
     # ceiling that shrinks the permission set down to calls matching
     # the matcher. Calls inside the ceiling pass; calls outside reject.

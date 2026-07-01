@@ -117,7 +117,7 @@ when not defined(tripwireUnittest2):
     std_ut.test "firewallTest sugar wires allow + guard around a sandbox":
       # firewallTest is a thin wrapper that opens a sandbox, sets the
       # firewall mode, and blanket-allows each plugin in the list before
-      # running the body. Mirrors bigfoot's
+      # running the body. Mirrors pytest-tripwire's
       # `@pytest.mark.allow("dns", "socket")` per-test marker.
       var ran = false
       firewallTest "fw-inner", [Plugin(itPlugin)], fmWarn:

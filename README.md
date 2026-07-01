@@ -9,8 +9,8 @@ registered mock must be consumed. Violations raise non-catchable
 defects that abort the test binary with a stack trace naming the
 offending call.
 
-Nim port of [axiomantic/bigfoot](https://github.com/axiomantic/bigfoot).
-Bigfoot is the canonical UX reference; the firewall vocabulary (`allow`,
+Nim port of [axiomantic/pytest-tripwire](https://github.com/axiomantic/pytest-tripwire).
+pytest-tripwire is the canonical UX reference; the firewall vocabulary (`allow`,
 `restrict`, `M(...)`, `guard`) is taken directly from it.
 
 ## What tripwire is, and isn't
@@ -149,7 +149,7 @@ too. `restrict` alone authorizes nothing.
 
 `guard(currentVerifier(), fmWarn)` flips the per-sandbox mode from
 "unmocked = raise" to "unmocked = log to stderr and pass through,"
-matching bigfoot's `guard = "warn"`. tripwire defaults to `fmError`
+matching pytest-tripwire's `guard = "warn"`. tripwire defaults to `fmError`
 because Guarantee 1 is the point.
 
 Per-test sugar (`firewallTest "name", [plugins], mode: body`) opens a
@@ -181,7 +181,7 @@ v0.0.2:
 
 ## Inspirations
 
-[axiomantic/bigfoot](https://github.com/axiomantic/bigfoot) is the
+[axiomantic/pytest-tripwire](https://github.com/axiomantic/pytest-tripwire) is the
 design source. Three-guarantee model, plugin shape, firewall
 vocabulary, and the loud-failure ethos all come from there. Defect
 text was tuned independently to match Nim's stack-trace conventions.

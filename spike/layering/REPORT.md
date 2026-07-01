@@ -16,7 +16,7 @@ the inner `socketSend(...)` inside that expanded body is *also* pattern-matched
 and rewritten. Net effect is a single count on each — not double-counting at
 a single layer, but the low-layer TRM **does** fire inside the high-layer
 rewrite. The original `httpGet` body's own `socketSend` call never executes
-because the whole `httpGet` call was replaced. **Bigfoot-style "fire-through"
+because the whole `httpGet` call was replaced. **pytest-tripwire-style "fire-through"
 is the Nim default.**
 
 ## Q2 — Suppression via noRewrite
@@ -90,7 +90,7 @@ flags).
 **Ship fire-through as the default, with per-plugin `{.noRewrite.}:` as the
 escape hatch.** Three reasons:
 
-1. **Matches bigfoot's defense-in-depth.** If a user imports both `httpx`
+1. **Matches pytest-tripwire's defense-in-depth.** If a user imports both `httpx`
    and `socket` plugins, they presumably want both layers observable in
    their assertions. The Q1/Q4 default gives that for free.
 2. **Auto-suppression is unsafe.** An implicit "outer rewrite silences all

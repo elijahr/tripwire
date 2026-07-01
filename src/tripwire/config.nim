@@ -19,13 +19,13 @@
 ##     default              = "warn" | "error"        # default "error"
 ##     <plugin-name>        = "warn" | "error"        # per-plugin override
 ##
-## Bigfoot pedigree
-## ----------------
-## The `[tripwire.firewall]` block is modeled on bigfoot's
-## `[tool.bigfoot.firewall]` (axiomantic/bigfoot, the Python library
+## pytest-tripwire pedigree
+## ------------------------
+## The `[tripwire.firewall]` block is modeled on pytest-tripwire's
+## `[tool.bigfoot.firewall]` (axiomantic/pytest-tripwire, the Python library
 ## tripwire ports). The per-key form (`default = "..."` plus per-plugin
-## sibling keys) mirrors bigfoot's `[tool.bigfoot.firewall]` exactly;
-## bigfoot's `guard = "warn"` default is replaced here with `default =
+## sibling keys) mirrors pytest-tripwire's `[tool.bigfoot.firewall]` exactly;
+## pytest-tripwire's `guard = "warn"` default is replaced here with `default =
 ## "error"` for safer-by-default tripwire behavior. Uses the unified
 ## `firewall_types.FirewallMode` so the parsed config maps directly onto
 ## the sandbox-level enum without a parallel translation step.
@@ -46,7 +46,7 @@ type
     default*: FirewallMode ## default mode for plugins not in `guards`
     guards*: Table[string, FirewallMode]
       ## per-plugin override map; keyed by `Plugin.name`. A lookup miss
-      ## falls back to `default`. Bigfoot-parity sibling-key form.
+      ## falls back to `default`. pytest-tripwire-parity sibling-key form.
 
   TripwireConfig* = object
     enabledPlugins*: seq[string]
@@ -197,7 +197,7 @@ proc loadConfig*(path: Option[string]): TripwireConfig =
   ## per-plugin blocks are stashed verbatim as TomlValueRef.
   ##
   ## The firewall section is read from either `[tripwire.firewall]`
-  ## (preferred, bigfoot-style) or top-level `[firewall]` (legacy
+  ## (preferred, pytest-tripwire-style) or top-level `[firewall]` (legacy
   ## flatness; kept so existing tripwire.toml files don't break).
   if path.isNone:
     return defaultConfig()
@@ -219,7 +219,7 @@ proc loadConfig*(path: Option[string]): TripwireConfig =
      result.firewall.default == fmError and
      result.firewall.guards.len == 0 and
      toml.hasKey("firewall"):
-    # Legacy flat [firewall] block — only consult if the bigfoot-style
+    # Legacy flat [firewall] block — only consult if the pytest-tripwire-style
     # nested form left defaults intact.
     result.firewall = parseFirewallConfig(toml["firewall"])
 

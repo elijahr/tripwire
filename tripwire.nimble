@@ -47,7 +47,7 @@ task test, "Run the full test matrix":
   # guard semantics with two passthrough/no-passthrough TRM wrappers,
   # plus a thread-isolation case (case 6) that requires --threads:on.
   # Use --mm:arc --threads:on (mirroring cell 7) so case 6 has the
-  # runtime support it needs. Bigfoot parity: guard='warn' activates
+  # runtime support it needs. pytest-tripwire parity: guard='warn' activates
   # purely from tripwire.toml — no compile-time define required.
   exec "nim c --mm:arc --threads:on --define:tripwireActive --import:tripwire/auto -r tests/test_outside_sandbox_guard.nim"
   # Cell 5e: test_firewall_reserved_keys.nim runs standalone (CI-time

@@ -153,7 +153,7 @@ sandbox:
 ```
 
 `fmError` (the default) is the three-guarantees posture. `fmWarn`
-mirrors bigfoot's `guard = "warn"` lane and is intended for triage,
+mirrors pytest-tripwire's `guard = "warn"` lane and is intended for triage,
 not for committed test code.
 
 ## 5. Project-wide firewall config (`tripwire.toml`)

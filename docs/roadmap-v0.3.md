@@ -223,7 +223,7 @@ the other. Treat them as a single workstream.
 
 ## 12. Windows guard mode
 
-**Status (v0).** Not implemented. The bigfoot/tripwire interception
+**Status (v0).** Not implemented. The pytest-tripwire/tripwire interception
 path assumes POSIX signal and `LD_PRELOAD`-adjacent mechanisms that do
 not port to Windows.
 

@@ -59,7 +59,7 @@ jobs:
       - name: nph format check
         run: |
           nimble install -y nph@0.7.0
-          nph --check .
+          git ls-files "*.nim" ":!:*fixtures*" | xargs nph --check
 
       - name: nimble check
         run: nimble check

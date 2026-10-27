@@ -2,6 +2,8 @@
 import common
 import nimfoot_auto
 
-proc useTargetExplicit*(x: int): int = target(x, 1)
+proc useTargetExplicit*(x: int): int =
+  target(x, 1)
 
-proc useTargetGenericExplicit*[T](x: T): T = targetGeneric(x, T(1))
+proc useTargetGenericExplicit*[T](x: T): T =
+  targetGeneric(x, T(1))

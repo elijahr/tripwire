@@ -4,9 +4,14 @@ import std/strtabs
 
 var rewriteCount {.global.} = 0
 
-template rewriteExecProcess{execProcess(command, workingDir, args, env, options)}(
-    command: string, workingDir: string, args: openArray[string],
-    env: StringTableRef, options: set[ProcessOption]): string =
+template rewriteExecProcess{
+  execProcess(command, workingDir, args, env, options)}(
+    command: string,
+    workingDir: string,
+    args: openArray[string],
+    env: StringTableRef,
+    options: set[ProcessOption],
+): string =
   inc(rewriteCount)
   "FAKE"
 

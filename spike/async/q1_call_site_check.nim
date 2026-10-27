@@ -14,7 +14,8 @@ proc fetchAsync*(url: string): Future[string] {.async.} =
 
 var rewriteCount* = 0
 
-template rewriteFetch*{fetchAsync(url)}(url: string): Future[string] =
+template rewriteFetch*{
+  fetchAsync(url)}(url: string): Future[string] =
   echo "TRM body running; url=", url
   inc(rewriteCount)
   let f = newFuture[string]("fakeFetch")
@@ -22,7 +23,7 @@ template rewriteFetch*{fetchAsync(url)}(url: string): Future[string] =
   f
 
 echo "-- before call --"
-let fut = fetchAsync("http://x")  # does the TRM marker print here?
+let fut = fetchAsync("http://x") # does the TRM marker print here?
 echo "-- after call, before waitFor --"
 let r = waitFor fut
 echo "-- after waitFor --"

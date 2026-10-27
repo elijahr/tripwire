@@ -3,8 +3,9 @@ import tripwire/[types, errors]
 
 suite "errors":
   test "UnmockedInteractionDefect inherits from TripwireDefect":
-    let e = newUnmockedInteractionDefect("httpclient", "get", "fp",
-      (file: "t.nim", line: 1, column: 1))
+    let e = newUnmockedInteractionDefect(
+      "httpclient", "get", "fp", (file: "t.nim", line: 1, column: 1)
+    )
     check e of UnmockedInteractionDefect
     check e of TripwireDefect
     check e of Defect
@@ -23,8 +24,7 @@ suite "errors":
     check e of TripwireDefect
 
   test "LeakedInteractionDefect carries threadId":
-    let e = newLeakedInteractionDefect(42,
-      (filename: "x.nim", line: 5, column: 2))
+    let e = newLeakedInteractionDefect(42, (filename: "x.nim", line: 5, column: 2))
     check e.threadId == 42
 
   test "PostTestInteractionDefect carries generation":
@@ -49,8 +49,7 @@ suite "errors":
 
 suite "WI2 defect types (design §2.3, §3.6)":
   test "ChronosOnWorkerThreadDefect construction":
-    let d = newChronosOnWorkerThreadDefect(42,
-      (filename: "x.nim", line: 10, column: 5))
+    let d = newChronosOnWorkerThreadDefect(42, (filename: "x.nim", line: 10, column: 5))
     check d of ChronosOnWorkerThreadDefect
     check d of TripwireDefect
     check d of Defect
@@ -62,13 +61,14 @@ suite "WI2 defect types (design §2.3, §3.6)":
     check FFIScopeFooter in d.msg
     # Byte-identical pin: pins the exact phrasing so an accidental
     # paraphrase is caught immediately (green-mirage hypothesis H8).
-    let expected = "tripwireThread rejected: chronos on worker thread" &
-      " on thread 42 at x.nim:10" & FFIScopeFooter
+    let expected =
+      "tripwireThread rejected: chronos on worker thread" & " on thread 42 at x.nim:10" &
+      FFIScopeFooter
     check d.msg == expected
 
   test "NestedTripwireThreadDefect construction":
-    let d = newNestedTripwireThreadDefect(7,
-      (filename: "nested.nim", line: 99, column: 3))
+    let d =
+      newNestedTripwireThreadDefect(7, (filename: "nested.nim", line: 99, column: 3))
     check d of NestedTripwireThreadDefect
     check d of TripwireDefect
     check d of Defect
@@ -80,16 +80,15 @@ suite "WI2 defect types (design §2.3, §3.6)":
     check FFIScopeFooter in d.msg
     # Byte-identical pin: pins the exact phrasing so an accidental
     # paraphrase is caught immediately (green-mirage hypothesis H8).
-    let expected = "tripwireThread rejected: nested tripwire thread" &
-      " on thread 7 at nested.nim:99" & FFIScopeFooter
+    let expected =
+      "tripwireThread rejected: nested tripwire thread" & " on thread 7 at nested.nim:99" &
+      FFIScopeFooter
     check d.msg == expected
 
   test "Chronos and Nested defects have distinct reason strings":
     ## Guards against copy-paste swap of the reason portion.
-    let c = newChronosOnWorkerThreadDefect(1,
-      (filename: "a.nim", line: 1, column: 1))
-    let n = newNestedTripwireThreadDefect(1,
-      (filename: "a.nim", line: 1, column: 1))
+    let c = newChronosOnWorkerThreadDefect(1, (filename: "a.nim", line: 1, column: 1))
+    let n = newNestedTripwireThreadDefect(1, (filename: "a.nim", line: 1, column: 1))
     check "chronos on worker thread" in c.msg
     check "nested tripwire thread" notin c.msg
     check "nested tripwire thread" in n.msg
@@ -115,7 +114,8 @@ suite "WI2 defect types (design §2.3, §3.6)":
     ## Pins the v0.1 message format byte-for-byte. Any change to the
     ## one-arg form MUST fail this assertion.
     let d = newPendingAsyncDefect("my_test_case")
-    let expected = "test 'my_test_case' ended with pending async operations." &
+    let expected =
+      "test 'my_test_case' ended with pending async operations." &
       "\nUse `waitFor` to drain futures, or -d:tripwireAllowPendingAsync to" &
       " suppress." & FFIScopeFooter
     check d.msg == expected

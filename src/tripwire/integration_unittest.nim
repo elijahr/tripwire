@@ -57,8 +57,8 @@ proc verifyAllOnExit*() {.noconv.} =
     try:
       v.verifyAll()
     except TripwireDefect as e:
-      stderr.writeLine "tripwire: unverified verifier '" & v.name &
-        "' at exit - " & e.msg
+      stderr.writeLine "tripwire: unverified verifier '" & v.name & "' at exit - " &
+        e.msg
 
 template test*(name: string, body: untyped) =
   ## tripwire `test:` wraps the backend's `test name:` block with a
@@ -72,8 +72,8 @@ template test*(name: string, body: untyped) =
   ## original (more informative) defect isn't masked by a secondary
   ## UnassertedInteractionsDefect raised inside a `finally`.
   bind pushVerifier, popVerifier, newVerifier, hasPendingOperations,
-    newPendingAsyncDefect, verifyAllOnExit, addExitProc,
-    getCurrentException, drainPendingAsync, poll
+    newPendingAsyncDefect, verifyAllOnExit, addExitProc, getCurrentException,
+    drainPendingAsync, poll
   if not exitHookRegistered:
     addExitProc(verifyAllOnExit)
     exitHookRegistered = true
@@ -103,8 +103,12 @@ template test*(name: string, body: untyped) =
       if getCurrentException() == nil:
         nfV.verifyAll()
 
-template firewallTest*(name: string, allowPlugins: openArray[Plugin],
-                       guardMode: FirewallMode, body: untyped) =
+template firewallTest*(
+    name: string,
+    allowPlugins: openArray[Plugin],
+    guardMode: FirewallMode,
+    body: untyped,
+) =
   ## Sugared test wrapper that binds a firewall configuration to the
   ## inner sandbox before running `body`. `allowPlugins` is shorthand
   ## for `for p in allowPlugins: allow(p)` (blanket-allow each) and

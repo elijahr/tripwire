@@ -15,13 +15,13 @@
 ## surfaces in practice. Tests that want to exercise the mocked proc
 ## directly declare a local helper proc.
 import std/[unittest, options, tables, deques]
-import tripwire/[types, errors, timeline, sandbox, verify, intercept,
-                macros as nfmacros]
+import
+  tripwire/[types, errors, timeline, sandbox, verify, intercept, macros as nfmacros]
 import tripwire/plugins/mock
 
 # User-declared proc that we want to mock.
 proc computeThing(x, y: int): int =
-  x + y   # real impl; TRM should intercept this
+  x + y # real impl; TRM should intercept this
 
 # Module-scope TRM emission. The dummy args (0, 0) only provide arity and
 # types for the TRM's formal params; the values are not used at runtime.
@@ -29,7 +29,8 @@ mockable(computeThing(0, 0))
 
 # Wrapper proc — calling the mocked proc from here (not directly from the
 # `test:` block) sidesteps the unittest-dirty-template TRM gotcha.
-proc callComputeThing(x, y: int): int = computeThing(x, y)
+proc callComputeThing(x, y: int): int =
+  computeThing(x, y)
 
 suite "MockPlugin expect DSL":
   setup:
@@ -40,7 +41,8 @@ suite "MockPlugin expect DSL":
     sandbox:
       let v = currentVerifier()
       mock.expect computeThing(2, 3):
-        respond value: 42
+        respond value:
+          42
       let got = callComputeThing(2, 3)
       doAssert got == 42, "mock did not intercept: got " & $got
       v.timeline.markAsserted(v.timeline.entries[0])
@@ -49,7 +51,8 @@ suite "MockPlugin expect DSL":
     sandbox:
       let v = currentVerifier()
       mock.expect computeThing(1, 1):
-        respond value: 99
+        respond value:
+          99
       let mocked = callComputeThing(1, 1)
       doAssert mocked == 99, "second-block mock did not fire: got " & $mocked
       v.timeline.markAsserted(v.timeline.entries[0])

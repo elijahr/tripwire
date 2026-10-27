@@ -11,19 +11,18 @@ import tripwire/plugins/osproc as nfosp
 # Wrapper procs — TRM-in-test gotcha (see test_mock_expect.nim docstring).
 # The wrapper forces stdlib default elaboration at the wrapper call site,
 # giving the TRM pattern matcher a concrete call shape to match against.
-proc doExecProcessArray2(cmd, workingDir: string,
-                         args: array[2, string]): string =
+proc doExecProcessArray2(cmd, workingDir: string, args: array[2, string]): string =
   execProcess(cmd, workingDir, args)
 
-proc doExecProcessArray0(cmd, workingDir: string,
-                         args: array[0, string]): string =
+proc doExecProcessArray0(cmd, workingDir: string, args: array[0, string]): string =
   execProcess(cmd, workingDir, args)
 
 # Fallback trigger wrapper — takes a seq plus slice bounds so the
 # `toOpenArray` view is constructed inside the wrapper's scope (where
 # the openArray fallback TRM pattern sees a concrete call shape).
-proc doExecProcessSlice(cmd, workingDir: string, src: seq[string],
-                        lo, hi: int): string =
+proc doExecProcessSlice(
+    cmd, workingDir: string, src: seq[string], lo, hi: int
+): string =
   execProcess(cmd, workingDir, toOpenArray(src, lo, hi))
 
 suite "osproc array variants + fallback":
@@ -35,11 +34,14 @@ suite "osproc array variants + fallback":
     sandbox:
       let v = currentVerifier()
       let args: array[2, string] = ["a", "b"]
-      let m = newMock("execProcess",
-        fingerprintExecProcess("ls", "", @["a", "b"], nil,
-          {poStdErrToStdOut, poUsePath, poEvalCommand}),
+      let m = newMock(
+        "execProcess",
+        fingerprintExecProcess(
+          "ls", "", @["a", "b"], nil, {poStdErrToStdOut, poUsePath, poEvalCommand}
+        ),
         OsprocExecProcessResponse(output: "arr-ok", exitCode: 0),
-        (filename: "t.nim", line: 1, column: 0))
+        (filename: "t.nim", line: 1, column: 0),
+      )
       registerMock(v, "osproc", m)
       let got = doExecProcessArray2("ls", "", args)
       check got == "arr-ok"
@@ -49,11 +51,14 @@ suite "osproc array variants + fallback":
     sandbox:
       let v = currentVerifier()
       let args: array[0, string] = []
-      let m = newMock("execProcess",
-        fingerprintExecProcess("ls", "", @[], nil,
-          {poStdErrToStdOut, poUsePath, poEvalCommand}),
+      let m = newMock(
+        "execProcess",
+        fingerprintExecProcess(
+          "ls", "", @[], nil, {poStdErrToStdOut, poUsePath, poEvalCommand}
+        ),
         OsprocExecProcessResponse(output: "empty", exitCode: 0),
-        (filename: "t.nim", line: 1, column: 0))
+        (filename: "t.nim", line: 1, column: 0),
+      )
       registerMock(v, "osproc", m)
       let got = doExecProcessArray0("ls", "", args)
       check got == "empty"

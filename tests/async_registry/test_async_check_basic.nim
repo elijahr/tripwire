@@ -41,13 +41,22 @@
 ## so that `Future[T]` resolves at the call site, even though the
 ## template `bind`s `asyncCheck` from the library module.
 import std/[unittest, asyncdispatch, options, tables, deques]
-import tripwire/[types, errors, timeline, sandbox, verify, intercept,
-                async_registry, macros as nfmacros]
+import
+  tripwire/[
+    types,
+    errors,
+    timeline,
+    sandbox,
+    verify,
+    intercept,
+    async_registry,
+    macros as nfmacros,
+  ]
 import tripwire/plugins/mock
 
 # User proc we intend to mock. Real impl is `x * 2`.
 proc computeThing(x: int): int =
-  x * 2   # real impl; TRM intercepts this when a matching mock is registered
+  x * 2 # real impl; TRM intercepts this when a matching mock is registered
 
 # Module-scope TRM emission. Dummy arg (0) only provides arity/type for
 # the pattern's formal params; the value is not used at runtime.
@@ -72,7 +81,7 @@ proc callComputeThing(x: int): int {.gcsafe.} =
 # during the drain poll loop, and the interaction lands on the verifier
 # that was current at spawn time.
 proc asyncWorker(): Future[int] {.async.} =
-  await sleepAsync(20)   # yield so drain has to poll at least once
+  await sleepAsync(20) # yield so drain has to poll at least once
   return callComputeThing(7)
 
 suite "asyncCheckInSandbox: basic happy path":
@@ -90,7 +99,8 @@ suite "asyncCheckInSandbox: basic happy path":
       # real impl's `7 * 2 = 14` so the assertion below can't pass on
       # silent passthrough).
       mock.expect computeThing(7):
-        respond value: 99
+        respond value:
+          99
 
       let v = currentVerifier()
       let fut = asyncWorker()

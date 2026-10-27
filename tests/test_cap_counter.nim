@@ -38,12 +38,14 @@ suite "cap counter (Defense 3)":
   test "15 rewrites in one file compile clean":
     # Embed 15 calls in a tempfile and run `nim check`. Using an absolute
     # path via `getTempDir()` avoids CWD ambiguity across shells.
-    let src = """
+    let src =
+      """
 import tripwire/cap_counter
 """ & "tripwireCountRewrite()\n".repeat(15)
     let tmp = getTempDir() / "nf_cap_ok.nim"
     writeFile(tmp, src)
-    defer: removeFile(tmp)
+    defer:
+      removeFile(tmp)
     # The tempfile is outside the tests dir; pass --path:src explicitly
     # because config.nims' `--path:"../src"` is relative to tests/.
     let cmd = "nim check --hints:off --warnings:off --path:src " & tmp

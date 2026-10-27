@@ -10,12 +10,12 @@ suite "context":
     expect AssertionInsideSandboxError:
       sandbox:
         inAssertBlock:
-          discard  # body runs under active sandbox → raise
+          discard # body runs under active sandbox → raise
 
   test "inAssertBlock does NOT raise after sandbox teardown":
     # With no active verifier, the guard passes through.
     inAssertBlock:
-      discard  # no exception expected
+      discard # no exception expected
 
   test "inAnyOrder sets context flag":
     sandbox:

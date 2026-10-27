@@ -21,15 +21,22 @@ proc popVerifier(): Verifier =
   result = verifierStack.pop()
 
 proc currentVerifier(): Verifier =
-  if verifierStack.len > 0: verifierStack[^1] else: nil
+  if verifierStack.len > 0:
+    verifierStack[^1]
+  else:
+    nil
 
-proc target*(x: int): int = x * 2
+proc target*(x: int): int =
+  x * 2
 
-template rewriteTarget*{target(a)}(a: int): int =
+template rewriteTarget*{
+  target(a)}(a: int): int =
   let v = currentVerifier()
   if v == nil:
-    raise newException(Defect,
-      "TRM fired outside any active verifier - leaked async or missing test wrapper")
+    raise newException(
+      Defect,
+      "TRM fired outside any active verifier - leaked async or missing test wrapper",
+    )
   inc(v.rewriteCount)
   echo "  TRM fired against verifier: ", v.name, " count=", v.rewriteCount
   a * 2

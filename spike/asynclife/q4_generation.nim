@@ -47,16 +47,20 @@ proc popVerifier(): Verifier =
   result = verifierStack.pop()
 
 proc currentVerifier(): Verifier =
-  if verifierStack.len > 0: verifierStack[^1] else: nil
+  if verifierStack.len > 0:
+    verifierStack[^1]
+  else:
+    nil
 
-proc target*(x: int): int = x * 2
+proc target*(x: int): int =
+  x * 2
 
-template rewriteTarget*{target(a)}(a: int): int =
+template rewriteTarget*{
+  target(a)}(a: int): int =
   let v = currentVerifier()
   if v != nil:
     inc(v.rewriteCount)
-    echo "  TRM: v.name=", v.name, " gen=", v.generation,
-      " count=", v.rewriteCount
+    echo "  TRM: v.name=", v.name, " gen=", v.generation, " count=", v.rewriteCount
   else:
     echo "  TRM: <NIL stack>"
   a * 2

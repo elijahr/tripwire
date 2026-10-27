@@ -19,11 +19,16 @@ proc popVerifier(): Verifier =
   result = verifierStack.pop()
 
 proc currentVerifier(): Verifier =
-  if verifierStack.len > 0: verifierStack[^1] else: nil
+  if verifierStack.len > 0:
+    verifierStack[^1]
+  else:
+    nil
 
-proc target*(x: int): int = x * 2
+proc target*(x: int): int =
+  x * 2
 
-template rewriteTarget*{target(a)}(a: int): int =
+template rewriteTarget*{
+  target(a)}(a: int): int =
   let v = currentVerifier()
   if v != nil:
     inc(v.rewriteCount)
@@ -32,7 +37,7 @@ template rewriteTarget*{target(a)}(a: int): int =
   a * 2
 
 proc asyncDelayedTarget(): Future[int] {.async.} =
-  await sleepAsync(50)   # yield — test body will have returned by now
+  await sleepAsync(50) # yield — test body will have returned by now
   echo "  [async body resuming after sleep]"
   return target(7)
 
@@ -43,7 +48,7 @@ var test2Verifier: Verifier
 proc test1() =
   echo "== test1 entering =="
   discard pushVerifier("test1")
-  asyncCheck asyncDelayedTarget()   # leak!
+  asyncCheck asyncDelayedTarget() # leak!
   echo "  test1 body returning (TRM not yet fired)"
   test1Verifier = popVerifier()
   echo "  test1 popped, count at pop=", test1Verifier.rewriteCount

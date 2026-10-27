@@ -8,7 +8,8 @@ import std/asyncdispatch
 
 var awaitRewrites* = 0
 
-template rewriteAwait*{await(f)}(f: Future[string]): string =
+template rewriteAwait*{
+  await(f)}(f: Future[string]): string =
   inc(awaitRewrites)
   "intercepted await"
 

@@ -31,14 +31,19 @@ type
     status*: int
     headers*: HttpHeaders
     body*: string
+
   HttpAsyncMockResponse* = ref object of MockResponse
     status*: int
     headers*: HttpHeaders
     body*: string
 
-proc fingerprintHttpRequest*(url: string, httpMethod: HttpMethod,
-                             body: string, headers: HttpHeaders,
-                             multipart: MultipartData): string =
+proc fingerprintHttpRequest*(
+    url: string,
+    httpMethod: HttpMethod,
+    body: string,
+    headers: HttpHeaders,
+    multipart: MultipartData,
+): string =
   ## Canonicalize a request's identifying fields into a stable
   ## space-separated `key=value` fingerprint string. `headers` and
   ## `multipart` may be nil — `$nil` prints as "nil".
@@ -77,20 +82,23 @@ proc fingerprintHttpRequest*(url: string, httpMethod: HttpMethod,
   let u = parseUri(url)
   let host =
     if u.hostname.len > 0 and ':' in u.hostname:
-      "[" & u.hostname & "]"   # re-bracket IPv6 (parseUri strips them)
+      "[" & u.hostname & "]" # re-bracket IPv6 (parseUri strips them)
     else:
       u.hostname
   let port =
-    if u.port.len > 0: u.port
-    elif u.scheme == "https": "443"
-    elif u.scheme == "http":  "80"
-    else: ""
-  "method=" & $httpMethod & " scheme=" & u.scheme & " host=" & host &
-  " port=" & port & " path=" & escapeFingerprintField(u.path) &
-  " query=" & escapeFingerprintField(u.query) &
-  " body=" & body &
-  " hdr=" & (if headers.isNil: "nil" else: $headers) &
-  " mp=" & (if multipart.isNil: "nil" else: "multipart")
+    if u.port.len > 0:
+      u.port
+    elif u.scheme == "https":
+      "443"
+    elif u.scheme == "http":
+      "80"
+    else:
+      ""
+  "method=" & $httpMethod & " scheme=" & u.scheme & " host=" & host & " port=" & port &
+    " path=" & escapeFingerprintField(u.path) & " query=" &
+    escapeFingerprintField(u.query) & " body=" & body & " hdr=" &
+    (if headers.isNil: "nil" else: $headers) & " mp=" &
+    (if multipart.isNil: "nil" else: "multipart")
 
 method realize*(r: HttpMockResponse): Response {.base, raises: [Defect].} =
   ## Build a Response that mirrors what the real httpclient would produce.
@@ -101,10 +109,12 @@ method realize*(r: HttpMockResponse): Response {.base, raises: [Defect].} =
     version: "1.1",
     status: $r.status,
     headers: (if r.headers.isNil: newHttpHeaders() else: r.headers),
-    bodyStream: newStringStream(r.body))
+    bodyStream: newStringStream(r.body),
+  )
 
-method realize*(r: HttpAsyncMockResponse): asyncdispatch.Future[AsyncResponse]
-    {.base, raises: [Defect].} =
+method realize*(
+    r: HttpAsyncMockResponse
+): asyncdispatch.Future[AsyncResponse] {.base, raises: [Defect].} =
   ## Async counterpart. `AsyncResponse.body` is also unexported; we set
   ## only the fields we can construct and let the stdlib's `body()`
   ## future lazily materialize the body string.
@@ -115,64 +125,90 @@ method realize*(r: HttpAsyncMockResponse): asyncdispatch.Future[AsyncResponse]
   ## identifier error in the chronos matrix cell. The async httpclient
   ## path is intrinsically tied to std/asyncdispatch's `AsyncResponse`,
   ## so `asyncdispatch.Future` is the correct Future flavor here.
-  let ar = AsyncResponse(version: "1.1", status: $r.status,
-    headers: (if r.headers.isNil: newHttpHeaders() else: r.headers))
+  let ar = AsyncResponse(
+    version: "1.1",
+    status: $r.status,
+    headers: (if r.headers.isNil: newHttpHeaders() else: r.headers),
+  )
   makeCompletedFuture(ar, "httpclient.request")
 
-let httpclientPluginInstance* = HttpclientPlugin(name: "httpclient",
-                                                  enabled: true)
+let httpclientPluginInstance* = HttpclientPlugin(name: "httpclient", enabled: true)
 registerPlugin(httpclientPluginInstance)
 
 # ---- Sync request TRM ----------------------------------------------------
 # Six-arg pattern binds a one-arg call because stdlib defaults elaborate
 # pre-TRM (per F4 smoke probe). Defaults MUST match std/httpclient 2.2.6.
-template requestSyncTRM*{request(c, url, httpMethod, body, headers, multipart)}(
-    c: HttpClient, url: string, httpMethod: HttpMethod = HttpGet,
-    body: string = "", headers: HttpHeaders = nil,
-    multipart: MultipartData = nil): Response =
+template requestSyncTRM*{
+  request(c, url, httpMethod, body, headers, multipart)}(
+    c: HttpClient,
+    url: string,
+    httpMethod: HttpMethod = HttpGet,
+    body: string = "",
+    headers: HttpHeaders = nil,
+    multipart: MultipartData = nil,
+): Response =
   tripwirePluginIntercept(
     httpclientPluginInstance,
     "request",
     fingerprintHttpRequest(url, httpMethod, body, headers, multipart),
-    HttpMockResponse):
+    HttpMockResponse,
+  ):
     {.noRewrite.}:
       request(c, url, httpMethod, body, headers, multipart)
 
 # ---- Async request TRM ---------------------------------------------------
-template requestAsyncTRM*{request(c, url, httpMethod, body, headers, multipart)}(
-    c: AsyncHttpClient, url: string, httpMethod: HttpMethod = HttpGet,
-    body: string = "", headers: HttpHeaders = nil,
-    multipart: MultipartData = nil): asyncdispatch.Future[AsyncResponse] =
+template requestAsyncTRM*{
+  request(c, url, httpMethod, body, headers, multipart)}(
+    c: AsyncHttpClient,
+    url: string,
+    httpMethod: HttpMethod = HttpGet,
+    body: string = "",
+    headers: HttpHeaders = nil,
+    multipart: MultipartData = nil,
+): asyncdispatch.Future[AsyncResponse] =
   tripwirePluginIntercept(
     httpclientPluginInstance,
     "request",
     fingerprintHttpRequest(url, httpMethod, body, headers, multipart),
-    HttpAsyncMockResponse):
+    HttpAsyncMockResponse,
+  ):
     {.noRewrite.}:
       request(c, url, httpMethod, body, headers, multipart)
 
 # ---- Uri-overload TRMs (fingerprint the Uri as its $uri form) -----------
-template requestSyncUriTRM*{request(c, url, httpMethod, body, headers, multipart)}(
-    c: HttpClient, url: Uri, httpMethod: HttpMethod = HttpGet,
-    body: string = "", headers: HttpHeaders = nil,
-    multipart: MultipartData = nil): Response =
+template requestSyncUriTRM*{
+  request(c, url, httpMethod, body, headers, multipart)}(
+    c: HttpClient,
+    url: Uri,
+    httpMethod: HttpMethod = HttpGet,
+    body: string = "",
+    headers: HttpHeaders = nil,
+    multipart: MultipartData = nil,
+): Response =
   tripwirePluginIntercept(
     httpclientPluginInstance,
     "request",
     fingerprintHttpRequest($url, httpMethod, body, headers, multipart),
-    HttpMockResponse):
+    HttpMockResponse,
+  ):
     {.noRewrite.}:
       request(c, url, httpMethod, body, headers, multipart)
 
-template requestAsyncUriTRM*{request(c, url, httpMethod, body, headers, multipart)}(
-    c: AsyncHttpClient, url: Uri, httpMethod: HttpMethod = HttpGet,
-    body: string = "", headers: HttpHeaders = nil,
-    multipart: MultipartData = nil): asyncdispatch.Future[AsyncResponse] =
+template requestAsyncUriTRM*{
+  request(c, url, httpMethod, body, headers, multipart)}(
+    c: AsyncHttpClient,
+    url: Uri,
+    httpMethod: HttpMethod = HttpGet,
+    body: string = "",
+    headers: HttpHeaders = nil,
+    multipart: MultipartData = nil,
+): asyncdispatch.Future[AsyncResponse] =
   tripwirePluginIntercept(
     httpclientPluginInstance,
     "request",
     fingerprintHttpRequest($url, httpMethod, body, headers, multipart),
-    HttpAsyncMockResponse):
+    HttpAsyncMockResponse,
+  ):
     {.noRewrite.}:
       request(c, url, httpMethod, body, headers, multipart)
 
@@ -181,15 +217,22 @@ template requestAsyncUriTRM*{request(c, url, httpMethod, body, headers, multipar
 # sees after stdlib's internal call-through. Values match HttpMethod
 # enum names so parseEnum[HttpMethod] round-trips.
 const WrapperMethodMap = {
-  "get": "HttpGet", "post": "HttpPost", "put": "HttpPut",
-  "delete": "HttpDelete", "patch": "HttpPatch", "head": "HttpHead",
-  "getContent": "HttpGet", "postContent": "HttpPost",
-  "deleteContent": "HttpDelete", "putContent": "HttpPut",
-  "patchContent": "HttpPatch"
+  "get": "HttpGet",
+  "post": "HttpPost",
+  "put": "HttpPut",
+  "delete": "HttpDelete",
+  "patch": "HttpPatch",
+  "head": "HttpHead",
+  "getContent": "HttpGet",
+  "postContent": "HttpPost",
+  "deleteContent": "HttpDelete",
+  "putContent": "HttpPut",
+  "patchContent": "HttpPatch",
 }.toTable
 
-proc extractRespondFields(body: NimNode,
-    verbNames: openArray[string]): Table[string, NimNode] =
+proc extractRespondFields(
+    body: NimNode, verbNames: openArray[string]
+): Table[string, NimNode] =
   ## Parse `respond:` / `responded:` block in expectHttp / assertHttp body.
   ## Accepts either of:
   ##   respond:
@@ -199,12 +242,17 @@ proc extractRespondFields(body: NimNode,
   ## Returns a map of fieldName -> valueExpr for fields mentioned.
   result = initTable[string, NimNode]()
   for stmt in body:
-    if stmt.kind notin {nnkCommand, nnkCall}: continue
-    if stmt.len < 1 or stmt[0].kind != nnkIdent: continue
+    if stmt.kind notin {nnkCommand, nnkCall}:
+      continue
+    if stmt.len < 1 or stmt[0].kind != nnkIdent:
+      continue
     var matched = false
     for v in verbNames:
-      if stmt[0].strVal == v: matched = true; break
-    if not matched: continue
+      if stmt[0].strVal == v:
+        matched = true
+        break
+    if not matched:
+      continue
     # Block form: Command(verb, StmtList(ExprColonExpr(field, val), ...))
     # OR Command(verb, ExprColonExpr(field, val), ...) single line.
     for i in 1 ..< stmt.len:
@@ -212,9 +260,8 @@ proc extractRespondFields(body: NimNode,
       case sub.kind
       of nnkStmtList:
         for colon in sub:
-          if colon.kind == nnkCall and colon.len == 2 and
-             colon[0].kind == nnkIdent and colon[1].kind == nnkStmtList and
-             colon[1].len == 1:
+          if colon.kind == nnkCall and colon.len == 2 and colon[0].kind == nnkIdent and
+              colon[1].kind == nnkStmtList and colon[1].len == 1:
             # Parsed as Call(Ident "status", StmtList(200))
             result[colon[0].strVal] = colon[1][0]
           elif colon.kind == nnkExprColonExpr and colon[0].kind == nnkIdent:
@@ -245,29 +292,46 @@ macro expectHttp*(call: untyped, body: untyped): untyped =
   expectKind(call, nnkCall)
   let fnName = $call[0]
   if fnName notin WrapperMethodMap:
-    error("expectHttp only supports get/post/put/delete/patch/head and" &
-          " their *Content variants; got: " & fnName, call)
+    error(
+      "expectHttp only supports get/post/put/delete/patch/head and" &
+        " their *Content variants; got: " & fnName,
+      call,
+    )
   let httpMethodIdent = newIdentNode(WrapperMethodMap[fnName])
   if call.len < 3:
-    error("expectHttp " & fnName & "(c, url, ...): missing client or URL",
-          call)
+    error("expectHttp " & fnName & "(c, url, ...): missing client or URL", call)
   let client = call[1]
   let url = call[2]
-  let reqBody = if call.len > 3: call[3] else: newLit("")
+  let reqBody =
+    if call.len > 3:
+      call[3]
+    else:
+      newLit("")
 
   let fields = extractRespondFields(body, ["respond"])
-  let status = if "status" in fields: fields["status"] else: newLit(200)
-  let respBody = if "body" in fields: fields["body"] else: newLit("")
-  discard client  # client is used via the TRM; not needed at registration time.
+  let status =
+    if "status" in fields:
+      fields["status"]
+    else:
+      newLit(200)
+  let respBody =
+    if "body" in fields:
+      fields["body"]
+    else:
+      newLit("")
+  discard client # client is used via the TRM; not needed at registration time.
 
-  result = quote do:
-    registerMock(currentVerifier(), "httpclient",
-      newMock("request",
-        fingerprintHttpRequest(`url`, `httpMethodIdent`,
-          `reqBody`, nil, nil),
-        HttpMockResponse(status: `status`, body: `respBody`,
-                         headers: newHttpHeaders()),
-        instantiationInfo()))
+  result = quote:
+    registerMock(
+      currentVerifier(),
+      "httpclient",
+      newMock(
+        "request",
+        fingerprintHttpRequest(`url`, `httpMethodIdent`, `reqBody`, nil, nil),
+        HttpMockResponse(status: `status`, body: `respBody`, headers: newHttpHeaders()),
+        instantiationInfo(),
+      ),
+    )
 
 macro assertHttp*(call: untyped, body: untyped): untyped =
   ## `assertHttp get(c, url): responded: status: 200`
@@ -282,21 +346,28 @@ macro assertHttp*(call: untyped, body: untyped): untyped =
     error("assertHttp only supports canonical wrappers; got: " & fnName, call)
   let httpMethodIdent = newIdentNode(WrapperMethodMap[fnName])
   let url = call[2]
-  let reqBody = if call.len > 3: call[3] else: newLit("")
+  let reqBody =
+    if call.len > 3:
+      call[3]
+    else:
+      newLit("")
 
   let fields = extractRespondFields(body, ["responded"])
-  let expectedStatus = if "status" in fields: fields["status"] else: newLit(200)
+  let expectedStatus =
+    if "status" in fields:
+      fields["status"]
+    else:
+      newLit(200)
 
-  result = quote do:
+  result = quote:
     block:
       let nfHV = currentVerifier()
       doAssert nfHV != nil, "assertHttp outside sandbox"
-      let nfHFp = fingerprintHttpRequest(`url`, `httpMethodIdent`,
-        `reqBody`, nil, nil)
+      let nfHFp = fingerprintHttpRequest(`url`, `httpMethodIdent`, `reqBody`, nil, nil)
       var nfHFound: Interaction = nil
       for e in nfHV.timeline.entries:
-        if not e.asserted and e.procName == "request" and
-           ".fp" in e.args and e.args[".fp"] == nfHFp:
+        if not e.asserted and e.procName == "request" and ".fp" in e.args and
+            e.args[".fp"] == nfHFp:
           nfHFound = e
           break
       doAssert nfHFound != nil,

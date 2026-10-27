@@ -31,13 +31,14 @@
 ## grep-detectable forbidden idiom in consumer repositories.
 when defined(websock) and defined(chronos):
   import std/[unittest, uri]
-  import chronicles
-    # Required: websock's internal handlers emit `chronicles.trace`
-    # calls via `logScope`. Without `chronicles` in the test module's
-    # scope, `HttpServer.create(...)` and `nfwebsockConnect(...)`
-    # expansions fail with `undeclared identifier:
-    # 'activeChroniclesStream'` (websock looks up the symbol in the
-    # caller's scope).
+  import
+    chronicles
+      # Required: websock's internal handlers emit `chronicles.trace`
+      # calls via `logScope`. Without `chronicles` in the test module's
+      # scope, `HttpServer.create(...)` and `nfwebsockConnect(...)`
+      # expansions fail with `undeclared identifier:
+      # 'activeChroniclesStream'` (websock looks up the symbol in the
+      # caller's scope).
   import chronos
   import chronos/transports/common as chronosCommon
   import websock/websock
@@ -58,15 +59,14 @@ when defined(websock) and defined(chronos):
   # signal in case the test harness disagrees about routability.
   const NeverBoundUrl = "ws://192.0.2.1:1/never"
 
-  type
-    TestWsServer = ref object
-      ## One server per test. `port` is the OS-assigned ephemeral port
-      ## resolved after `start()`. Minimal handler — accepts the
-      ## upgrade, sends a sentinel frame, closes. The plugin tests do
-      ## not need request/response shaping beyond that; they exercise
-      ## the firewall, not websock's IO.
-      httpServer: HttpServer
-      port: int
+  type TestWsServer = ref object
+    ## One server per test. `port` is the OS-assigned ephemeral port
+    ## resolved after `start()`. Minimal handler — accepts the
+    ## upgrade, sends a sentinel frame, closes. The plugin tests do
+    ## not need request/response shaping beyond that; they exercise
+    ## the firewall, not websock's IO.
+    httpServer: HttpServer
+    port: int
 
   proc helloHandler(request: HttpRequest) {.async.} =
     ## Minimal upgrade-then-close handler. The connect-side firewall
@@ -110,7 +110,8 @@ when defined(websock) and defined(chronos):
     except CatchableError:
       discard
 
-  proc wsUrl(port: int): string = "ws://127.0.0.1:" & $port & "/"
+  proc wsUrl(port: int): string =
+    "ws://127.0.0.1:" & $port & "/"
 
   suite "websock firewall (G1-only)":
     setup:
@@ -177,9 +178,8 @@ when defined(websock) and defined(chronos):
     test "restrict(M(host=127.0.0.1)) narrows blanket allow":
       expect UnmockedInteractionDefect:
         sandbox:
-          allow(websockPluginInstance)                            # broad
-          restrict(websockPluginInstance,
-                   M(host = "127.0.0.1"))                          # ceiling
+          allow(websockPluginInstance) # broad
+          restrict(websockPluginInstance, M(host = "127.0.0.1")) # ceiling
           # Non-loopback host — falls outside the ceiling, must raise
           # even though `allow` is blanket.
           let parsed = parseUri(NeverBoundUrl)
@@ -216,8 +216,7 @@ when defined(websock) and defined(chronos):
         var firewallRaised = false
         var websockFailed = false
         try:
-          discard waitFor chronos.wait(
-            nfwebsockConnect(parsed), 2.seconds)
+          discard waitFor chronos.wait(nfwebsockConnect(parsed), 2.seconds)
         except UnmockedInteractionDefect:
           firewallRaised = true
         except CatchableError:

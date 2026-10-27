@@ -100,15 +100,16 @@
 ##     `async: (raises: [...])` consumer procs (the `74d540a` lesson).
 
 import std/[uri, options]
-import chronicles
-  # Imported because websock's internal `connect` body invokes
-  # `chronicles.trace(...)` via its `logScope`. The trampoline's
-  # `await wsLib.WebSocket.connect(uri)` body, when expanded under
-  # `async:`, types `setResult` against websock internals that reach
-  # for `activeChroniclesStream` from the importer's scope. Without
-  # this `import` here, compilation fails with
-  #   "undeclared identifier: 'activeChroniclesStream'"
-  # at websock's `client.nim` `trace` site.
+import
+  chronicles
+    # Imported because websock's internal `connect` body invokes
+    # `chronicles.trace(...)` via its `logScope`. The trampoline's
+    # `await wsLib.WebSocket.connect(uri)` body, when expanded under
+    # `async:`, types `setResult` against websock internals that reach
+    # for `activeChroniclesStream` from the importer's scope. Without
+    # this `import` here, compilation fails with
+    #   "undeclared identifier: 'activeChroniclesStream'"
+    # at websock's `client.nim` `trace` site.
 import chronos
 import chronos/transports/common as chronosCommon
 import websock/websock
@@ -139,12 +140,15 @@ const FirewallOnlyMockMsg =
   "paperplanes' WsTransport / RealWsTransport / FakeWsTransport) for " &
   "G2/G3 coverage."
 
-method realize*(r: WebsockConnectStubResponse):
-    InternalRaisesFuture[WSSession,
-                         (CancelledError, AsyncStreamError,
-                          wsHttpCommon.HttpError, TransportError,
-                          WebSocketError)] {.
-      base, gcsafe, raises: [Defect].} =
+method realize*(
+    r: WebsockConnectStubResponse
+): InternalRaisesFuture[
+    WSSession,
+    (
+      CancelledError, AsyncStreamError, wsHttpCommon.HttpError, TransportError,
+      WebSocketError,
+    ),
+] {.base, gcsafe, raises: [Defect].} =
   ## Mocking unsupported — see module docstring. The combinator only
   ## reaches this branch if a consumer registered a mock against this
   ## plugin, which the firewall-only design forbids. Return type
@@ -196,9 +200,8 @@ proc fingerprintWebsockConnect*(uri: Uri): string =
       "[" & uri.hostname & "]"
     else:
       uri.hostname
-  "procName=connect scheme=" & uri.scheme & " host=" & host &
-    " port=" & port & " path=" & escapeFingerprintField(uri.path) &
-    " query=" & escapeFingerprintField(uri.query)
+  "procName=connect scheme=" & uri.scheme & " host=" & host & " port=" & port & " path=" &
+    escapeFingerprintField(uri.path) & " query=" & escapeFingerprintField(uri.query)
 
 # ---- Real-proc trampolines (avoid TRM self-recursion) -------------------
 # Following the precedent established in `plugins/osproc.nim`
@@ -224,11 +227,16 @@ proc fingerprintWebsockConnect*(uri: Uri): string =
 # its `spyBody` (which references this symbol) at every consumer call
 # site; the symbol must be reachable from those sites.
 
-proc realWebsockConnectUri*(uri: Uri):
-                             Future[WSSession] {.
-                               async: (raises: [CancelledError, AsyncStreamError,
-                                                wsHttpCommon.HttpError, TransportError,
-                                                WebSocketError]).} =
+proc realWebsockConnectUri*(
+    uri: Uri
+): Future[WSSession] {.
+    async: (
+      raises: [
+        CancelledError, AsyncStreamError, wsHttpCommon.HttpError, TransportError,
+        WebSocketError,
+      ]
+    )
+.} =
   ## Trampoline to websock's real URI-form `connect`. Used by the TRM's
   ## spy-passthrough body when the firewall admits a call. The outer name
   ## differs from `connect` and from `nfwebsockConnect` so the TRM
@@ -263,11 +271,16 @@ proc realWebsockConnectUri*(uri: Uri):
 # is documented and grep-detectable as a forbidden idiom in consumer
 # repositories.
 
-proc nfwebsockConnect*(uri: Uri):
-                       Future[WSSession] {.
-                         async: (raises: [CancelledError, AsyncStreamError,
-                                          wsHttpCommon.HttpError, TransportError,
-                                          WebSocketError]).} =
+proc nfwebsockConnect*(
+    uri: Uri
+): Future[WSSession] {.
+    async: (
+      raises: [
+        CancelledError, AsyncStreamError, wsHttpCommon.HttpError, TransportError,
+        WebSocketError,
+      ]
+    )
+.} =
   ## Firewall-protected entrypoint for websock URI-form connect. Drop-in
   ## replacement for `WebSocket.connect(uri)`. Inside a tripwire `sandbox:`
   ## block, an unauthorised call raises `UnmockedInteractionDefect`. The
@@ -302,12 +315,16 @@ proc nfwebsockConnect*(uri: Uri):
 # looks for a different shape; no rewrite happens; the call hits the
 # wrapper directly).
 
-template nfwebsockConnectTRM*{nfwebsockConnect(uri)}(
-    uri: Uri):
-    InternalRaisesFuture[WSSession,
-                         (CancelledError, AsyncStreamError,
-                          wsHttpCommon.HttpError, TransportError,
-                          WebSocketError)] =
+template nfwebsockConnectTRM*{
+  nfwebsockConnect(uri)}(
+    uri: Uri
+): InternalRaisesFuture[
+    WSSession,
+    (
+      CancelledError, AsyncStreamError, wsHttpCommon.HttpError, TransportError,
+      WebSocketError,
+    ),
+] =
   ## Firewall TRM for `nfwebsockConnect(uri)`. The TRM body either raises
   ## `UnmockedInteractionDefect` (when the firewall says no) or calls
   ## through to the real `WebSocket.connect(uri)` via
@@ -317,6 +334,7 @@ template nfwebsockConnectTRM*{nfwebsockConnect(uri)}(
     websockPluginInstance,
     "connect",
     fingerprintWebsockConnect(uri),
-    WebsockConnectStubResponse):
+    WebsockConnectStubResponse,
+  ):
     {.noRewrite.}:
       realWebsockConnectUri(uri)

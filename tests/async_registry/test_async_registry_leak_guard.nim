@@ -21,6 +21,6 @@ suite "async_registry leak guard":
 
   test "asyncCheckInSandbox outside sandbox raises LeakedInteractionDefect":
     let fut = newFuture[int]("test_async_registry_leak_guard")
-    fut.complete(7)  # completed so asyncCheck would be harmless if ever reached
+    fut.complete(7) # completed so asyncCheck would be harmless if ever reached
     expect LeakedInteractionDefect:
       asyncCheckInSandbox(fut)

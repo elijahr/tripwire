@@ -11,10 +11,12 @@ import common_q2
 var recursiveFireCount* {.global.} = 0
 var nimfootFireCount* {.global.} = 0
 
-template recursiveMul*{`*`(a, b)}(a, b: int): int =
+template recursiveMul*{
+  `*`(a, b)}(a, b: int): int =
   inc(recursiveFireCount)
   `*`(b, a)
 
-template nimfootAdd*{addTarget(a, b)}(a, b: int): int =
+template nimfootAdd*{
+  addTarget(a, b)}(a, b: int): int =
   inc(nimfootFireCount)
   rawAddTarget(a, b)

@@ -15,12 +15,18 @@
 import tripwire
 
 # ---- types -------------------------------------------------------------
-when not declared(Plugin):           {.error: "facade missing Plugin".}
-when not declared(Verifier):         {.error: "facade missing Verifier".}
-when not declared(Interaction):      {.error: "facade missing Interaction".}
-when not declared(Timeline):         {.error: "facade missing Timeline".}
-when not declared(MockResponse):     {.error: "facade missing MockResponse".}
-when not declared(Mock):             {.error: "facade missing Mock".}
+when not declared(Plugin):
+  {.error: "facade missing Plugin".}
+when not declared(Verifier):
+  {.error: "facade missing Verifier".}
+when not declared(Interaction):
+  {.error: "facade missing Interaction".}
+when not declared(Timeline):
+  {.error: "facade missing Timeline".}
+when not declared(MockResponse):
+  {.error: "facade missing MockResponse".}
+when not declared(Mock):
+  {.error: "facade missing Mock".}
 
 # ---- errors ------------------------------------------------------------
 when not declared(TripwireDefect):
@@ -33,24 +39,32 @@ when not declared(LeakedInteractionDefect):
   {.error: "facade missing LeakedInteractionDefect".}
 
 # ---- sandbox / verify lifecycle ---------------------------------------
-when not declared(sandbox):       {.error: "facade missing sandbox template".}
-when not declared(newVerifier):   {.error: "facade missing newVerifier".}
+when not declared(sandbox):
+  {.error: "facade missing sandbox template".}
+when not declared(newVerifier):
+  {.error: "facade missing newVerifier".}
 when not declared(currentVerifier):
   {.error: "facade missing currentVerifier".}
-when not declared(newMock):       {.error: "facade missing newMock proc".}
-when not declared(verifyAll):     {.error: "facade missing verifyAll".}
+when not declared(newMock):
+  {.error: "facade missing newMock proc".}
+when not declared(verifyAll):
+  {.error: "facade missing verifyAll".}
 
 # ---- intercept ---------------------------------------------------------
 when not declared(tripwireInterceptBody):
   {.error: "facade missing tripwireInterceptBody".}
 
 # ---- macros / DSL ------------------------------------------------------
-when not declared(respond):       {.error: "facade missing respond".}
-when not declared(responded):     {.error: "facade missing responded".}
-when not declared(request):       {.error: "facade missing request".}
+when not declared(respond):
+  {.error: "facade missing respond".}
+when not declared(responded):
+  {.error: "facade missing responded".}
+when not declared(request):
+  {.error: "facade missing request".}
 
 # ---- config ------------------------------------------------------------
-when not declared(loadConfig):    {.error: "facade missing loadConfig".}
+when not declared(loadConfig):
+  {.error: "facade missing loadConfig".}
 
 # ---- futures -----------------------------------------------------------
 when not declared(makeCompletedFuture):
@@ -59,7 +73,8 @@ when not declared(makeCompletedFuture):
 # ---- integration_unittest backend -------------------------------------
 # `test` is the tripwire-flavored test template; `check` and `suite`
 # come from the re-exported std/unittest backend.
-when not declared(test):          {.error: "facade missing tripwire test".}
+when not declared(test):
+  {.error: "facade missing tripwire test".}
 when not declared(check):
   {.error: "facade missing check (from unittest backend)".}
 when not declared(suite):

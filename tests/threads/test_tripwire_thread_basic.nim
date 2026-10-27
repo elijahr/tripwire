@@ -40,7 +40,7 @@ import tripwire/threads
 # User proc we intend to mock. Kept side-effect-free so the child body
 # running under `--mm:arc` touches only the shared ref Verifier (design §8).
 proc computeOnThread(x: int): int =
-  x * 2   # real impl; TRM intercepts this
+  x * 2 # real impl; TRM intercepts this
 
 # Module-scope TRM emission. The dummy arg (0) only provides arity/type
 # for the pattern's formal params; the value is not used at runtime.
@@ -82,7 +82,8 @@ suite "withTripwireThread: happy path":
       # Parent registers expectation BEFORE spawning the child.
       # Respond with 999 (sentinel distinct from real-impl result 42).
       mock.expect computeOnThread(21):
-        respond value: 999
+        respond value:
+          999
 
       # withTripwireThread captures `currentVerifier()` on the parent,
       # spawns a worker, pushes the shared verifier on the child's stack,

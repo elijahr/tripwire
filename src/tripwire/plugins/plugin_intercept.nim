@@ -25,17 +25,21 @@ import std/[tables, options]
 import ../[types, errors, timeline, sandbox, verify, cap_counter, intercept]
 export options.isSome, options.isNone, options.get
 
-proc nfRecordFingerprint*(t: var OrderedTable[string, string],
-                          fp: string) {.raises: [].} =
+proc nfRecordFingerprint*(
+    t: var OrderedTable[string, string], fp: string
+) {.raises: [].} =
   ## Helper to stuff the call-site fingerprint into an Interaction.args
   ## table without tripping the httpclient/HttpHeaders `[]=` overload
   ## shadowing at TRM expansion sites.
   t[".fp"] = fp
 
-template tripwirePluginIntercept*(plugin: Plugin, procName: string,
-                                 fingerprint: string,
-                                 respType: untyped,
-                                 spyBody: untyped): untyped {.dirty.} =
+template tripwirePluginIntercept*(
+    plugin: Plugin,
+    procName: string,
+    fingerprint: string,
+    respType: untyped,
+    spyBody: untyped,
+): untyped {.dirty.} =
   ## Plugin-facing intercept combinator. Identical semantics to
   ## `tripwire/intercept.tripwireInterceptBody`; differs only in the
   ## `respType` parameter being `untyped` to survive TRM expansion.
@@ -47,11 +51,10 @@ template tripwirePluginIntercept*(plugin: Plugin, procName: string,
   ##   4. `firewallMode` decides defect-or-warn
   bind tripwireCountRewrite, currentVerifier, newLeakedInteractionDefect,
     newPostTestInteractionDefect, getThreadId, instantiationInfo,
-    newUnmockedInteractionDefect, popMatchingMock, record, fingerprintOf,
-    realize,
+    newUnmockedInteractionDefect, popMatchingMock, record, fingerprintOf, realize,
     initOrderedTable, isSome, isNil, get, nfRecordFingerprint,
-    nfCollectMockFingerprints, firewallShouldRaise,
-    tagFirewallPassthrough, outsideSandboxShouldPassthrough
+    nfCollectMockFingerprints, firewallShouldRaise, tagFirewallPassthrough,
+    outsideSandboxShouldPassthrough
   # block: wrapper gives each expansion its own scope so a plugin module
   # holding two TRMs (e.g. osproc's execProcessSeqTRM + execCmdExTRM) does
   # not emit duplicate `let nfVerifier` bindings in the same module scope.
@@ -77,19 +80,25 @@ template tripwirePluginIntercept*(plugin: Plugin, procName: string,
       # the if-isNil branch stays a single raise; the
       # `if nfOutsideHandled:` block is structurally separate.  See:
       #   docs/upstream-bugs/nim-2.2.8-vmgen-1821-multi-statement-if-body.md
-      let nfOutsideHandled = nfVerifier.isNil and
-          outsideSandboxShouldPassthrough(plugin, procName,
-            (filename: instantiationInfo().filename,
-             line: instantiationInfo().line,
-             column: instantiationInfo().column))
+      let nfOutsideHandled =
+        nfVerifier.isNil and
+        outsideSandboxShouldPassthrough(
+          plugin,
+          procName,
+          (
+            filename: instantiationInfo().filename,
+            line: instantiationInfo().line,
+            column: instantiationInfo().column,
+          ),
+        )
       if nfVerifier.isNil and not nfOutsideHandled:
         raise newLeakedInteractionDefect(getThreadId(), instantiationInfo())
       if not nfOutsideHandled:
         if not nfVerifier.active:
-          raise newPostTestInteractionDefect(nfVerifier.name,
-            nfVerifier.generation, plugin.name, procName)
-        let nfMockOpt = nfVerifier.popMatchingMock(plugin.name, procName,
-                                                    fingerprint)
+          raise newPostTestInteractionDefect(
+            nfVerifier.name, nfVerifier.generation, plugin.name, procName
+          )
+        let nfMockOpt = nfVerifier.popMatchingMock(plugin.name, procName, fingerprint)
         let nfSite = instantiationInfo()
         # Record the call-site fingerprint in args[".fp"] so assertMock can
         # match by (procName, fingerprint) rather than procName alone.
@@ -103,9 +112,13 @@ template tripwirePluginIntercept*(plugin: Plugin, procName: string,
         # `if nfMockOpt.isNone:` branch — see
         # `tripwire/intercept.tripwireInterceptBody` for the
         # vmgen / unittest2 / refc rationale.
-        let nfRec = nfVerifier.timeline.record(plugin, procName, nfArgs,
+        let nfRec = nfVerifier.timeline.record(
+          plugin,
+          procName,
+          nfArgs,
           (if nfMockOpt.isSome: nfMockOpt.get.response else: nil),
-          (file: nfSite.filename, line: nfSite.line, column: nfSite.column))
+          (file: nfSite.filename, line: nfSite.line, column: nfSite.column),
+        )
         if nfMockOpt.isNone:
           tagFirewallPassthrough(nfRec)
           # See the matching commentary in tripwire/intercept.nim: TRM body
@@ -114,10 +127,14 @@ template tripwirePluginIntercept*(plugin: Plugin, procName: string,
           # warn-side stderr emission as a side effect so the body here is
           # just `if fdRaise: raise; spyBody`.
           if firewallShouldRaise(nfVerifier, plugin, procName, fingerprint):
-            raise newUnmockedInteractionDefect(plugin.name, procName,
+            raise newUnmockedInteractionDefect(
+              plugin.name,
+              procName,
               fingerprint,
               (file: nfSite.filename, line: nfSite.line, column: nfSite.column),
-              nil, nfCollectMockFingerprints(nfVerifier, plugin.name))
+              nil,
+              nfCollectMockFingerprints(nfVerifier, plugin.name),
+            )
           spyBody
         else:
           respType(nfMockOpt.get.response).realize()

@@ -4,7 +4,8 @@ import std/osproc
 
 var rewriteCount {.global.} = 0
 
-template rewriteExecProcess{execProcess(command)}(command: string): string =
+template rewriteExecProcess{
+  execProcess(command)}(command: string): string =
   inc(rewriteCount)
   "FAKE"
 

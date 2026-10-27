@@ -22,7 +22,8 @@ suite "timeline":
     t.markAsserted(i1)
     discard i2
     var pending: seq[string]
-    for e in t.unasserted: pending.add(e.procName)
+    for e in t.unasserted:
+      pending.add(e.procName)
     check pending == @["f2"]
 
   test "value-in-ref mutation via field access (regression for §4.1 note)":
@@ -31,6 +32,7 @@ suite "timeline":
     ## makes `v.timeline` an lvalue because v is a ref.
     type Carrier = ref object
       timeline: Timeline
+
     var c = Carrier(timeline: Timeline(nextSeq: 0))
     let p = Plugin(name: "p1")
     let args = initOrderedTable[string, string]()

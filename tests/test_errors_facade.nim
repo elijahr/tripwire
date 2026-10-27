@@ -24,15 +24,13 @@ import tripwire
 
 suite "WI2 facade re-exports (Task 2.4)":
   test "ChronosOnWorkerThreadDefect visible through tripwire facade":
-    let d = newChronosOnWorkerThreadDefect(1,
-      (filename: "x.nim", line: 1, column: 1))
+    let d = newChronosOnWorkerThreadDefect(1, (filename: "x.nim", line: 1, column: 1))
     check d of ChronosOnWorkerThreadDefect
     check d of TripwireDefect
     check d of Defect
 
   test "NestedTripwireThreadDefect visible through tripwire facade":
-    let d = newNestedTripwireThreadDefect(1,
-      (filename: "x.nim", line: 1, column: 1))
+    let d = newNestedTripwireThreadDefect(1, (filename: "x.nim", line: 1, column: 1))
     check d of NestedTripwireThreadDefect
     check d of TripwireDefect
     check d of Defect

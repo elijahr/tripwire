@@ -22,8 +22,7 @@
 ## ONE TRM rewrite to the aggregate harness's compilation-unit cap
 ## (cap_counter.nim, TripwireCapThreshold = 15).
 import std/[unittest, strutils]
-import tripwire/[types, errors, timeline, sandbox, verify, intercept,
-                firewall_types]
+import tripwire/[types, errors, timeline, sandbox, verify, intercept, firewall_types]
 import tripwire/plugins/[plugin_intercept, mock]
 
 # ---- One test plugin + one wrapper proc (= 1 TRM rewrite) ---------------
@@ -32,7 +31,8 @@ type
   PtResp* = ref object of MockResponse
     val*: string
 
-method realize*(r: PtResp): string = r.val
+method realize*(r: PtResp): string =
+  r.val
 
 let ptPluginA* = PtPluginA(name: "ptA", enabled: true)
 
@@ -55,9 +55,9 @@ proc fetchA(host: string): string =
   # the test wrapper robust to weird inputs and consistent with how
   # `httpclient` / `chronos_httpclient` / `websock` build their
   # fingerprints.
-  tripwirePluginIntercept(ptPluginA, "fetchA",
-    "procName=fetchA host=" & escapeFingerprintField(host),
-    PtResp):
+  tripwirePluginIntercept(
+    ptPluginA, "fetchA", "procName=fetchA host=" & escapeFingerprintField(host), PtResp
+  ):
     {.noRewrite.}:
       "real-A:" & host
 
@@ -69,8 +69,11 @@ suite "firewall":
   test "allow(plugin, predicate) match -> spy body runs":
     sandbox:
       let v = currentVerifier()
-      allow(ptPluginA, proc(procName, fp: string): bool =
-        fp.contains("127.0.0.1"))
+      allow(
+        ptPluginA,
+        proc(procName, fp: string): bool =
+          fp.contains("127.0.0.1"),
+      )
       check fetchA("127.0.0.1") == "real-A:127.0.0.1"
       # The interception was recorded; mark it asserted so verifyAll
       # passes guarantee #2.
@@ -80,8 +83,11 @@ suite "firewall":
   test "allow(plugin, predicate) miss -> UnmockedInteractionDefect":
     expect UnmockedInteractionDefect:
       sandbox:
-        allow(ptPluginA, proc(procName, fp: string): bool =
-          fp.contains("127.0.0.1"))
+        allow(
+          ptPluginA,
+          proc(procName, fp: string): bool =
+            fp.contains("127.0.0.1"),
+        )
         # 8.8.8.8 is outside the predicate's pattern; must raise.
         discard fetchA("8.8.8.8")
 
@@ -90,17 +96,26 @@ suite "firewall":
     # verify it does NOT grant passthrough to ptPluginA's calls.
     expect UnmockedInteractionDefect:
       sandbox:
-        allow(mockPluginInstance,
-          proc(procName, fp: string): bool = true)
+        allow(
+          mockPluginInstance,
+          proc(procName, fp: string): bool =
+            true,
+        )
         discard fetchA("anyhost")
 
   test "multiple allow predicates OR together":
     sandbox:
       let v = currentVerifier()
-      allow(ptPluginA, proc(procName, fp: string): bool =
-        fp.contains("127.0.0.1"))
-      allow(ptPluginA, proc(procName, fp: string): bool =
-        fp.contains("localhost"))
+      allow(
+        ptPluginA,
+        proc(procName, fp: string): bool =
+          fp.contains("127.0.0.1"),
+      )
+      allow(
+        ptPluginA,
+        proc(procName, fp: string): bool =
+          fp.contains("localhost"),
+      )
       # First predicate matches:
       check fetchA("127.0.0.1") == "real-A:127.0.0.1"
       # Second predicate matches:
@@ -111,7 +126,11 @@ suite "firewall":
 
   test "allow scope ends with sandbox":
     sandbox:
-      allow(ptPluginA, proc(procName, fp: string): bool = true)
+      allow(
+        ptPluginA,
+        proc(procName, fp: string): bool =
+          true,
+      )
       let v = currentVerifier()
       check v.allowPredicates.len == 1
       check fetchA("anything") == "real-A:anything"
@@ -128,7 +147,11 @@ suite "firewall":
 
   test "allow outside sandbox -> LeakedInteractionDefect":
     expect LeakedInteractionDefect:
-      allow(ptPluginA, proc(procName, fp: string): bool = true)
+      allow(
+        ptPluginA,
+        proc(procName, fp: string): bool =
+          true,
+      )
 
   test "MockPlugin blanket passthrough still works (no regression)":
     # MockPlugin's `passthroughFor` returns true for every procName;
@@ -186,15 +209,21 @@ suite "firewall":
     # filters the permission set, it does not grant.
     expect UnmockedInteractionDefect:
       sandbox:
-        restrict(ptPluginA, proc(procName, fp: string): bool =
-          fp.contains("127.0.0.1"))
+        restrict(
+          ptPluginA,
+          proc(procName, fp: string): bool =
+            fp.contains("127.0.0.1"),
+        )
         discard fetchA("127.0.0.1")
 
   test "restrict alone, unmatched call: raises (no allow, no ceiling-admit)":
     expect UnmockedInteractionDefect:
       sandbox:
-        restrict(ptPluginA, proc(procName, fp: string): bool =
-          fp.contains("127.0.0.1"))
+        restrict(
+          ptPluginA,
+          proc(procName, fp: string): bool =
+            fp.contains("127.0.0.1"),
+        )
         # Outside the ceiling AND no allow — both reasons reject.
         discard fetchA("8.8.8.8")
 
@@ -205,8 +234,8 @@ suite "firewall":
     # the matcher. Calls inside the ceiling pass; calls outside reject.
     sandbox:
       let v = currentVerifier()
-      allow(ptPluginA)                                  # broad permit
-      restrict(ptPluginA, M(host = "127.0.0.*"))        # ceiling
+      allow(ptPluginA) # broad permit
+      restrict(ptPluginA, M(host = "127.0.0.*")) # ceiling
       check fetchA("127.0.0.1") == "real-A:127.0.0.1"
       check fetchA("127.0.0.42") == "real-A:127.0.0.42"
       check v.timeline.entries.len == 2
@@ -225,15 +254,21 @@ suite "firewall":
     # localhost is in BOTH and passes — demonstrates "allow ∩ restrict."
     sandbox:
       let v = currentVerifier()
-      restrict(ptPluginA, proc(procName, fp: string): bool =
-        fp.contains("127.") or fp.contains("localhost"))
+      restrict(
+        ptPluginA,
+        proc(procName, fp: string): bool =
+          fp.contains("127.") or fp.contains("localhost"),
+      )
       allow(ptPluginA, M(host = "localhost"))
       check fetchA("localhost") == "real-A:localhost"
       v.timeline.markAsserted(v.timeline.entries[0])
     expect UnmockedInteractionDefect:
       sandbox:
-        restrict(ptPluginA, proc(procName, fp: string): bool =
-          fp.contains("127.") or fp.contains("localhost"))
+        restrict(
+          ptPluginA,
+          proc(procName, fp: string): bool =
+            fp.contains("127.") or fp.contains("localhost"),
+        )
         # allow widens to "anything" but restrict ceiling still filters.
         allow(ptPluginA)
         discard fetchA("8.8.8.8")
@@ -251,8 +286,11 @@ suite "firewall":
       # Restrict a DIFFERENT plugin with a never-matching predicate.
       # If scoping is broken this entry will spuriously reject ptA's
       # calls; if scoping is correct it has no effect on ptA.
-      restrict(mockPluginInstance,
-               proc(procName, fp: string): bool = false)
+      restrict(
+        mockPluginInstance,
+        proc(procName, fp: string): bool =
+          false,
+      )
       allow(ptPluginA)
       check fetchA("anyhost") == "real-A:anyhost"
       v.timeline.markAsserted(v.timeline.entries[0])
@@ -296,8 +334,11 @@ suite "firewall":
     # boilerplate disappears.
     sandbox:
       let v = currentVerifier()
-      allow(ptPluginA, proc(procName, fp: string): bool =
-        fp.contains("127.0.0.1"))
+      allow(
+        ptPluginA,
+        proc(procName, fp: string): bool =
+          fp.contains("127.0.0.1"),
+      )
       check fetchA("127.0.0.1") == "real-A:127.0.0.1"
       check v.timeline.entries.len == 1
       check v.timeline.entries[0].kind == ikFirewallPassthrough
@@ -315,9 +356,15 @@ suite "firewall":
         let v = currentVerifier()
         # Register a mock so the call goes the mocked path, not the
         # firewall path.
-        v.registerMock("ptA",
-          newMock("fetchA", "procName=fetchA host=zzz",
-                  PtResp(val: "mocked-A"), instantiationInfo()))
+        v.registerMock(
+          "ptA",
+          newMock(
+            "fetchA",
+            "procName=fetchA host=zzz",
+            PtResp(val: "mocked-A"),
+            instantiationInfo(),
+          ),
+        )
         check fetchA("zzz") == "mocked-A"
         check v.timeline.entries.len == 1
         check v.timeline.entries[0].kind == ikMockMatched
@@ -348,17 +395,16 @@ suite "firewall":
     # plugin proc with a port-bearing fingerprint shape).
     let m = M(port = 80)
     check m.matchesFingerprint(
-      "fetchA",
-      "procName=fetchA method=GET host=foo.com port=8080") == false
+      "fetchA", "procName=fetchA method=GET host=foo.com port=8080"
+    ) == false
 
   test "M(host=GET) does not match request whose method is GET":
     # Pre-fix `M(host="GET")` matched any GET request because `GET`
     # appeared as a whitespace token. With anchoring the value after
     # `host=` is `foo.com`, never `GET`.
     let m = M(host = "GET")
-    check m.matchesFingerprint(
-      "fetchA",
-      "procName=fetchA method=GET host=foo.com") == false
+    check m.matchesFingerprint("fetchA", "procName=fetchA method=GET host=foo.com") ==
+      false
 
   test "M(host=[::1]) matches IPv6 loopback fingerprint":
     # IPv6 hosts go in the `host=` token wrapped in square brackets so
@@ -367,8 +413,8 @@ suite "firewall":
     # the matcher couldn't match either bracketed or bare forms.
     let m = M(host = "[::1]")
     check m.matchesFingerprint(
-      "fetchA",
-      "procName=fetchA method=GET host=[::1] port=80 path=/") == true
+      "fetchA", "procName=fetchA method=GET host=[::1] port=80 path=/"
+    ) == true
 
   test "non-HTTP fingerprint shape rejects host matcher":
     # Backward-compat doc: a fingerprintOf-shaped fingerprint

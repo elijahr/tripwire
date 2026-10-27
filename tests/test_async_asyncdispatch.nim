@@ -15,8 +15,7 @@ suite "async asyncdispatch":
     check waitFor(f) == 42
 
   test "makeFailedFuture raises on await":
-    let f = makeFailedFuture[int](newException(ValueError, "nope"),
-                                  "test_fail")
+    let f = makeFailedFuture[int](newException(ValueError, "nope"), "test_fail")
     expect ValueError:
       discard waitFor(f)
 

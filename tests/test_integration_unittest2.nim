@@ -10,20 +10,21 @@
 when defined(tripwireUnittest2):
   import std/[tables, options]
   import unittest2 as u2
-  import tripwire/[types, errors, timeline, sandbox, verify, intercept,
-                  integration_unittest]
+  import
+    tripwire/[types, errors, timeline, sandbox, verify, intercept, integration_unittest]
 
   type
     U2Plugin = ref object of Plugin
     U2Resp = ref object of MockResponse
       v: int
-  method realize(r: U2Resp): int = r.v
+
+  method realize(r: U2Resp): int =
+    r.v
+
   let u2Plugin = U2Plugin(name: "u2", enabled: true)
 
   proc u2Call(a: int): int =
-    tripwireInterceptBody(u2Plugin, "u2Call",
-      fingerprintOf("u2Call", @[$a]),
-      U2Resp):
+    tripwireInterceptBody(u2Plugin, "u2Call", fingerprintOf("u2Call", @[$a]), U2Resp):
       {.noRewrite.}:
         a
 
@@ -39,9 +40,12 @@ when defined(tripwireUnittest2):
       integration_unittest.test "inner-u2":
         let v = currentVerifier()
         u2.check v != nil
-        let m = newMock("u2Call", fingerprintOf("u2Call", @["3"]),
+        let m = newMock(
+          "u2Call",
+          fingerprintOf("u2Call", @["3"]),
           U2Resp(v: 33),
-          (filename: "t.nim", line: 1, column: 0))
+          (filename: "t.nim", line: 1, column: 0),
+        )
         registerMock(v, "u2", m)
         u2.check u2Call(3) == 33
         v.timeline.markAsserted(v.timeline.entries[0])

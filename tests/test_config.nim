@@ -48,13 +48,17 @@ suite "config":
     # wrong-typed values, consistent with the "config-load failure
     # must NOT mask the underlying violation" contract.
     let tmp = getTempDir() / "tripwire-malformed.toml"
-    writeFile(tmp, """
+    writeFile(
+      tmp,
+      """
 [tripwire.firewall]
 allow = "not-an-array"
 default = 123
 mock = "warn"
-""")
-    defer: removeFile(tmp)
+""",
+    )
+    defer:
+      removeFile(tmp)
     # MUST NOT raise.
     let c = loadConfig(some(tmp))
     # Wrong-typed `allow` → empty.
@@ -63,4 +67,3 @@ mock = "warn"
     check c.firewall.default == fmError
     # Per-plugin override survives because it's a valid string.
     check c.firewall.guards.getOrDefault("mock", fmError) == fmWarn
-

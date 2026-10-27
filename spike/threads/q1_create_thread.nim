@@ -15,15 +15,21 @@ proc popVerifier(): Verifier =
   result = verifierStack.pop()
 
 proc currentVerifier(): Verifier =
-  if verifierStack.len > 0: verifierStack[^1] else: nil
+  if verifierStack.len > 0:
+    verifierStack[^1]
+  else:
+    nil
 
-proc target*(x: int): int = x * 2
+proc target*(x: int): int =
+  x * 2
 
-template rewriteTarget*{target(a)}(a: int): int =
+template rewriteTarget*{
+  target(a)}(a: int): int =
   let v = currentVerifier()
-  echo "[T", getThreadId(), "] TRM fired, verifier: ",
-       (if v != nil: v.name else: "<NIL>")
-  if v != nil: inc(v.rewriteCount)
+  echo "[T",
+    getThreadId(), "] TRM fired, verifier: ", (if v != nil: v.name else: "<NIL>")
+  if v != nil:
+    inc(v.rewriteCount)
   a * 2
 
 proc workerProc() {.thread.} =
@@ -33,12 +39,12 @@ proc workerProc() {.thread.} =
 proc test1() =
   discard pushVerifier("test1-main")
   echo "[T", getThreadId(), "] main about to call target(5)"
-  discard target(5)  # should fire against main verifier
+  discard target(5) # should fire against main verifier
   var t: Thread[void]
   createThread(t, workerProc)
   joinThread(t)
   echo "[T", getThreadId(), "] main about to call target(6) after join"
-  discard target(6)  # main verifier again
+  discard target(6) # main verifier again
   let popped = popVerifier()
   echo "test1 main verifier count: ", popped.rewriteCount
   echo "expected if main-only counted: 2; if all counted: 4"

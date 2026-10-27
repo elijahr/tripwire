@@ -107,23 +107,23 @@ suite "drainPendingAsync timeout":
     try:
       sandbox:
         let v = currentVerifier()
-        asyncCheckInSandbox(fut1)                                     # site 1
-        asyncCheckInSandbox(fut2)                                     # site 2
-        asyncCheckInSandbox(fut3)                                     # site 3
+        asyncCheckInSandbox(fut1) # site 1
+        asyncCheckInSandbox(fut2) # site 2
+        asyncCheckInSandbox(fut3) # site 3
 
         # Snapshot the 3 site markers BEFORE drain clears the registry.
         # Format must mirror the "  - filename:line:column" string that
         # drainPendingAsync joins into `Spawn sites:\n...`.
         check v.futureRegistry.len == 3
-        expectedSite1 = "  - " & v.futureRegistry[0].site.filename & ":" &
-                        $v.futureRegistry[0].site.line & ":" &
-                        $v.futureRegistry[0].site.column
-        expectedSite2 = "  - " & v.futureRegistry[1].site.filename & ":" &
-                        $v.futureRegistry[1].site.line & ":" &
-                        $v.futureRegistry[1].site.column
-        expectedSite3 = "  - " & v.futureRegistry[2].site.filename & ":" &
-                        $v.futureRegistry[2].site.line & ":" &
-                        $v.futureRegistry[2].site.column
+        expectedSite1 =
+          "  - " & v.futureRegistry[0].site.filename & ":" &
+          $v.futureRegistry[0].site.line & ":" & $v.futureRegistry[0].site.column
+        expectedSite2 =
+          "  - " & v.futureRegistry[1].site.filename & ":" &
+          $v.futureRegistry[1].site.line & ":" & $v.futureRegistry[1].site.column
+        expectedSite3 =
+          "  - " & v.futureRegistry[2].site.filename & ":" &
+          $v.futureRegistry[2].site.line & ":" & $v.futureRegistry[2].site.column
 
         try:
           drainPendingAsync(currentVerifier())

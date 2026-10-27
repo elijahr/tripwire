@@ -61,6 +61,7 @@ type
   ChronosOnWorkerThreadDefect* = object of TripwireDefect
     ## Raised when a chronos import lands on a tripwireThread-wrapped
     ## worker. WI3 (threads) gate; see design chunk-2 brief, §2.3.
+
   NestedTripwireThreadDefect* = object of TripwireDefect
     ## Raised when a tripwireThread block fires from within another
     ## tripwireThread. WI3 (threads) gate; see design chunk-2 brief, §2.3.
@@ -70,14 +71,16 @@ type
   AssertionInsideSandboxError* = object of TripwireError
     site*: tuple[file: string, line, column: int]
 
-const FFIScopeFooter* = "\n(tripwire intercepts Nim source calls only. " &
+const FFIScopeFooter* =
+  "\n(tripwire intercepts Nim source calls only. " &
   "FFI ({.importc.}, {.dynlib.}, {.header.}) is not intercepted in v0. " &
   "See docs/concepts.md#scope.)"
 
 # ---- Nearest-mock hints --------------------------------------------------
 
-proc nearestMockHints*(actual: string, candidates: openArray[string],
-                       maxDistance: int = 1): seq[string] {.raises: [].} =
+proc nearestMockHints*(
+    actual: string, candidates: openArray[string], maxDistance: int = 1
+): seq[string] {.raises: [].} =
   ## Returns candidates whose Levenshtein distance from `actual` is within
   ## (0, maxDistance]. Exact matches (distance 0) are suppressed because
   ## they would have matched upstream in `popMatchingMock` and never
@@ -93,11 +96,12 @@ proc nearestMockHints*(actual: string, candidates: openArray[string],
 
 # ---- Constructors --------------------------------------------------------
 
-proc newUnmockedInteractionDefect*(pluginName, procName, fingerprint: string,
+proc newUnmockedInteractionDefect*(
+    pluginName, procName, fingerprint: string,
     site: tuple[file: string, line, column: int],
     plugin: Plugin = nil,
-    candidates: openArray[string] = []):
-      ref UnmockedInteractionDefect {.raises: [].} =
+    candidates: openArray[string] = [],
+): ref UnmockedInteractionDefect {.raises: [].} =
   ## If `plugin` is provided, the header uses `plugin.formatInteraction` for
   ## a verbose rendering; otherwise it falls back to `<plugin>.<proc>`.
   ##
@@ -117,76 +121,94 @@ proc newUnmockedInteractionDefect*(pluginName, procName, fingerprint: string,
     hintBlock = "\n  Did you mean:"
     for h in hints:
       hintBlock.add("\n    - " & h)
-  let msg = header &
-    " at " & site.file & ":" & $site.line & ":" & $site.column &
+  let msg =
+    header & " at " & site.file & ":" & $site.line & ":" & $site.column &
     "\n  fingerprint: " & fingerprint & hintBlock & FFIScopeFooter
-  result = (ref UnmockedInteractionDefect)(msg: msg,
-    pluginName: pluginName, procName: procName, fingerprint: fingerprint,
-    site: site, nearestMockHints: hints)
+  result = (ref UnmockedInteractionDefect)(
+    msg: msg,
+    pluginName: pluginName,
+    procName: procName,
+    fingerprint: fingerprint,
+    site: site,
+    nearestMockHints: hints,
+  )
 
-proc newUnassertedInteractionsDefect*(verifierName: string,
-    interactions: seq[Interaction]):
-      ref UnassertedInteractionsDefect {.raises: [].} =
-  let msg = $interactions.len & " interactions recorded but not asserted " &
-    "in verifier '" & verifierName & "'" & FFIScopeFooter
-  result = (ref UnassertedInteractionsDefect)(msg: msg,
-    verifierName: verifierName, interactions: interactions)
-
-proc newUnusedMocksDefect*(verifierName: string,
-    mocks: seq[Mock]): ref UnusedMocksDefect {.raises: [].} =
-  let msg = $mocks.len & " mocks registered but never consumed in verifier '" &
+proc newUnassertedInteractionsDefect*(
+    verifierName: string, interactions: seq[Interaction]
+): ref UnassertedInteractionsDefect {.raises: [].} =
+  let msg =
+    $interactions.len & " interactions recorded but not asserted " & "in verifier '" &
     verifierName & "'" & FFIScopeFooter
-  result = (ref UnusedMocksDefect)(msg: msg,
-    verifierName: verifierName, mocks: mocks)
+  result = (ref UnassertedInteractionsDefect)(
+    msg: msg, verifierName: verifierName, interactions: interactions
+  )
 
-proc newLeakedInteractionDefect*(threadId: int,
-    site: tuple[filename: string, line: int, column: int]):
-      ref LeakedInteractionDefect {.raises: [].} =
-  let msg = "TRM fired on thread " & $threadId & " with no active verifier " &
-    "at " & site.filename & ":" & $site.line & FFIScopeFooter
+proc newUnusedMocksDefect*(
+    verifierName: string, mocks: seq[Mock]
+): ref UnusedMocksDefect {.raises: [].} =
+  let msg =
+    $mocks.len & " mocks registered but never consumed in verifier '" & verifierName &
+    "'" & FFIScopeFooter
+  result = (ref UnusedMocksDefect)(msg: msg, verifierName: verifierName, mocks: mocks)
+
+proc newLeakedInteractionDefect*(
+    threadId: int, site: tuple[filename: string, line: int, column: int]
+): ref LeakedInteractionDefect {.raises: [].} =
+  let msg =
+    "TRM fired on thread " & $threadId & " with no active verifier " & "at " &
+    site.filename & ":" & $site.line & FFIScopeFooter
   result = (ref LeakedInteractionDefect)(msg: msg, threadId: threadId)
 
-proc newOutsideSandboxNoPassthroughDefect*(pluginName, procName: string,
-    callsite: tuple[filename: string, line: int, column: int]):
-      ref OutsideSandboxNoPassthroughDefect {.raises: [].} =
+proc newOutsideSandboxNoPassthroughDefect*(
+    pluginName, procName: string,
+    callsite: tuple[filename: string, line: int, column: int],
+): ref OutsideSandboxNoPassthroughDefect {.raises: [].} =
   ## `{.raises: [].}` is load-bearing: the constructor is called from
   ## inside TRM expansions that may sit inside chronos
   ## `async: (raises: [...])` procs. Matches `newLeakedInteractionDefect`'s
   ## annotation. Message format mirrors pytest-tripwire's pedagogical guidance:
   ## install a sandbox, or flip mode to `error` (per-plugin or default) so
   ## the standard LeakedInteractionDefect raises instead.
-  let msg = "plugin '" & pluginName &
-    "' doesn't support outside-sandbox passthrough for '" & procName &
-    "' at " & callsite.filename & ":" & $callsite.line &
+  let msg =
+    "plugin '" & pluginName & "' doesn't support outside-sandbox passthrough for '" &
+    procName & "' at " & callsite.filename & ":" & $callsite.line &
     "; install a sandbox to mock this call, or switch to error mode " &
     "([tripwire.firewall]." & pluginName & "='error' or " &
     "[tripwire.firewall].default='error') to raise the standard " &
-    "LeakedInteractionDefect instead" &
-    FFIScopeFooter
-  result = (ref OutsideSandboxNoPassthroughDefect)(msg: msg,
-    pluginName: pluginName, procName: procName,
-    callsite: (filename: callsite.filename, line: callsite.line,
-               column: callsite.column),
-    threadId: getThreadId())
+    "LeakedInteractionDefect instead" & FFIScopeFooter
+  result = (ref OutsideSandboxNoPassthroughDefect)(
+    msg: msg,
+    pluginName: pluginName,
+    procName: procName,
+    callsite:
+      (filename: callsite.filename, line: callsite.line, column: callsite.column),
+    threadId: getThreadId(),
+  )
 
-proc newPostTestInteractionDefect*(verifierName: string, generation: int,
-    pluginName, procName: string):
-      ref PostTestInteractionDefect {.raises: [].} =
-  let msg = "TRM fired against popped verifier '" & verifierName &
-    "' (generation " & $generation & "): " & pluginName & "." & procName &
-    FFIScopeFooter
-  result = (ref PostTestInteractionDefect)(msg: msg,
-    verifierName: verifierName, generation: generation,
-    pluginName: pluginName, procName: procName)
+proc newPostTestInteractionDefect*(
+    verifierName: string, generation: int, pluginName, procName: string
+): ref PostTestInteractionDefect {.raises: [].} =
+  let msg =
+    "TRM fired against popped verifier '" & verifierName & "' (generation " & $generation &
+    "): " & pluginName & "." & procName & FFIScopeFooter
+  result = (ref PostTestInteractionDefect)(
+    msg: msg,
+    verifierName: verifierName,
+    generation: generation,
+    pluginName: pluginName,
+    procName: procName,
+  )
 
 proc newPendingAsyncDefect*(testName: string): ref PendingAsyncDefect =
-  let msg = "test '" & testName & "' ended with pending async operations." &
-    "\nUse `waitFor` to drain futures, or -d:tripwireAllowPendingAsync to" &
-    " suppress." & FFIScopeFooter
+  let msg =
+    "test '" & testName & "' ended with pending async operations." &
+    "\nUse `waitFor` to drain futures, or -d:tripwireAllowPendingAsync to" & " suppress." &
+    FFIScopeFooter
   result = (ref PendingAsyncDefect)(msg: msg, testName: testName)
 
-proc newPendingAsyncDefect*(msg: string,
-    parent: ref Exception): ref PendingAsyncDefect =
+proc newPendingAsyncDefect*(
+    msg: string, parent: ref Exception
+): ref PendingAsyncDefect =
   ## Drain-loop diagnostic overload (WI4). Stores `msg` verbatim (the
   ## caller composes it) and carries `parent` so rethrow chains compose
   ## correctly (design §4.4). `FFIScopeFooter` is appended, matching
@@ -200,23 +222,32 @@ proc newPendingAsyncDefect*(msg: string,
   let fullMsg = msg & FFIScopeFooter
   result = (ref PendingAsyncDefect)(msg: fullMsg, parent: parent)
 
-proc newChronosOnWorkerThreadDefect*(threadId: int,
-    site: tuple[filename: string, line: int, column: int]): ref ChronosOnWorkerThreadDefect =
-  let msg = "tripwireThread rejected: chronos on worker thread on thread " &
-    $threadId & " at " & site.filename & ":" & $site.line & FFIScopeFooter
+proc newChronosOnWorkerThreadDefect*(
+    threadId: int, site: tuple[filename: string, line: int, column: int]
+): ref ChronosOnWorkerThreadDefect =
+  let msg =
+    "tripwireThread rejected: chronos on worker thread on thread " & $threadId & " at " &
+    site.filename & ":" & $site.line & FFIScopeFooter
   result = (ref ChronosOnWorkerThreadDefect)(msg: msg)
 
-proc newNestedTripwireThreadDefect*(threadId: int,
-    site: tuple[filename: string, line: int, column: int]): ref NestedTripwireThreadDefect =
-  let msg = "tripwireThread rejected: nested tripwire thread on thread " &
-    $threadId & " at " & site.filename & ":" & $site.line & FFIScopeFooter
+proc newNestedTripwireThreadDefect*(
+    threadId: int, site: tuple[filename: string, line: int, column: int]
+): ref NestedTripwireThreadDefect =
+  let msg =
+    "tripwireThread rejected: nested tripwire thread on thread " & $threadId & " at " &
+    site.filename & ":" & $site.line & FFIScopeFooter
   result = (ref NestedTripwireThreadDefect)(msg: msg)
 
-proc newUnmockableContainerDefect*(procName, containerType: string,
-    site: tuple[filename: string, line: int, column: int]): ref UnmockableContainerDefect =
-  let msg = "unmockable container type '" & containerType &
-    "' passed to " & procName & " at " & site.filename & ":" &
-    $site.line & FFIScopeFooter
-  result = (ref UnmockableContainerDefect)(msg: msg,
-    procName: procName, containerType: containerType,
-    site: (file: site.filename, line: site.line, column: site.column))
+proc newUnmockableContainerDefect*(
+    procName, containerType: string,
+    site: tuple[filename: string, line: int, column: int],
+): ref UnmockableContainerDefect =
+  let msg =
+    "unmockable container type '" & containerType & "' passed to " & procName & " at " &
+    site.filename & ":" & $site.line & FFIScopeFooter
+  result = (ref UnmockableContainerDefect)(
+    msg: msg,
+    procName: procName,
+    containerType: containerType,
+    site: (file: site.filename, line: site.line, column: site.column),
+  )

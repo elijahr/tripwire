@@ -14,8 +14,9 @@ proc registerMock*(v: Verifier, pluginName: string, m: Mock) =
     v.mockQueues[pluginName] = MockQueue(mocks: initDeque[Mock]())
   v.mockQueues[pluginName].mocks.addLast(m)
 
-proc popMatchingMock*(v: Verifier, pluginName, procName,
-                     fingerprint: string): Option[Mock] {.raises: [].} =
+proc popMatchingMock*(
+    v: Verifier, pluginName, procName, fingerprint: string
+): Option[Mock] {.raises: [].} =
   ## Hot-path TRM helper. Annotated `{.raises: [].}` so `tripwireInterceptBody`
   ## / `tripwirePluginIntercept` can sit inside chronos `async: (raises: [...])`
   ## procs without leaking `KeyError`. Uses `withValue` to avoid raising on
@@ -28,38 +29,44 @@ proc popMatchingMock*(v: Verifier, pluginName, procName,
   ## test that exercises the pop path directly). Without the guard,
   ## `v.mockQueues.withValue` SIGSEGVs.
   result = none(Mock)
-  if v.isNil: return
+  if v.isNil:
+    return
   v.mockQueues.withValue(pluginName, qPtr):
     # Take mutable pointer via withValue; field assignment persists
     # because MockQueue carries a Deque[Mock] (ref-backed).
-    if qPtr[].mocks.len == 0: return
+    if qPtr[].mocks.len == 0:
+      return
     let head = qPtr[].mocks[0]
     if head.procName == procName and head.argFingerprint == fingerprint:
       return some(qPtr[].mocks.popFirst())
     if v.context.inAnyOrderActive:
       for i in 0 ..< qPtr[].mocks.len:
         if qPtr[].mocks[i].procName == procName and
-           qPtr[].mocks[i].argFingerprint == fingerprint:
+            qPtr[].mocks[i].argFingerprint == fingerprint:
           # Capture BEFORE mutating the deque (§4.1 regression guard).
           let matched = qPtr[].mocks[i]
           var tmp: seq[Mock]
           for j in 0 ..< qPtr[].mocks.len:
-            if j != i: tmp.add(qPtr[].mocks[j])
+            if j != i:
+              tmp.add(qPtr[].mocks[j])
           qPtr[].mocks.clear()
-          for mm in tmp: qPtr[].mocks.addLast(mm)
+          for mm in tmp:
+            qPtr[].mocks.addLast(mm)
           return some(matched)
 
 proc verifyAll*(v: Verifier) =
   ## Check the three guarantees. Raises the FIRST violation.
   # Guarantee 2: every recorded interaction explicitly asserted.
   var unasserted: seq[Interaction] = @[]
-  for i in v.timeline.unasserted: unasserted.add(i)
+  for i in v.timeline.unasserted:
+    unasserted.add(i)
   if unasserted.len > 0:
     raise newUnassertedInteractionsDefect(v.name, unasserted)
   # Guarantee 3: every registered mock consumed.
   var unusedMocks: seq[Mock] = @[]
   for pluginName, q in v.mockQueues.pairs:
-    for m in q.mocks: unusedMocks.add(m)
+    for m in q.mocks:
+      unusedMocks.add(m)
   if unusedMocks.len > 0:
     raise newUnusedMocksDefect(v.name, unusedMocks)
   # Guarantee 1 is raised eagerly by TRM bodies; nothing to do here.
@@ -71,7 +78,8 @@ proc fingerprintOf*(procName: string, renderedArgs: seq[string]): string =
     result.add('|')
     result.add(a)
 
-const tripwireAsyncDrainTimeoutMs* {.intdefine: "tripwireAsyncDrainTimeoutMs".}: int = 5000
+const tripwireAsyncDrainTimeoutMs* {.intdefine: "tripwireAsyncDrainTimeoutMs".}: int =
+  5000
   ## Default drain timeout per verifier. Configurable at compile time via
   ## `-d:tripwireAsyncDrainTimeoutMs:N`.
 
@@ -98,8 +106,8 @@ proc drainPendingAsync*(v: Verifier) =
   if v.futureRegistry.len == 0:
     return
 
-  let deadline = getMonoTime() + initDuration(
-    milliseconds = tripwireAsyncDrainTimeoutMs)
+  let deadline =
+    getMonoTime() + initDuration(milliseconds = tripwireAsyncDrainTimeoutMs)
 
   while getMonoTime() < deadline:
     # Remove completed entries in-place; continue until all complete
@@ -117,11 +125,11 @@ proc drainPendingAsync*(v: Verifier) =
           # exposes the stored exception via the public `error*` field
           # (see stdlib asyncfutures.nim line 30). Semantics match.
           raise newPendingAsyncDefect(
-            "registered Future failed (spawned at " &
-            entry.site.filename & ":" & $entry.site.line & ":" &
-            $entry.site.column & ")",
-            parent = entry.fut.error)
-        v.futureRegistry.del(i)   # del is O(1) swap-remove; order doesn't matter for drain
+            "registered Future failed (spawned at " & entry.site.filename & ":" &
+              $entry.site.line & ":" & $entry.site.column & ")",
+            parent = entry.fut.error,
+          )
+        v.futureRegistry.del(i) # del is O(1) swap-remove; order doesn't matter for drain
       else:
         inc i
     if v.futureRegistry.len == 0:
@@ -134,7 +142,8 @@ proc drainPendingAsync*(v: Verifier) =
       let remainingMs = (deadline - getMonoTime()).inMilliseconds.int
       if remainingMs <= 0:
         break
-      poll(timeout = min(50, remainingMs))   # asyncdispatch.poll only; chronos is rejected upstream
+      poll(timeout = min(50, remainingMs))
+        # asyncdispatch.poll only; chronos is rejected upstream
     else:
       # Registry non-empty but dispatcher has nothing to progress ==
       # a never-completing Future. Bail with diagnostic.
@@ -143,11 +152,11 @@ proc drainPendingAsync*(v: Verifier) =
   # Timeout or stuck. Raise with per-Future spawn-site diagnostics.
   var sites: seq[string] = @[]
   for entry in v.futureRegistry:
-    sites.add("  - " & entry.site.filename & ":" & $entry.site.line &
-              ":" & $entry.site.column)
+    sites.add(
+      "  - " & entry.site.filename & ":" & $entry.site.line & ":" & $entry.site.column
+    )
   raise newPendingAsyncDefect(
-    "drainPendingAsync: " & $v.futureRegistry.len &
-    " future(s) did not complete within " &
-    $tripwireAsyncDrainTimeoutMs & "ms. Spawn sites:\n" &
-    sites.join("\n"),
-    parent = nil)
+    "drainPendingAsync: " & $v.futureRegistry.len & " future(s) did not complete within " &
+      $tripwireAsyncDrainTimeoutMs & "ms. Spawn sites:\n" & sites.join("\n"),
+    parent = nil,
+  )

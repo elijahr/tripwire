@@ -18,13 +18,14 @@ method formatInteraction*(p: Plugin, i: Interaction): string {.base, raises: [].
 method formatError*(p: Plugin, i: Interaction, kind: string): string {.base.} =
   kind & " in " & p.name & "." & i.procName
 
-method matches*(p: Plugin, i: Interaction,
-                criteria: OrderedTable[string, string]): bool {.base.} =
+method matches*(
+    p: Plugin, i: Interaction, criteria: OrderedTable[string, string]
+): bool {.base.} =
   ## Used by `inAnyOrder` + user criteria. Default accepts every interaction
   ## (plugins override for argument-aware matching).
   true
 
-method supportsPassthrough*(p: Plugin): bool {.base, raises: [].} = false
+method supportsPassthrough*(p: Plugin): bool {.base, raises: [].} =
   ## Plugin-level blanket: when true, every call routed through this
   ## plugin is allowed to fall through to its real implementation.
   ## MockPlugin returns true; httpclient/osproc return false. Lives in
@@ -35,10 +36,12 @@ method supportsPassthrough*(p: Plugin): bool {.base, raises: [].} = false
   ## firewall hot path inside TRM expansions, which may sit inside
   ## chronos `async: (raises: [...])` procs. Plugin overrides MUST be
   ## raises-compatible.
+  false
 
-method passthroughFor*(p: Plugin, procName: string): bool {.base, raises: [].} = false
+method passthroughFor*(p: Plugin, procName: string): bool {.base, raises: [].} =
   ## Plugin-level per-proc blanket. Consulted only when
   ## `supportsPassthrough` is true; lets a plugin gate passthrough on
   ## the procName (e.g. allow `getEnv` but not `setEnv`).
   ##
   ## See `supportsPassthrough` for the `raises: []` rationale.
+  false

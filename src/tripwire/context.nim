@@ -16,10 +16,12 @@ template inAssertBlock*(body: untyped) =
   if nfV != nil and nfV.active:
     let nfSite = instantiationInfo()
     raise (ref AssertionInsideSandboxError)(
-      msg: "assertion DSL invoked inside live sandbox; final verification " &
+      msg:
+        "assertion DSL invoked inside live sandbox; final verification " &
         "is performed by sandbox teardown. Move this assertion outside " &
         "the sandbox body, or use `assert` during teardown.",
-      site: (file: nfSite.filename, line: nfSite.line, column: nfSite.column))
+      site: (file: nfSite.filename, line: nfSite.line, column: nfSite.column),
+    )
   inc(assertionsOpen)
   try:
     body

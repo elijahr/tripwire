@@ -5,4 +5,4 @@ import nimfoot_q2
 proc triggerRecursiveA*(): int =
   var x = 2
   var y = 3
-  result = x * y  # recursive TRM trips here — inside A's proc
+  result = x * y # recursive TRM trips here — inside A's proc

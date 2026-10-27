@@ -12,7 +12,8 @@ type MarkerError = object of CatchableError
 
 var asyncRewrites* = 0
 
-template rewriteAsyncGet*{get(c, url)}(c: AsyncHttpClient, url: string): Future[AsyncResponse] =
+template rewriteAsyncGet*{
+  get(c, url)}(c: AsyncHttpClient, url: string): Future[AsyncResponse] =
   inc(asyncRewrites)
   let f = newFuture[AsyncResponse]("fakeAsyncGet")
   f.fail(newException(MarkerError, "TRM fired on AsyncHttpClient.get"))

@@ -5,7 +5,8 @@ import targets
 
 var httpRewrites* {.global.} = 0
 
-template rewriteHttpGet*{httpGet(url)}(url: string): string =
+template rewriteHttpGet*{
+  httpGet(url)}(url: string): string =
   inc(httpRewrites)
   socketSend(url, "GET intercepted\r\n")
   "fake-response"

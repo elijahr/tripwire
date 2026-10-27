@@ -6,8 +6,8 @@ import nimfoot_q2, common_q2
 proc mixed(): (int, int) =
   var x = 2
   var y = 3
-  let mulRes = x * y          # recursive TRM trips here
-  let addRes = addTarget(10, 20)  # non-recursive right after
+  let mulRes = x * y # recursive TRM trips here
+  let addRes = addTarget(10, 20) # non-recursive right after
   result = (mulRes, addRes)
 
 let (a, b) = mixed()

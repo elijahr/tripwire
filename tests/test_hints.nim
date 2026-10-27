@@ -35,7 +35,7 @@ suite "nearestMockHints (pure helper)":
   test "mixed candidates preserved in insertion order, distant dropped":
     # fop, fpo, fos are each distance-1; xyz is distance-3 and is dropped.
     check nearestMockHints("foo", @["fop", "fpo", "xyz", "fos"]) ==
-          @["fop", "fpo", "fos"]
+      @["fop", "fpo", "fos"]
 
   test "duplicate near candidates appear once per occurrence":
     # No dedup policy — candidates feed in as-is (callers dedup upstream
@@ -63,14 +63,15 @@ type
   HintResp = ref object of MockResponse
     val: int
 
-method realize(r: HintResp): int = r.val
+method realize(r: HintResp): int =
+  r.val
 
 let hintPlugin = HintPlugin(name: "hint", enabled: true)
 
 proc hintProc(tag: string): int =
-  tripwireInterceptBody(hintPlugin, "hintProc",
-    fingerprintOf("hintProc", @[tag]),
-    HintResp):
+  tripwireInterceptBody(
+    hintPlugin, "hintProc", fingerprintOf("hintProc", @[tag]), HintResp
+  ):
     {.noRewrite.}:
       0
 
@@ -86,8 +87,12 @@ suite "nearestMockHints (integration via UnmockedInteractionDefect)":
       # Register a mock at fingerprint hintProc|bar. The actual call uses
       # "baz" (distance 1 from "bar"), producing fingerprint hintProc|baz.
       let registeredFp = fingerprintOf("hintProc", @["bar"])
-      let m = newMock("hintProc", registeredFp, HintResp(val: 0),
-        (filename: "t.nim", line: 1, column: 0))
+      let m = newMock(
+        "hintProc",
+        registeredFp,
+        HintResp(val: 0),
+        (filename: "t.nim", line: 1, column: 0),
+      )
       registerMock(v, "hint", m)
       var raised = false
       try:
@@ -106,8 +111,12 @@ suite "nearestMockHints (integration via UnmockedInteractionDefect)":
     discard pushVerifier(v)
     try:
       let registeredFp = fingerprintOf("hintProc", @["zzzzz"])
-      let m = newMock("hintProc", registeredFp, HintResp(val: 0),
-        (filename: "t.nim", line: 1, column: 0))
+      let m = newMock(
+        "hintProc",
+        registeredFp,
+        HintResp(val: 0),
+        (filename: "t.nim", line: 1, column: 0),
+      )
       registerMock(v, "hint", m)
       var raised = false
       try:

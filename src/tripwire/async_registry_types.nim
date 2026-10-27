@@ -4,7 +4,6 @@
 ## async_registry.nim (which mutates the seq).
 import std/asyncfutures
 
-type
-  RegisteredFuture* = object
-    fut*: FutureBase
-    site*: tuple[filename: string, line, column: int]
+type RegisteredFuture* = object
+  fut*: FutureBase
+  site*: tuple[filename: string, line, column: int]

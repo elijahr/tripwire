@@ -22,11 +22,12 @@ suite "httpclient async":
   test "async request returns Future[AsyncResponse]":
     sandbox:
       let v = currentVerifier()
-      let m = newMock("request",
+      let m = newMock(
+        "request",
         fingerprintHttpRequest("http://async.example", HttpGet, "", nil, nil),
-        HttpAsyncMockResponse(status: 200, body: "async-ok",
-                              headers: newHttpHeaders()),
-        (filename: "t.nim", line: 1, column: 0))
+        HttpAsyncMockResponse(status: 200, body: "async-ok", headers: newHttpHeaders()),
+        (filename: "t.nim", line: 1, column: 0),
+      )
       registerMock(v, "httpclient", m)
       let c = newAsyncHttpClient()
       let r = waitFor doAsyncRequest(c, "http://async.example")
@@ -36,10 +37,12 @@ suite "httpclient async":
   test "sync Uri overload fires":
     sandbox:
       let v = currentVerifier()
-      let m = newMock("request",
+      let m = newMock(
+        "request",
         fingerprintHttpRequest("http://uri.example", HttpGet, "", nil, nil),
         HttpMockResponse(status: 200, body: "u", headers: newHttpHeaders()),
-        (filename: "t.nim", line: 1, column: 0))
+        (filename: "t.nim", line: 1, column: 0),
+      )
       registerMock(v, "httpclient", m)
       let c = newHttpClient()
       let r = doSyncUriRequest(c, parseUri("http://uri.example"))

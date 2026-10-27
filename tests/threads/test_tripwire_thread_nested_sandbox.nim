@@ -96,9 +96,10 @@ import tripwire/threads
 #     `sandbox:` block, on the child thread). Its interactions should
 #     land on the INNER verifier's timeline ONLY — never on the parent's.
 proc outerCall(x: int): int =
-  x * 10   # real impl; TRM intercepts
+  x * 10 # real impl; TRM intercepts
+
 proc innerCall(y: int): int =
-  y * 100  # real impl; TRM intercepts
+  y * 100 # real impl; TRM intercepts
 
 # Module-scope TRM emissions. Dummy args only provide arity/types.
 mockable(outerCall(0))
@@ -150,7 +151,8 @@ suite "withTripwireThread: nested sandbox (E6)":
         # against inner because currentVerifier() is inner here.
         # Sentinel 9007 distinct from real-impl result 7*100=700.
         mock.expect innerCall(7):
-          respond value: 9007
+          respond value:
+            9007
         doAssert callInner(7) == 9007
 
         # The innerCall interaction must be on the inner verifier's
@@ -160,8 +162,7 @@ suite "withTripwireThread: nested sandbox (E6)":
         let innerEntry = innerV.timeline.entries[0]
         doAssert innerEntry.procName == "innerCall"
         doAssert innerEntry.asserted == false
-        doAssert innerEntry.args[".fp"] ==
-          fingerprintOf("innerCall", @[$7])
+        doAssert innerEntry.args[".fp"] == fingerprintOf("innerCall", @[$7])
         innerV.timeline.markAsserted(innerEntry)
       # Inner sandbox exit: sandbox's finally popped the inner verifier
       # (via popVerifier — retires it; safe because the inner verifier
@@ -185,9 +186,11 @@ suite "withTripwireThread: nested sandbox (E6)":
       # Sentinels 9001 / 9002 — neither can be produced by real impl
       # (outerCall(x) = x*10 → 10 / 20).
       mock.expect outerCall(1):
-        respond value: 9001
+        respond value:
+          9001
       mock.expect outerCall(2):
-        respond value: 9002
+        respond value:
+          9002
 
       withTripwireThread:
         childBody()
@@ -210,14 +213,12 @@ suite "withTripwireThread: nested sandbox (E6)":
       let firstEntry = parentV.timeline.entries[0]
       check firstEntry.procName == "outerCall"
       check firstEntry.asserted == false
-      check firstEntry.args[".fp"] ==
-        fingerprintOf("outerCall", @[$1])
+      check firstEntry.args[".fp"] == fingerprintOf("outerCall", @[$1])
 
       let secondEntry = parentV.timeline.entries[1]
       check secondEntry.procName == "outerCall"
       check secondEntry.asserted == false
-      check secondEntry.args[".fp"] ==
-        fingerprintOf("outerCall", @[$2])
+      check secondEntry.args[".fp"] == fingerprintOf("outerCall", @[$2])
 
       # Consume both outerCall interactions so sandbox-exit verifyAll
       # (which runs because no exception is in flight) sees a clean

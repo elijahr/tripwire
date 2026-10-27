@@ -2,9 +2,14 @@
 import std/[tables, monotimes]
 import ./types
 
-proc record*(t: var Timeline, plugin: Plugin, procName: string,
-             args: OrderedTable[string, string], response: MockResponse,
-             site: tuple[file: string, line, column: int]): Interaction {.raises: [].} =
+proc record*(
+    t: var Timeline,
+    plugin: Plugin,
+    procName: string,
+    args: OrderedTable[string, string],
+    response: MockResponse,
+    site: tuple[file: string, line, column: int],
+): Interaction {.raises: [].} =
   ## Append a mock-matched (G2-relevant) interaction to the timeline.
   ## The user is expected to assert via `responded()` / DSL /
   ## `markAsserted` before sandbox teardown, otherwise
@@ -15,10 +20,16 @@ proc record*(t: var Timeline, plugin: Plugin, procName: string,
   ## combinators set `kind = ikFirewallPassthrough` via a tiny
   ## post-record mutation — see `tagFirewallPassthrough` below.
   result = Interaction(
-    sequence: t.nextSeq, plugin: plugin, procName: procName,
-    args: args, response: response, asserted: false,
+    sequence: t.nextSeq,
+    plugin: plugin,
+    procName: procName,
+    args: args,
+    response: response,
+    asserted: false,
     kind: ikMockMatched,
-    site: site, createdAt: getMonoTime())
+    site: site,
+    createdAt: getMonoTime(),
+  )
   inc(t.nextSeq)
   t.entries.add(result)
 
@@ -48,8 +59,10 @@ iterator unasserted*(t: Timeline): Interaction =
   ## passthroughs are filtered out here regardless of their `asserted`
   ## flag.
   for e in t.entries:
-    if e.kind == ikFirewallPassthrough: continue
-    if not e.asserted: yield e
+    if e.kind == ikFirewallPassthrough:
+      continue
+    if not e.asserted:
+      yield e
 
 proc markAsserted*(t: var Timeline, i: Interaction) =
   i.asserted = true

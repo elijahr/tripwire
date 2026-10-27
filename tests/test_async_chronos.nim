@@ -26,8 +26,7 @@ when defined(chronos):
       check waitFor(f) == 42
 
     test "makeFailedFutureChronos raises on await":
-      let f = makeFailedFutureChronos[int](
-        newException(ValueError, "nope"), "cc_fail")
+      let f = makeFailedFutureChronos[int](newException(ValueError, "nope"), "cc_fail")
       expect ValueError:
         discard waitFor(f)
 else:

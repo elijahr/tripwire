@@ -5,9 +5,10 @@ import std/strutils
 
 var rewriteCount {.global.} = 0
 
-template rewriteParseInt{parseInt(s)}(s: string): int =
+template rewriteParseInt{
+  parseInt(s)}(s: string): int =
   inc(rewriteCount)
-  777  # sentinel, obviously not a real parse
+  777 # sentinel, obviously not a real parse
 
 let v = parseInt("123")
 echo "value=", v, " rewriteCount=", rewriteCount

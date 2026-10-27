@@ -41,8 +41,7 @@ const
   # Verbatim from src/tripwire/async_registry.nim lines 84-86. A single-
   # line substring that is specific enough to distinguish the intended
   # warning from unrelated compiler chatter.
-  ExpectedWarningText =
-    "asyncCheckInSandbox does not support chronos Futures in v0.2"
+  ExpectedWarningText = "asyncCheckInSandbox does not support chronos Futures in v0.2"
 
   # Hermetic probe source. Imports chronos and calls
   # ``asyncCheckInSandbox`` on a ``chronos.Future``. If the template's

@@ -24,8 +24,9 @@ import std/asyncdispatch
 # would shadow our wrapper and re-create the ambiguity.
 export asyncdispatch except hasPendingOperations
 
-proc makeCompletedFuture*[T](value: sink T,
-                             label: string = ""): Future[T] {.raises: [].} =
+proc makeCompletedFuture*[T](
+    value: sink T, label: string = ""
+): Future[T] {.raises: [].} =
   ## Build a Future[T] already completed with `value`. `label` is an
   ## optional debug tag forwarded to `newFuture[T]`.
   ##
@@ -51,21 +52,23 @@ proc makeCompletedFuture*[T](value: sink T,
   # `{.push warning[BareExcept]:off.}` so the `--define:tripwireActive`
   # CI build does not emit the BareExcept hint at every consumer call
   # site that imports this proc transitively.
-  {.push warning[BareExcept]:off.}
+  {.push warning[BareExcept]: off.}
   try:
     result.complete(value)
   except Exception:
-    discard  # unreachable on a fresh future:
-             # On a freshly-`newFuture`d Future no callbacks are
-             # registered, so neither the `checkFinished` ValueError
-             # nor any callback exception can fire here. We swallow the
-             # impossible `Exception` so plugin `realize` overrides that
-             # delegate to this helper can be `{.raises: [Defect].}`-
-             # annotated and compose with strict-raises consumer procs.
+    discard
+      # unreachable on a fresh future:
+      # On a freshly-`newFuture`d Future no callbacks are
+      # registered, so neither the `checkFinished` ValueError
+      # nor any callback exception can fire here. We swallow the
+      # impossible `Exception` so plugin `realize` overrides that
+      # delegate to this helper can be `{.raises: [Defect].}`-
+      # annotated and compose with strict-raises consumer procs.
   {.pop.}
 
-proc makeFailedFuture*[T](err: ref Exception,
-                          label: string = ""): Future[T] {.raises: [].} =
+proc makeFailedFuture*[T](
+    err: ref Exception, label: string = ""
+): Future[T] {.raises: [].} =
   ## Build a Future[T] already failed with `err`. Awaiting or
   ## `waitFor`-ing the future re-raises `err`.
   ##
@@ -77,11 +80,11 @@ proc makeFailedFuture*[T](err: ref Exception,
   # `except Exception:` is required here (asyncdispatch.fail has no
   # raises clause -> inferred `Exception`) and why we suppress the
   # BareExcept hint locally rather than narrowing to CatchableError.
-  {.push warning[BareExcept]:off.}
+  {.push warning[BareExcept]: off.}
   try:
     result.fail(err)
   except Exception:
-    discard  # unreachable on a fresh future.
+    discard # unreachable on a fresh future.
   {.pop.}
 
 # `import chronos` is positioned HERE — after the unqualified-`Future[T]`
@@ -120,10 +123,11 @@ when defined(chronos):
   # origin.
   const
     chronosMakeCompletedLabel = "tripwire.makeCompletedFutureChronos"
-    chronosMakeFailedLabel    = "tripwire.makeFailedFutureChronos"
+    chronosMakeFailedLabel = "tripwire.makeFailedFutureChronos"
 
-  proc makeCompletedFutureChronos*[T](value: sink T,
-      label: string = ""): chronos.Future[T] =
+  proc makeCompletedFutureChronos*[T](
+      value: sink T, label: string = ""
+  ): chronos.Future[T] =
     ## Chronos analogue of `makeCompletedFuture`. Only present under
     ## `-d:chronos`. The return type is `chronos.Future[T]`, a distinct
     ## type from `asyncdispatch.Future[T]`.
@@ -132,12 +136,13 @@ when defined(chronos):
     ## `makeCompletedFuture` but is not forwarded to `chronos.newFuture`
     ## (whose `fromProc` is `static[string]`). A constant debug tag is
     ## used instead; the runtime label is ignored.
-    discard label  # silence unused-parameter warning
+    discard label # silence unused-parameter warning
     result = chronos.newFuture[T](chronosMakeCompletedLabel)
     chronos.complete(result, value)
 
-  proc makeFailedFutureChronos*[T](err: ref CatchableError,
-      label: string = ""): chronos.Future[T] =
+  proc makeFailedFutureChronos*[T](
+      err: ref CatchableError, label: string = ""
+  ): chronos.Future[T] =
     ## Chronos analogue of `makeFailedFuture`. Only present under
     ## `-d:chronos`.
     ##

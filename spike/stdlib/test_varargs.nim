@@ -7,7 +7,8 @@ import std/cgi
 
 var rewriteCount {.global.} = 0
 
-template rewriteSetTestData{setTestData(kv)}(kv: varargs[string]) =
+template rewriteSetTestData{
+  setTestData(kv)}(kv: varargs[string]) =
   inc(rewriteCount)
   discard
 

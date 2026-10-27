@@ -57,19 +57,15 @@ import std/[options, tables]
 # expansion (verified empirically — the symbols collide somewhere in
 # the unittest2/codegen pipeline). Per-symbol re-export sidesteps it
 # and also keeps consumer namespace pollution minimal.
-export sandbox.currentVerifier, sandbox.firewallShouldRaise,
-       sandbox.sandbox,
-       sandbox.allow, sandbox.restrict, sandbox.guard, sandbox.M,
-       sandbox.FirewallMode
-export errors.TripwireDefect,
-       errors.LeakedInteractionDefect,
-       errors.PostTestInteractionDefect,
-       errors.UnmockedInteractionDefect,
-       errors.UnassertedInteractionsDefect,
-       errors.UnusedMocksDefect,
-       errors.newLeakedInteractionDefect,
-       errors.newPostTestInteractionDefect,
-       errors.newUnmockedInteractionDefect
+export
+  sandbox.currentVerifier, sandbox.firewallShouldRaise, sandbox.sandbox, sandbox.allow,
+  sandbox.restrict, sandbox.guard, sandbox.M, sandbox.FirewallMode
+export
+  errors.TripwireDefect, errors.LeakedInteractionDefect,
+  errors.PostTestInteractionDefect, errors.UnmockedInteractionDefect,
+  errors.UnassertedInteractionsDefect, errors.UnusedMocksDefect,
+  errors.newLeakedInteractionDefect, errors.newPostTestInteractionDefect,
+  errors.newUnmockedInteractionDefect
 # IMPORTANT: do NOT add any further `errors.X` symbol to the
 # `tripwire/auto` umbrella. Both extending the comma-list above AND
 # adding a new `export errors.Y` statement trip
@@ -87,10 +83,12 @@ export errors.TripwireDefect,
 export verify.popMatchingMock, verify.verifyAll
 export sandbox.popVerifier, sandbox.pushVerifier, sandbox.newVerifier
 export timeline.record
-export types.InteractionKind  # enum-field values (`ikMockMatched`,
-                              # `ikFirewallPassthrough`) flow through
-                              # this type export — Nim does not allow
-                              # exporting enum fields individually.
+export
+  types.InteractionKind
+    # enum-field values (`ikMockMatched`,
+    # `ikFirewallPassthrough`) flow through
+    # this type export — Nim does not allow
+    # exporting enum fields individually.
 export cap_counter.tripwireCountRewrite
 export plugin_intercept.nfRecordFingerprint
 export intercept.nfCollectMockFingerprints

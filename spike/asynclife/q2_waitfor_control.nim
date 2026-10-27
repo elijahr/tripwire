@@ -18,11 +18,16 @@ proc popVerifier(): Verifier =
   result = verifierStack.pop()
 
 proc currentVerifier(): Verifier =
-  if verifierStack.len > 0: verifierStack[^1] else: nil
+  if verifierStack.len > 0:
+    verifierStack[^1]
+  else:
+    nil
 
-proc target*(x: int): int = x * 2
+proc target*(x: int): int =
+  x * 2
 
-template rewriteTarget*{target(a)}(a: int): int =
+template rewriteTarget*{
+  target(a)}(a: int): int =
   let v = currentVerifier()
   if v != nil:
     inc(v.rewriteCount)
@@ -39,7 +44,7 @@ var verifierSnapshot: Verifier
 proc testSafe() =
   echo "== testSafe entering =="
   discard pushVerifier("safe")
-  let r = waitFor asyncDelayedTarget()   # block until async completes
+  let r = waitFor asyncDelayedTarget() # block until async completes
   echo "  testSafe got r=", r
   verifierSnapshot = popVerifier()
   echo "  testSafe popped, count=", verifierSnapshot.rewriteCount

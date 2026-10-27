@@ -73,7 +73,8 @@ suite "audit_ffi auto-projectpath (Task 1.2)":
     var code: int
     {.noRewrite.}:
       (output, code) = execCmdEx(cmd)
-    if code != 0: echo output
+    if code != 0:
+      echo output
     check code == 0
     # Header is stable text emitted once per compile when the audit
     # runs. Byte-identical to v0.1 header to preserve v0.1 consumers
@@ -103,7 +104,8 @@ suite "audit_ffi auto-projectpath (Task 1.2)":
     var code: int
     {.noRewrite.}:
       (output, code) = execCmdEx(cmd)
-    if code != 0: echo output
+    if code != 0:
+      echo output
     check code == 0
     # Direct section present.
     check "Direct FFI" in output

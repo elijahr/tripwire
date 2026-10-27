@@ -26,7 +26,8 @@ suite "plugin base methods":
   test "newUnmockedInteractionDefect message uses formatInteraction":
     # The upgraded errors message should include `<plugin> <proc>` from
     # formatInteraction rather than a raw procName-only rendering.
-    let e = newUnmockedInteractionDefect("httpclient", "request", "fp",
-      (file: "t.nim", line: 1, column: 1))
+    let e = newUnmockedInteractionDefect(
+      "httpclient", "request", "fp", (file: "t.nim", line: 1, column: 1)
+    )
     check "httpclient" in e.msg
     check "request" in e.msg

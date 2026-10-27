@@ -4,7 +4,7 @@
 
 import ./test_types
 import ./test_errors
-import ./test_errors_facade  # Task 2.4: compile-time gate for facade re-exports
+import ./test_errors_facade # Task 2.4: compile-time gate for facade re-exports
 import ./test_hints
 import ./test_plugin_base
 import ./test_registry
@@ -26,7 +26,7 @@ import ./test_config
 import ./test_macros
 import ./test_cap_counter
 import ./test_async_asyncdispatch
-import ./test_async_chronos  # gated internally by `when defined(chronos)`
+import ./test_async_chronos # gated internally by `when defined(chronos)`
 import ./test_mock_plugin
 import ./test_mock_expect
 import ./test_mock_assert
@@ -40,7 +40,8 @@ import ./test_osproc_plugin
 # rewrites-per-compilation-unit cap (cap_counter.nim). Run it directly:
 #   nim c -r tests/test_osproc_arrays.nim
 import ./test_integration_unittest
-import ./test_integration_unittest2  # gated internally by `when defined(tripwireUnittest2)`
+import
+  ./test_integration_unittest2 # gated internally by `when defined(tripwireUnittest2)`
 # test_auto_umbrella.nim deliberately excluded from the aggregate harness —
 # its “auto-only consumer” regression-guard tests each emit a fresh TRM
 # rewrite (one for the wrapper proc, one for the firewall behavioral

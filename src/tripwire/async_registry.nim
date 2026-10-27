@@ -85,8 +85,8 @@ template asyncCheckInSandbox*[T](futArg: Future[T]): untyped =
   ## ``fut``. Renaming the parameter sidesteps this and lets callers use
   ## any identifier.
   mixin currentVerifier
-  bind RegisteredFuture, FutureBase, newLeakedInteractionDefect,
-       getThreadId, instantiationInfo, asyncCheck, stderr
+  bind RegisteredFuture, FutureBase, newLeakedInteractionDefect, getThreadId,
+    instantiationInfo, asyncCheck, stderr
   # Asyncdispatch-Future path. The chronos-Future path is a separate
   # overload defined below under `when defined(chronos)`; it emits a
   # compile-time `{.warning.}` and performs no registration. Keeping the
@@ -97,11 +97,10 @@ template asyncCheckInSandbox*[T](futArg: Future[T]): untyped =
   # inner `when` branch could fire the warning (see Task 4.7, 2026-04-24).
   let v = currentVerifier()
   if v.isNil:
-    raise newLeakedInteractionDefect(
-      getThreadId(), instantiationInfo())
+    raise newLeakedInteractionDefect(getThreadId(), instantiationInfo())
   v.futureRegistry.add RegisteredFuture(
-    fut: FutureBase(futArg),
-    site: instantiationInfo(fullPaths = true))
+    fut: FutureBase(futArg), site: instantiationInfo(fullPaths = true)
+  )
   # Runtime diagnostic for pathological registries. NOTE: `{.hint.}` is a
   # compile-time pragma; we cannot emit it conditional on a runtime count.
   # Instead we write a line to stderr once per verifier when the count
@@ -116,11 +115,11 @@ template asyncCheckInSandbox*[T](futArg: Future[T]): untyped =
   # (see tripwire/threads.nim's "Safety invariants" header).
   if v.futureRegistry.len == tripwireFutureRegistryWarnThreshold:
     stderr.writeLine(
-      "tripwire: futureRegistry has " &
-      $tripwireFutureRegistryWarnThreshold &
-      " entries on verifier '" & v.name &
-      "' — consider whether all spawns are intended.")
-  asyncCheck(futArg)  # dispatcher sees it; plain asyncCheck semantics preserved
+      "tripwire: futureRegistry has " & $tripwireFutureRegistryWarnThreshold &
+        " entries on verifier '" & v.name &
+        "' — consider whether all spawns are intended."
+    )
+  asyncCheck(futArg) # dispatcher sees it; plain asyncCheck semantics preserved
 
 when defined(chronos):
   import chronos as chronosmod
@@ -135,10 +134,13 @@ when defined(chronos):
     ## strictly to ``asyncdispatch.Future`` — a `chronos.Future` argument
     ## would raise a "type mismatch" error BEFORE any inner `when` could
     ## see it. See design §11 (chronos non-goal) and §4.1.
-    {.warning: "asyncCheckInSandbox does not support chronos Futures in v0.2. " &
-               "Use `discard waitFor fut` inside the sandbox body, or asyncdispatch. " &
-               "See v0.2 design §11 non-goals and docs/roadmap-v0.3.md.".}
-    discard futArg  # no registration, no asyncCheck — chronos dispatcher handles it
+    {.
+      warning:
+        "asyncCheckInSandbox does not support chronos Futures in v0.2. " &
+        "Use `discard waitFor fut` inside the sandbox body, or asyncdispatch. " &
+        "See v0.2 design §11 non-goals and docs/roadmap-v0.3.md."
+    .}
+    discard futArg # no registration, no asyncCheck — chronos dispatcher handles it
 
 template withAsyncSandbox*(body: untyped) =
   ## Ergonomic block scope for a group of ``asyncCheckInSandbox``

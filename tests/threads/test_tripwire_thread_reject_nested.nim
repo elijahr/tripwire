@@ -264,7 +264,8 @@ suite "withTripwireThread: nested rejection (E4; design §3.6 lines 452-463)":
           # If this EVER runs, the rejection check either didn't
           # fire or fired AFTER pushVerifier and body. Both are
           # contract violations the test must catch.
-          bodyRan = true)
+          bodyRan = true,
+      )
       GC_ref(h)
       var thr: Thread[ThreadHandoff]
       try:

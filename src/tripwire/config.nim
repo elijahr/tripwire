@@ -42,7 +42,7 @@ type
     ## `sandbox.restrict(...)` calls win over the file values
     ## (later-wins rule); this struct supplies the per-sandbox
     ## bootstrap.
-    allow*: seq[string]    ## plugin-name shorthands, e.g. ["dns", "socket"]
+    allow*: seq[string] ## plugin-name shorthands, e.g. ["dns", "socket"]
     default*: FirewallMode ## default mode for plugins not in `guards`
     guards*: Table[string, FirewallMode]
       ## per-plugin override map; keyed by `Plugin.name`. A lookup miss
@@ -61,10 +61,12 @@ proc defaultConfig*(): TripwireConfig =
   TripwireConfig(
     enabledPlugins: @[],
     pluginOptions: initTable[string, TomlValueRef](),
-    firewall: FirewallConfig(allow: @[], default: fmError,
-                             guards: initTable[string, FirewallMode]()),
+    firewall: FirewallConfig(
+      allow: @[], default: fmError, guards: initTable[string, FirewallMode]()
+    ),
     allowPendingAsync: false,
-    sources: @["builtin-defaults"])
+    sources: @["builtin-defaults"],
+  )
 
 proc discoverConfigPath*(): Option[string] =
   ## Locate a `tripwire.toml` by walking up from cwd, stopping at the
@@ -73,8 +75,9 @@ proc discoverConfigPath*(): Option[string] =
   if envPath.len > 0:
     if fileExists(envPath):
       return some(envPath)
-    raise newException(ValueError,
-      "TRIPWIRE_CONFIG set to '" & envPath & "' but file does not exist")
+    raise newException(
+      ValueError, "TRIPWIRE_CONFIG set to '" & envPath & "' but file does not exist"
+    )
   var dir = getCurrentDir().absolutePath()
   while true:
     let tomlPath = dir / "tripwire.toml"
@@ -91,18 +94,19 @@ proc discoverConfigPath*(): Option[string] =
 
 var legacyGuardWarned {.threadvar.}: bool
 
-proc parseFirewallModeStr(label, raw: string): FirewallMode
-    {.raises: [ValueError].} =
+proc parseFirewallModeStr(label, raw: string): FirewallMode {.raises: [ValueError].} =
   case raw
-  of "warn": fmWarn
-  of "error": fmError
+  of "warn":
+    fmWarn
+  of "error":
+    fmError
   else:
-    raise newException(ValueError,
-      "[tripwire.firewall]." & label & " must be \"warn\" or \"error\"; got: " &
-      raw)
+    raise newException(
+      ValueError,
+      "[tripwire.firewall]." & label & " must be \"warn\" or \"error\"; got: " & raw,
+    )
 
-proc parseFirewallModeStrOrFallback(label, raw: string): FirewallMode
-    {.raises: [].} =
+proc parseFirewallModeStrOrFallback(label, raw: string): FirewallMode {.raises: [].} =
   ## Variant used by the TOML parser. A bad mode string is operator
   ## error, but it must NOT crash config loading: the
   ## "config-load failure must not mask the underlying violation"
@@ -116,9 +120,10 @@ proc parseFirewallModeStrOrFallback(label, raw: string): FirewallMode
     parseFirewallModeStr(label, raw)
   except ValueError as e:
     try:
-      stderr.writeLine("tripwire: ignoring malformed " &
-        "[tripwire.firewall]." & label & "=" & raw &
-        " (" & e.msg & "); falling back to error mode")
+      stderr.writeLine(
+        "tripwire: ignoring malformed " & "[tripwire.firewall]." & label & "=" & raw &
+          " (" & e.msg & "); falling back to error mode"
+      )
     except IOError:
       discard
     fmError
@@ -137,8 +142,9 @@ proc parseFirewallConfig(t: TomlValueRef): FirewallConfig =
   ##     one-time stderr warning at the first parse encounter (legacy
   ##     A4'''.4 key, renamed to `default` in A4'''.5); the value is
   ##     still stored in `guards` for forward-compat but never consulted.
-  result = FirewallConfig(allow: @[], default: fmError,
-                          guards: initTable[string, FirewallMode]())
+  result = FirewallConfig(
+    allow: @[], default: fmError, guards: initTable[string, FirewallMode]()
+  )
   # parsetoml API dependency: `t.tableVal[]` dereferences a
   # `TomlTableRef = ref OrderedTable[string, TomlValueRef]` exposed by
   # parsetoml. Verified at parsetoml 0.7.2 against the worktree at tip
@@ -156,7 +162,8 @@ proc parseFirewallConfig(t: TomlValueRef): FirewallConfig =
   # `intercept.outsideSandboxShouldPassthrough` (the operator should see
   # the LeakedInteractionDefect first; fix the sandbox issue and then
   # fix any config-file syntax issue separately).
-  if t.kind != TomlValueKind.Table: return result
+  if t.kind != TomlValueKind.Table:
+    return result
   for k, v in t.tableVal[]:
     case k
     of "allow":
@@ -181,10 +188,12 @@ proc parseFirewallConfig(t: TomlValueRef): FirewallConfig =
       if v.kind == TomlValueKind.String:
         if k == "guard" and not legacyGuardWarned:
           try:
-            stderr.writeLine("tripwire: ignoring legacy " &
-              "[tripwire.firewall].guard key (renamed to `default` in " &
-              "A4'''.5; treated as per-plugin override for plugin name " &
-              "'guard', which does not exist)")
+            stderr.writeLine(
+              "tripwire: ignoring legacy " &
+                "[tripwire.firewall].guard key (renamed to `default` in " &
+                "A4'''.5; treated as per-plugin override for plugin name " &
+                "'guard', which does not exist)"
+            )
           except IOError:
             discard
           legacyGuardWarned = true
@@ -215,10 +224,8 @@ proc loadConfig*(path: Option[string]): TripwireConfig =
   for pluginName in result.enabledPlugins:
     if toml.hasKey(pluginName):
       result.pluginOptions[pluginName] = toml[pluginName]
-  if result.firewall.allow.len == 0 and
-     result.firewall.default == fmError and
-     result.firewall.guards.len == 0 and
-     toml.hasKey("firewall"):
+  if result.firewall.allow.len == 0 and result.firewall.default == fmError and
+      result.firewall.guards.len == 0 and toml.hasKey("firewall"):
     # Legacy flat [firewall] block — only consult if the pytest-tripwire-style
     # nested form left defaults intact.
     result.firewall = parseFirewallConfig(toml["firewall"])

@@ -6,7 +6,8 @@ import std/hashes
 
 var rewriteCount {.global.} = 0
 
-template rewriteHash{hash(x)}(x: string): Hash =
+template rewriteHash{
+  hash(x)}(x: string): Hash =
   inc(rewriteCount)
   Hash(0)
 

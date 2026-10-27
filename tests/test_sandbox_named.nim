@@ -35,15 +35,20 @@ suite "sandbox (named overload)":
         let v = currentVerifier()
         let p = Plugin(name: "p", enabled: true)
         let resp = MockResponse()
-        discard v.timeline.record(p, "someProc",
-          initOrderedTable[string, string](), resp,
-          (file: "x.nim", line: 1, column: 0))
+        discard v.timeline.record(
+          p,
+          "someProc",
+          initOrderedTable[string, string](),
+          resp,
+          (file: "x.nim", line: 1, column: 0),
+        )
     except UnassertedInteractionsDefect as e:
       raised = true
       gotMsg = e.msg
     check raised
-    check gotMsg == "1 interactions recorded but not asserted " &
-      "in verifier 'labeled-sandbox'" & FFIScopeFooter
+    check gotMsg ==
+      "1 interactions recorded but not asserted " & "in verifier 'labeled-sandbox'" &
+      FFIScopeFooter
 
   test "unnamed sandbox still works alongside named":
     ## Both overloads disambiguate correctly in the same scope.

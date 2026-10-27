@@ -36,8 +36,9 @@ when defined(chronos):
   # routability.
   const NeverBoundUrl = "http://192.0.2.1:1/never"
 
-  proc helloHandler(r: RequestFence): Future[HttpResponseRef] {.
-      async: (raises: [CancelledError]).} =
+  proc helloHandler(
+      r: RequestFence
+  ): Future[HttpResponseRef] {.async: (raises: [CancelledError]).} =
     ## Minimal HTTP handler for the localhost listener tests. Always
     ## returns 200 with a sentinel body. RequestFence carries either an
     ## HttpRequestRef or an error; on error we raise so chronos closes
@@ -84,8 +85,7 @@ when defined(chronos):
       expect UnmockedInteractionDefect:
         sandbox:
           let session = newSession()
-          let reqRes = HttpClientRequestRef.post(
-            session, NeverBoundUrl, body = "")
+          let reqRes = HttpClientRequestRef.post(session, NeverBoundUrl, body = "")
           doAssert reqRes.isOk, "request build failed: " & reqRes.error
           let req = reqRes.get()
           # send() is the TRM-intercepted entry point — this raises
@@ -116,8 +116,7 @@ when defined(chronos):
       expect UnmockedInteractionDefect:
         sandbox:
           let session = newSession()
-          let reqRes = HttpClientRequestRef.post(
-            session, NeverBoundUrl, body = "")
+          let reqRes = HttpClientRequestRef.post(session, NeverBoundUrl, body = "")
           doAssert reqRes.isOk, "request build failed: " & reqRes.error
           let req = reqRes.get()
           discard waitFor req.fetch()
@@ -139,8 +138,7 @@ when defined(chronos):
         allow(chronosHttpPluginInstance, M(host = "127.0.0.1"))
         let session = newSession()
         let url = "http://127.0.0.1:" & $port & "/hello"
-        let reqRes = HttpClientRequestRef.post(
-          session, url, body = "ping")
+        let reqRes = HttpClientRequestRef.post(session, url, body = "ping")
         doAssert reqRes.isOk, "request build failed: " & reqRes.error
         let req = reqRes.get()
         let resp = waitFor req.send()
@@ -177,8 +175,7 @@ when defined(chronos):
         allow(chronosHttpPluginInstance, M(host = "127.0.0.1"))
         let session = newSession()
         let url = "http://127.0.0.1:" & $port & "/fetch-req"
-        let reqRes = HttpClientRequestRef.post(
-          session, url, body = "ping")
+        let reqRes = HttpClientRequestRef.post(session, url, body = "ping")
         doAssert reqRes.isOk, "request build failed: " & reqRes.error
         let req = reqRes.get()
         let (status, bodyBytes) = waitFor req.fetch()
@@ -205,8 +202,7 @@ when defined(chronos):
         allow(chronosHttpPluginInstance)
         let session = newSession()
         let url = "http://127.0.0.1:" & $port & "/blanket"
-        let reqRes = HttpClientRequestRef.post(
-          session, url, body = "")
+        let reqRes = HttpClientRequestRef.post(session, url, body = "")
         doAssert reqRes.isOk
         let req = reqRes.get()
         let resp = waitFor req.send()
@@ -224,14 +220,12 @@ when defined(chronos):
     test "restrict(M(host=127.0.0.1)) narrows blanket allow":
       expect UnmockedInteractionDefect:
         sandbox:
-          allow(chronosHttpPluginInstance)                     # broad
-          restrict(chronosHttpPluginInstance,
-                   M(host = "127.0.0.1"))                       # ceiling
+          allow(chronosHttpPluginInstance) # broad
+          restrict(chronosHttpPluginInstance, M(host = "127.0.0.1")) # ceiling
           let session = newSession()
           # Non-loopback host — falls outside the ceiling, must raise
           # even though `allow` is blanket.
-          let reqRes = HttpClientRequestRef.post(
-            session, NeverBoundUrl, body = "")
+          let reqRes = HttpClientRequestRef.post(session, NeverBoundUrl, body = "")
           doAssert reqRes.isOk
           let req = reqRes.get()
           discard waitFor req.send()
@@ -246,8 +240,7 @@ when defined(chronos):
         restrict(chronosHttpPluginInstance, M(host = "127.0.0.1"))
         let session = newSession()
         let url = "http://127.0.0.1:" & $port & "/inside-ceiling"
-        let reqRes = HttpClientRequestRef.post(
-          session, url, body = "")
+        let reqRes = HttpClientRequestRef.post(session, url, body = "")
         doAssert reqRes.isOk
         let req = reqRes.get()
         let resp = waitFor req.send()
@@ -270,8 +263,7 @@ when defined(chronos):
         let v = currentVerifier()
         guard(v, fmWarn)
         let session = newSession()
-        let reqRes = HttpClientRequestRef.post(
-          session, NeverBoundUrl, body = "")
+        let reqRes = HttpClientRequestRef.post(session, NeverBoundUrl, body = "")
         doAssert reqRes.isOk
         let req = reqRes.get()
         # Bound the connect attempt so a misbehaving firewall (or a

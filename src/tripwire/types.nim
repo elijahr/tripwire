@@ -60,10 +60,16 @@ type
     inAnyOrderActive*: bool
     strict*: bool
 
-proc newMock*(procName, argFingerprint: string, response: MockResponse,
-              site: tuple[filename: string, line: int, column: int]): Mock =
+proc newMock*(
+    procName, argFingerprint: string,
+    response: MockResponse,
+    site: tuple[filename: string, line: int, column: int],
+): Mock =
   ## Construct a Mock. The `site` argument uses `instantiationInfo()`'s
   ## tuple shape so call sites pass it directly.
-  Mock(procName: procName, argFingerprint: argFingerprint,
-       response: response,
-       site: (file: site.filename, line: site.line, column: site.column))
+  Mock(
+    procName: procName,
+    argFingerprint: argFingerprint,
+    response: response,
+    site: (file: site.filename, line: site.line, column: site.column),
+  )

@@ -5,7 +5,8 @@ import common_spy
 
 var rewriteCount* {.global.} = 0
 
-template rewriteTarget*{target(a, b)}(a, b: int): int =
+template rewriteTarget*{
+  target(a, b)}(a, b: int): int =
   inc(rewriteCount)
   {.noRewrite.}:
     target(a, b) + 1000

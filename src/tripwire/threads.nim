@@ -45,9 +45,12 @@ when not compileOption("threads"):
 # with a roadmap pointer. refc's thread-local heaps drop child mutations
 # to the shared ref Verifier, so verifier inheritance is unsafe.
 when defined(gcRefc) and compileOption("threads"):
-  {.error: "tripwireThread requires --gc:orc or --gc:arc; " &
-           "refc thread-local heaps drop child mutations to the shared " &
-           "ref Verifier. See v0.2 design §8 and docs/roadmap-v0.3.md.".}
+  {.
+    error:
+      "tripwireThread requires --gc:orc or --gc:arc; " &
+      "refc thread-local heaps drop child mutations to the shared " &
+      "ref Verifier. See v0.2 design §8 and docs/roadmap-v0.3.md."
+  .}
 
 # `./futures` re-exports asyncdispatch (except hasPendingOperations) and
 # provides tripwire's own `hasPendingOperations` wrapper that ORs in
@@ -55,43 +58,42 @@ when defined(gcRefc) and compileOption("threads"):
 # asyncdispatch directly here would re-introduce the ambiguity.
 import ./[sandbox, errors, futures]
 
-type
-  ThreadHandoff* = ref object
-    ## Heap-allocated handoff record crossed through createThread's data arg.
-    ## MUST be heap-allocated (ref object) so the child can safely dereference
-    ## after the parent's stack frame where it was constructed has progressed.
-    verifier*: Verifier         ## ref Verifier — inherited parent state
-    body*: proc() {.gcsafe.}    ## Closure capturing the user body.
-                                ## Intentionally `{.gcsafe.}` only (no
-                                ## `thread`/`nimcall`): the closure is invoked
-                                ## from inside `childEntry` (which is itself
-                                ## `{.thread, nimcall, gcsafe.}`) rather than
-                                ## being passed as a proc pointer to
-                                ## `createThread`. The calling-convention
-                                ## requirement applies to the entry proc, not
-                                ## to nested closures.
-    capturedExc*: ref Exception ## Any exception raised by `body` or by
-                                ## childEntry's rejection checks; the parent
-                                ## re-raises this AFTER joinThread. Required
-                                ## because Nim 2.2.6's joinThread does NOT
-                                ## propagate child exceptions: `threadProcWrapDispatch`
-                                ## catches unhandled exceptions and calls
-                                ## `threadTrouble` -> `rawQuit(1)`, killing
-                                ## the entire process. Without explicit
-                                ## marshaling, design §3.5's "exception
-                                ## propagation" guarantee (E1) and the
-                                ## §3.6 rejection defects (chronos / nested)
-                                ## would never reach the parent.
-                                ## Single-writer / single-reader: child writes
-                                ## during its lifetime, parent reads post-join
-                                ## (joinThread is a happens-before barrier),
-                                ## so non-atomic refcounts under `--mm:arc`
-                                ## are safe — no concurrent refcount mutation.
+type ThreadHandoff* = ref object
+  ## Heap-allocated handoff record crossed through createThread's data arg.
+  ## MUST be heap-allocated (ref object) so the child can safely dereference
+  ## after the parent's stack frame where it was constructed has progressed.
+  verifier*: Verifier ## ref Verifier — inherited parent state
+  body*: proc() {.gcsafe.}
+    ## Closure capturing the user body.
+    ## Intentionally `{.gcsafe.}` only (no
+    ## `thread`/`nimcall`): the closure is invoked
+    ## from inside `childEntry` (which is itself
+    ## `{.thread, nimcall, gcsafe.}`) rather than
+    ## being passed as a proc pointer to
+    ## `createThread`. The calling-convention
+    ## requirement applies to the entry proc, not
+    ## to nested closures.
+  capturedExc*: ref Exception
+    ## Any exception raised by `body` or by
+    ## childEntry's rejection checks; the parent
+    ## re-raises this AFTER joinThread. Required
+    ## because Nim 2.2.6's joinThread does NOT
+    ## propagate child exceptions: `threadProcWrapDispatch`
+    ## catches unhandled exceptions and calls
+    ## `threadTrouble` -> `rawQuit(1)`, killing
+    ## the entire process. Without explicit
+    ## marshaling, design §3.5's "exception
+    ## propagation" guarantee (E1) and the
+    ## §3.6 rejection defects (chronos / nested)
+    ## would never reach the parent.
+    ## Single-writer / single-reader: child writes
+    ## during its lifetime, parent reads post-join
+    ## (joinThread is a happens-before barrier),
+    ## so non-atomic refcounts under `--mm:arc`
+    ## are safe — no concurrent refcount mutation.
 
 proc tripwireThread*[T](
-    thr: var Thread[T],
-    fn: proc(data: T) {.thread, nimcall, gcsafe.},
-    data: T
+    thr: var Thread[T], fn: proc(data: T) {.thread, nimcall, gcsafe.}, data: T
 ) {.raises: [ResourceExhaustedError].} =
   ## Low-level drop-in replacement for `createThread`. Argument order
   ## matches stdlib `createThread(t, fn, arg)` exactly so the substitution
@@ -116,7 +118,7 @@ proc tripwireThread*[T](
   ## Raises `ResourceExhaustedError` if the OS cannot allocate a thread.
   createThread(thr, fn, data)
 
-template runWithVerifier*(v: Verifier; body: untyped) =
+template runWithVerifier*(v: Verifier, body: untyped) =
   ## Explicit-verifier-param escape hatch. Pushes `v` onto the current
   ## thread's verifierStack, runs `body`, pops on exit (balanced even on
   ## exception). Use this when the canonical `withTripwireThread` block
@@ -129,11 +131,10 @@ template runWithVerifier*(v: Verifier; body: untyped) =
   ##
   ## Not intended for nested use within an already-sandboxed context on
   ## the SAME thread — see §3.6.
-  bind verifierStack, pushVerifier,
-       newNestedTripwireThreadDefect, getThreadId, instantiationInfo
+  bind verifierStack, pushVerifier, newNestedTripwireThreadDefect, getThreadId,
+    instantiationInfo
   if verifierStack.len > 0:
-    raise newNestedTripwireThreadDefect(
-      getThreadId(), instantiationInfo())
+    raise newNestedTripwireThreadDefect(getThreadId(), instantiationInfo())
   discard pushVerifier(v)
   try:
     body
@@ -160,13 +161,11 @@ proc childEntry*(h: ThreadHandoff) {.thread, nimcall, gcsafe.} =
     # language semantics ({.threadvar.} is zero-initialized per thread).
     # A non-empty stack indicates a nested tripwireThread invocation.
     if verifierStack.len > 0:
-      raise newNestedTripwireThreadDefect(
-        getThreadId(), instantiationInfo())
+      raise newNestedTripwireThreadDefect(getThreadId(), instantiationInfo())
     # Chronos / dispatcher detection BEFORE pushVerifier and BEFORE body.
     # See §3.6 Rejection 1.
     if hasPendingOperations():
-      raise newChronosOnWorkerThreadDefect(
-        getThreadId(), instantiationInfo())
+      raise newChronosOnWorkerThreadDefect(getThreadId(), instantiationInfo())
     discard pushVerifier(h.verifier)
     try:
       h.body()
@@ -200,16 +199,16 @@ template withTripwireThread*(threadBody: untyped) =
   ##     on entry (§3.6)
   ##   - `LeakedInteractionDefect` if there is no active parent verifier
   ##   - any exception raised by `body` (re-raised after joinThread)
-  bind currentVerifier, newLeakedInteractionDefect,
-       ThreadHandoff, childEntry, tripwireThread,
-       GC_ref, GC_unref, joinThread, Thread,
-       getThreadId, instantiationInfo
+  bind currentVerifier, newLeakedInteractionDefect, ThreadHandoff, childEntry,
+    tripwireThread, GC_ref, GC_unref, joinThread, Thread, getThreadId, instantiationInfo
   let parentV = currentVerifier()
   if parentV.isNil:
     raise newLeakedInteractionDefect(getThreadId(), instantiationInfo())
   let h = ThreadHandoff(
     verifier: parentV,
-    body: proc() {.gcsafe.} = threadBody)
+    body: proc() {.gcsafe.} =
+      threadBody,
+  )
   GC_ref(h)
   var thr: Thread[ThreadHandoff]
   try:

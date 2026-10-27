@@ -18,9 +18,11 @@ type
   OsprocExecProcessResponse* = ref object of MockResponse
     output*: string
     exitCode*: int
+
   OsprocExecCmdExResponse* = ref object of MockResponse
     output*: string
     exitCode*: int
+
   OsprocStartProcessResponse* = ref object of MockResponse
     mockId*: int
     exitCode*: int
@@ -38,8 +40,9 @@ type
 method realize*(r: OsprocExecProcessResponse): string {.base, raises: [Defect].} =
   r.output
 
-method realize*(r: OsprocExecCmdExResponse):
-    tuple[output: string, exitCode: int] {.base, raises: [Defect].} =
+method realize*(
+    r: OsprocExecCmdExResponse
+): tuple[output: string, exitCode: int] {.base, raises: [Defect].} =
   (output: r.output, exitCode: r.exitCode)
 
 # Thread-local tag table for fake Processes (F8 populates on startProcess).
@@ -48,31 +51,43 @@ var fakeProcessTags* {.threadvar.}: Table[int, TripwireFakeProcessTag]
 let osprocPluginInstance* = OsprocPlugin(name: "osproc", enabled: true)
 registerPlugin(osprocPluginInstance)
 
-proc fingerprintExecProcess*(cmd, workingDir: string, args: seq[string],
-    env: StringTableRef, options: set[ProcessOption]): string =
+proc fingerprintExecProcess*(
+    cmd, workingDir: string,
+    args: seq[string],
+    env: StringTableRef,
+    options: set[ProcessOption],
+): string =
   ## Canonicalize the six interesting fields into a stable fingerprint.
   ## env stringifies as "nil" when absent.
-  fingerprintOf("execProcess",
-    @[cmd, workingDir, $args,
-      (if env.isNil: "nil" else: $env), $options])
+  fingerprintOf(
+    "execProcess", @[cmd, workingDir, $args, (if env.isNil: "nil" else: $env), $options]
+  )
 
-proc fingerprintExecCmdEx*(cmd: string, options: set[ProcessOption],
-    env: StringTableRef, workingDir, input: string): string =
-  fingerprintOf("execCmdEx",
-    @[cmd, $options,
-      (if env.isNil: "nil" else: $env), workingDir, input])
+proc fingerprintExecCmdEx*(
+    cmd: string,
+    options: set[ProcessOption],
+    env: StringTableRef,
+    workingDir, input: string,
+): string =
+  fingerprintOf(
+    "execCmdEx", @[cmd, $options, (if env.isNil: "nil" else: $env), workingDir, input]
+  )
 
 # ---- execProcess seq[string] TRM ----------------------------------------
-template execProcessSeqTRM*{execProcess(cmd, workingDir, args, env, options)}(
-    cmd: string, workingDir: string = "",
+template execProcessSeqTRM*{
+  execProcess(cmd, workingDir, args, env, options)}(
+    cmd: string,
+    workingDir: string = "",
     args: seq[string] = @[],
     env: StringTableRef = nil,
-    options: set[ProcessOption] = {poStdErrToStdOut, poUsePath, poEvalCommand}): string =
+    options: set[ProcessOption] = {poStdErrToStdOut, poUsePath, poEvalCommand},
+): string =
   tripwirePluginIntercept(
     osprocPluginInstance,
     "execProcess",
     fingerprintExecProcess(cmd, workingDir, args, env, options),
-    OsprocExecProcessResponse):
+    OsprocExecProcessResponse,
+  ):
     {.noRewrite.}:
       execProcess(cmd, workingDir, args, env, options)
 
@@ -92,11 +107,14 @@ template execProcessSeqTRM*{execProcess(cmd, workingDir, args, env, options)}(
 # Routing through a renamed procvar makes the call site a non-`execCmdEx`
 # symbol so the TRM pattern matcher cannot match it. Confirmed against
 # 2.2.8 with `nim --version` 2.2.8 [MacOSX: arm64].
-let realExecCmdEx*: proc(command: string, options: set[ProcessOption],
-                         env: StringTableRef, workingDir, input: string):
-                           tuple[output: string, exitCode: int]
-                         {.gcsafe, raises: [IOError, OSError, Exception].} =
-  osproc.execCmdEx
+let realExecCmdEx*: proc(
+  command: string,
+  options: set[ProcessOption],
+  env: StringTableRef,
+  workingDir, input: string,
+): tuple[output: string, exitCode: int] {.
+  gcsafe, raises: [IOError, OSError, Exception]
+.} = osproc.execCmdEx
   ## Exported because the `{.dirty.}` `tripwirePluginIntercept` template
   ## inlines its `spyBody` (which references this symbol) at every TRM
   ## call site in the consumer TU. The symbol must be reachable from
@@ -104,16 +122,20 @@ let realExecCmdEx*: proc(command: string, options: set[ProcessOption],
   ## resolve there even though `--import:"tripwire/auto"` pulls the
   ## module into the import graph.
 
-template execCmdExTRM*{execCmdEx(c, o, e, w, i)}(
+template execCmdExTRM*{
+  execCmdEx(c, o, e, w, i)}(
     c: string,
     o: set[ProcessOption] = {poStdErrToStdOut, poUsePath},
-    e: StringTableRef = nil, w: string = "",
-    i: string = ""): tuple[output: string, exitCode: int] =
+    e: StringTableRef = nil,
+    w: string = "",
+    i: string = "",
+): tuple[output: string, exitCode: int] =
   tripwirePluginIntercept(
     osprocPluginInstance,
     "execCmdEx",
     fingerprintExecCmdEx(c, o, e, w, i),
-    OsprocExecCmdExResponse):
+    OsprocExecCmdExResponse,
+  ):
     {.noRewrite.}:
       realExecCmdEx(c, o, e, w, i)
 
@@ -139,23 +161,25 @@ macro emitExecProcessArrayVariants(maxN: static[int]): untyped =
   let optsI = ident"options"
   for n in 0 .. maxN:
     let tmplName = ident("execProcessArrayTRM" & $n)
-    let arrayTy = nnkBracketExpr.newTree(
-      ident"array", newLit(n), ident"string")
-    let tdef = quote do:
-      template `tmplName`*{execProcess(`cmdI`, `wdI`, `argsI`, `envI`,
-                                        `optsI`)}(
-          `cmdI`: string, `wdI`: string = "",
+    let arrayTy = nnkBracketExpr.newTree(ident"array", newLit(n), ident"string")
+    let tdef = quote:
+      template `tmplName`*{
+        execProcess(`cmdI`, `wdI`, `argsI`, `envI`, `optsI`)}(
+          `cmdI`: string,
+          `wdI`: string = "",
           `argsI`: `arrayTy`,
           `envI`: StringTableRef = nil,
-          `optsI`: set[ProcessOption] = {poStdErrToStdOut, poUsePath,
-                                          poEvalCommand}): string =
+          `optsI`: set[ProcessOption] = {poStdErrToStdOut, poUsePath, poEvalCommand},
+      ): string =
         tripwirePluginIntercept(
           osprocPluginInstance,
           "execProcess",
           fingerprintExecProcess(`cmdI`, `wdI`, @(`argsI`), `envI`, `optsI`),
-          OsprocExecProcessResponse):
+          OsprocExecProcessResponse,
+        ):
           {.noRewrite.}:
             execProcess(`cmdI`, `wdI`, `argsI`, `envI`, `optsI`)
+
     result.add(tdef)
 
 emitExecProcessArrayVariants(8)
@@ -168,12 +192,13 @@ emitExecProcessArrayVariants(8)
 # tries TRMs in declaration order, so this MUST be emitted after the
 # seq TRM and the array-variant macro.
 template execProcessOpenArrayFallbackTRM*{
-    execProcess(cmd, workingDir, args, env, options)}(
-    cmd: string, workingDir: string = "",
+  execProcess(cmd, workingDir, args, env, options)}(
+    cmd: string,
+    workingDir: string = "",
     args: openArray[string],
     env: StringTableRef = nil,
-    options: set[ProcessOption] = {poStdErrToStdOut, poUsePath,
-                                    poEvalCommand}): string =
+    options: set[ProcessOption] = {poStdErrToStdOut, poUsePath, poEvalCommand},
+): string =
   # Body must have a `string` value for type-check, but the raise
   # unconditionally transfers control before the sentinel is produced.
   # A trailing "" satisfies the type-checker; the `UnreachableCode` hint
@@ -183,5 +208,6 @@ template execProcessOpenArrayFallbackTRM*{
     raise newUnmockableContainerDefect(
       procName = "execProcess",
       containerType = "openArray[string] (unknown concrete container)",
-      site = instantiationInfo())
+      site = instantiationInfo(),
+    )
     ""

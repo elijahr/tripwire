@@ -14,11 +14,13 @@ proc registerPlugin*(p: Plugin) =
 proc enabledPlugins*(): seq[Plugin] =
   result = @[]
   for p in pluginRegistry:
-    if p.enabled: result.add(p)
+    if p.enabled:
+      result.add(p)
 
 proc pluginByName*(name: string): Plugin =
   for p in pluginRegistry:
-    if p.name == name: return p
+    if p.name == name:
+      return p
   nil
 
 proc clearRegistry*() =

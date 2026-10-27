@@ -50,9 +50,9 @@ when defined(chronos):
   # CatchableError leak in the firewall hot path breaks THIS file
   # before it breaks consumers.
 
-  proc strictSendUser(req: HttpClientRequestRef):
-      Future[HttpClientResponseRef] {.
-        async: (raises: [CancelledError, HttpError]).} =
+  proc strictSendUser(
+      req: HttpClientRequestRef
+  ): Future[HttpClientResponseRef] {.async: (raises: [CancelledError, HttpError]).} =
     ## Strict-raises caller of `httpclient.send`. The chronos plugin's
     ## `chronosSendTRM` rewrites this call site to expand
     ## `tripwirePluginIntercept`. If that expansion's body leaks any
@@ -60,9 +60,9 @@ when defined(chronos):
     ## fails to type-check.
     return await httpclient.send(req)
 
-  proc strictFetchUser(session: HttpSessionRef, url: Uri):
-      Future[HttpResponseTuple] {.
-        async: (raises: [CancelledError, HttpError]).} =
+  proc strictFetchUser(
+      session: HttpSessionRef, url: Uri
+  ): Future[HttpResponseTuple] {.async: (raises: [CancelledError, HttpError]).} =
     ## Strict-raises caller of `httpclient.fetch(session, url)`. Same
     ## firewall-TRM regression surface as `strictSendUser`.
     return await httpclient.fetch(session, url)

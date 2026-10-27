@@ -78,7 +78,7 @@ suite "q4_generation port":
     sandbox:
       v1 = currentVerifier()
       fut = leaker()
-      asyncCheck fut  # plain asyncCheck — the leak vector.
+      asyncCheck fut # plain asyncCheck — the leak vector.
       # Body returns immediately; fut is still pending, and
       # `sandbox:` is about to pop v1.
 
@@ -106,8 +106,8 @@ suite "q4_generation port":
     # opt-in — plain asyncCheck remains unsafe.
     check v1 != nil
     check v2 != nil
-    check v1 != v2  # sandbox: creates a fresh verifier each time
-    check observedVerifier == v2  # contamination: wrong verifier
+    check v1 != v2 # sandbox: creates a fresh verifier each time
+    check observedVerifier == v2 # contamination: wrong verifier
     check observedVerifier != v1
 
   test "asyncCheckInSandbox + drain contains Future within its own sandbox":

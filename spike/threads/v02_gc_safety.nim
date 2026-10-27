@@ -18,10 +18,14 @@ proc childBump(sc: SharedCounter) {.thread, nimcall.} =
 
 proc main() =
   let gcKind =
-    when defined(gcRefc): "refc"
-    elif defined(gcOrc):  "orc"
-    elif defined(gcArc):  "arc"
-    else:                 "other"
+    when defined(gcRefc):
+      "refc"
+    elif defined(gcOrc):
+      "orc"
+    elif defined(gcArc):
+      "arc"
+    else:
+      "other"
   echo "gc kind: ", gcKind
   let sc = SharedCounter(count: 0)
   var t: Thread[SharedCounter]

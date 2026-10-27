@@ -6,9 +6,10 @@ import targets
 var httpInterceptEnabled* {.global.} = true
 var httpRewrites* {.global.} = 0
 
-template rewriteHttpGet*{httpGet(url)}(url: string): string =
+template rewriteHttpGet*{
+  httpGet(url)}(url: string): string =
   if httpInterceptEnabled:
     inc(httpRewrites)
     "fake-response"
   else:
-    httpGet(url)  # no noRewrite — will this recurse?
+    httpGet(url) # no noRewrite — will this recurse?

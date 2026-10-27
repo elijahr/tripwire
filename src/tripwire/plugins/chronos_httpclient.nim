@@ -93,10 +93,11 @@ const FirewallOnlyMockMsg =
   "mock registration is unsupported. Use closure-based DI (e.g. " &
   "paperplanes' HttpSender / HttpPostFn) for G2/G3 coverage."
 
-method realize*(r: ChronosHttpSendStubResponse):
-    InternalRaisesFuture[HttpClientResponseRef,
-                         (CancelledError, HttpError)] {.
-      base, gcsafe, raises: [Defect].} =
+method realize*(
+    r: ChronosHttpSendStubResponse
+): InternalRaisesFuture[HttpClientResponseRef, (CancelledError, HttpError)] {.
+    base, gcsafe, raises: [Defect]
+.} =
   ## Mocking unsupported — see module docstring. The combinator only
   ## reaches this branch if a consumer registered a mock against this
   ## plugin, which the firewall-only design forbids. Return type
@@ -111,16 +112,17 @@ method realize*(r: ChronosHttpSendStubResponse):
   ## consumer procs.
   raise newException(Defect, FirewallOnlyMockMsg)
 
-method realize*(r: ChronosHttpFetchStubResponse):
-    InternalRaisesFuture[HttpResponseTuple,
-                         (CancelledError, HttpError)] {.
-      base, gcsafe, raises: [Defect].} =
+method realize*(
+    r: ChronosHttpFetchStubResponse
+): InternalRaisesFuture[HttpResponseTuple, (CancelledError, HttpError)] {.
+    base, gcsafe, raises: [Defect]
+.} =
   ## See `ChronosHttpSendStubResponse.realize` docstring for the
   ## `raises: [Defect]` rationale.
   raise newException(Defect, FirewallOnlyMockMsg)
 
-let chronosHttpPluginInstance* = ChronosHttpPlugin(name: "chronos_httpclient",
-                                                   enabled: true)
+let chronosHttpPluginInstance* =
+  ChronosHttpPlugin(name: "chronos_httpclient", enabled: true)
 registerPlugin(chronosHttpPluginInstance)
 
 # ---- Fingerprinting ------------------------------------------------------
@@ -129,7 +131,10 @@ proc bracketIfV6(host: string): string {.inline.} =
   ## Re-bracket IPv6 hostnames so the host token stays a single
   ## whitespace-delimited unit (matches the convention in
   ## `plugins/httpclient.fingerprintHttpRequest`).
-  if host.len > 0 and ':' in host: "[" & host & "]" else: host
+  if host.len > 0 and ':' in host:
+    "[" & host & "]"
+  else:
+    host
 
 proc fingerprintChronosSend*(meth: HttpMethod, addr0: HttpAddress): string =
   ## Canonicalize a `send(request)` call to a stable typed-token
@@ -150,10 +155,9 @@ proc fingerprintChronosSend*(meth: HttpMethod, addr0: HttpAddress): string =
     case addr0.scheme
     of HttpClientScheme.NonSecure: "http"
     of HttpClientScheme.Secure: "https"
-  "procName=send method=" & $meth & " scheme=" & scheme &
-    " host=" & bracketIfV6(addr0.hostname) & " port=" & $addr0.port &
-    " path=" & escapeFingerprintField(addr0.path) &
-    " query=" & escapeFingerprintField(addr0.query)
+  "procName=send method=" & $meth & " scheme=" & scheme & " host=" &
+    bracketIfV6(addr0.hostname) & " port=" & $addr0.port & " path=" &
+    escapeFingerprintField(addr0.path) & " query=" & escapeFingerprintField(addr0.query)
 
 proc fingerprintChronosFetchReq*(meth: HttpMethod, addr0: HttpAddress): string =
   ## Canonicalize a `fetch(request)` call. Mirrors `fingerprintChronosSend`
@@ -164,10 +168,9 @@ proc fingerprintChronosFetchReq*(meth: HttpMethod, addr0: HttpAddress): string =
     case addr0.scheme
     of HttpClientScheme.NonSecure: "http"
     of HttpClientScheme.Secure: "https"
-  "procName=fetch method=" & $meth & " scheme=" & scheme &
-    " host=" & bracketIfV6(addr0.hostname) & " port=" & $addr0.port &
-    " path=" & escapeFingerprintField(addr0.path) &
-    " query=" & escapeFingerprintField(addr0.query)
+  "procName=fetch method=" & $meth & " scheme=" & scheme & " host=" &
+    bracketIfV6(addr0.hostname) & " port=" & $addr0.port & " path=" &
+    escapeFingerprintField(addr0.path) & " query=" & escapeFingerprintField(addr0.query)
 
 proc fingerprintChronosFetch*(url: Uri): string =
   ## Canonicalize a `fetch(session, url)` call. Always GET (chronos's
@@ -185,10 +188,10 @@ proc fingerprintChronosFetch*(url: Uri): string =
   var port = url.port
   if port.len == 0:
     port = (if url.scheme == "https": "443" else: "80")
-  "procName=fetch method=GET scheme=" & url.scheme &
-    " host=" & bracketIfV6(url.hostname) & " port=" & port &
-    " path=" & escapeFingerprintField(url.path) &
-    " query=" & escapeFingerprintField(url.query)
+  "procName=fetch method=GET scheme=" & url.scheme & " host=" & bracketIfV6(
+    url.hostname
+  ) & " port=" & port & " path=" & escapeFingerprintField(url.path) & " query=" &
+    escapeFingerprintField(url.query)
 
 # ---- Real-proc trampolines (avoid TRM self-recursion) -------------------
 # Following the precedent established in `plugins/osproc.nim`
@@ -251,24 +254,24 @@ proc fingerprintChronosFetch*(url: Uri): string =
 # trap (item 3) catches it at compile time before any runtime test
 # is exercised.
 
-proc realChronosSend*(request: HttpClientRequestRef):
-                       Future[HttpClientResponseRef] {.
-                         async: (raises: [CancelledError, HttpError]).} =
+proc realChronosSend*(
+    request: HttpClientRequestRef
+): Future[HttpClientResponseRef] {.async: (raises: [CancelledError, HttpError]).} =
   ## Trampoline to chronos's real `send`. The outer name differs from
   ## `send` so the TRM pattern matcher can't see this call site.
   {.noRewrite.}:
     return await httpclient.send(request)
 
-proc realChronosFetchUri*(session: HttpSessionRef, url: Uri):
-                           Future[HttpResponseTuple] {.
-                             async: (raises: [CancelledError, HttpError]).} =
+proc realChronosFetchUri*(
+    session: HttpSessionRef, url: Uri
+): Future[HttpResponseTuple] {.async: (raises: [CancelledError, HttpError]).} =
   ## Trampoline to chronos's real URL-only `fetch`.
   {.noRewrite.}:
     return await httpclient.fetch(session, url)
 
-proc realChronosFetchReq*(request: HttpClientRequestRef):
-                           Future[HttpResponseTuple] {.
-                             async: (raises: [CancelledError, HttpError]).} =
+proc realChronosFetchReq*(
+    request: HttpClientRequestRef
+): Future[HttpResponseTuple] {.async: (raises: [CancelledError, HttpError]).} =
   ## Trampoline to chronos's real request-form `fetch`. The outer name
   ## differs from `fetch` so the TRM pattern matcher can't see this
   ## call site, mirroring the rename pattern used by `realChronosSend`.
@@ -299,10 +302,10 @@ proc realChronosFetchReq*(request: HttpClientRequestRef):
 # `fetch` MUST be paired with an update to these TRMs and to
 # `realChronosSend` / `realChronosFetchUri` above.
 
-template chronosSendTRM*{send(request)}(
-    request: HttpClientRequestRef):
-    InternalRaisesFuture[HttpClientResponseRef,
-                         (CancelledError, HttpError)] =
+template chronosSendTRM*{
+  send(request)}(
+    request: HttpClientRequestRef
+): InternalRaisesFuture[HttpClientResponseRef, (CancelledError, HttpError)] =
   ## Firewall TRM for `chronos.httpclient.send`. The TRM body either
   ## raises `UnmockedInteractionDefect` (when the firewall says no) or
   ## calls through to the real `httpclient.send` via `realChronosSend`
@@ -316,14 +319,15 @@ template chronosSendTRM*{send(request)}(
     chronosHttpPluginInstance,
     "send",
     fingerprintChronosSend(request.meth, request.address),
-    ChronosHttpSendStubResponse):
+    ChronosHttpSendStubResponse,
+  ):
     {.noRewrite.}:
       realChronosSend(request)
 
-template chronosFetchUriTRM*{fetch(session, url)}(
-    session: HttpSessionRef, url: Uri):
-    InternalRaisesFuture[HttpResponseTuple,
-                         (CancelledError, HttpError)] =
+template chronosFetchUriTRM*{
+  fetch(session, url)}(
+    session: HttpSessionRef, url: Uri
+): InternalRaisesFuture[HttpResponseTuple, (CancelledError, HttpError)] =
   ## Firewall TRM for `chronos.httpclient.fetch(session, url)` — the
   ## URL-only convenience GET. Same firewall-only semantics as
   ## `chronosSendTRM`. Return type matches chronos's expanded `async:`
@@ -332,14 +336,15 @@ template chronosFetchUriTRM*{fetch(session, url)}(
     chronosHttpPluginInstance,
     "fetch",
     fingerprintChronosFetch(url),
-    ChronosHttpFetchStubResponse):
+    ChronosHttpFetchStubResponse,
+  ):
     {.noRewrite.}:
       realChronosFetchUri(session, url)
 
-template chronosFetchReqTRM*{fetch(request)}(
-    request: HttpClientRequestRef):
-    InternalRaisesFuture[HttpResponseTuple,
-                         (CancelledError, HttpError)] =
+template chronosFetchReqTRM*{
+  fetch(request)}(
+    request: HttpClientRequestRef
+): InternalRaisesFuture[HttpResponseTuple, (CancelledError, HttpError)] =
   ## Firewall TRM for `chronos.httpclient.fetch(request)` — the
   ## request-form convenience that returns `(status, body)`. Mirrors
   ## `chronosFetchUriTRM` exactly modulo the pattern (`fetch(request)`
@@ -358,6 +363,7 @@ template chronosFetchReqTRM*{fetch(request)}(
     chronosHttpPluginInstance,
     "fetch",
     fingerprintChronosFetchReq(request.meth, request.address),
-    ChronosHttpFetchStubResponse):
+    ChronosHttpFetchStubResponse,
+  ):
     {.noRewrite.}:
       realChronosFetchReq(request)

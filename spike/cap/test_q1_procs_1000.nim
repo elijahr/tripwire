@@ -1,1006 +1,3005 @@
 ## Generated test: 1000 call sites, one per proc.
 import nimfoot_q1, common_q1
 
-proc call_0(): int = target(0, 1)
-proc call_1(): int = target(1, 2)
-proc call_2(): int = target(2, 3)
-proc call_3(): int = target(3, 4)
-proc call_4(): int = target(4, 5)
-proc call_5(): int = target(5, 6)
-proc call_6(): int = target(6, 7)
-proc call_7(): int = target(7, 8)
-proc call_8(): int = target(8, 9)
-proc call_9(): int = target(9, 10)
-proc call_10(): int = target(10, 11)
-proc call_11(): int = target(11, 12)
-proc call_12(): int = target(12, 13)
-proc call_13(): int = target(13, 14)
-proc call_14(): int = target(14, 15)
-proc call_15(): int = target(15, 16)
-proc call_16(): int = target(16, 17)
-proc call_17(): int = target(17, 18)
-proc call_18(): int = target(18, 19)
-proc call_19(): int = target(19, 20)
-proc call_20(): int = target(20, 21)
-proc call_21(): int = target(21, 22)
-proc call_22(): int = target(22, 23)
-proc call_23(): int = target(23, 24)
-proc call_24(): int = target(24, 25)
-proc call_25(): int = target(25, 26)
-proc call_26(): int = target(26, 27)
-proc call_27(): int = target(27, 28)
-proc call_28(): int = target(28, 29)
-proc call_29(): int = target(29, 30)
-proc call_30(): int = target(30, 31)
-proc call_31(): int = target(31, 32)
-proc call_32(): int = target(32, 33)
-proc call_33(): int = target(33, 34)
-proc call_34(): int = target(34, 35)
-proc call_35(): int = target(35, 36)
-proc call_36(): int = target(36, 37)
-proc call_37(): int = target(37, 38)
-proc call_38(): int = target(38, 39)
-proc call_39(): int = target(39, 40)
-proc call_40(): int = target(40, 41)
-proc call_41(): int = target(41, 42)
-proc call_42(): int = target(42, 43)
-proc call_43(): int = target(43, 44)
-proc call_44(): int = target(44, 45)
-proc call_45(): int = target(45, 46)
-proc call_46(): int = target(46, 47)
-proc call_47(): int = target(47, 48)
-proc call_48(): int = target(48, 49)
-proc call_49(): int = target(49, 50)
-proc call_50(): int = target(50, 51)
-proc call_51(): int = target(51, 52)
-proc call_52(): int = target(52, 53)
-proc call_53(): int = target(53, 54)
-proc call_54(): int = target(54, 55)
-proc call_55(): int = target(55, 56)
-proc call_56(): int = target(56, 57)
-proc call_57(): int = target(57, 58)
-proc call_58(): int = target(58, 59)
-proc call_59(): int = target(59, 60)
-proc call_60(): int = target(60, 61)
-proc call_61(): int = target(61, 62)
-proc call_62(): int = target(62, 63)
-proc call_63(): int = target(63, 64)
-proc call_64(): int = target(64, 65)
-proc call_65(): int = target(65, 66)
-proc call_66(): int = target(66, 67)
-proc call_67(): int = target(67, 68)
-proc call_68(): int = target(68, 69)
-proc call_69(): int = target(69, 70)
-proc call_70(): int = target(70, 71)
-proc call_71(): int = target(71, 72)
-proc call_72(): int = target(72, 73)
-proc call_73(): int = target(73, 74)
-proc call_74(): int = target(74, 75)
-proc call_75(): int = target(75, 76)
-proc call_76(): int = target(76, 77)
-proc call_77(): int = target(77, 78)
-proc call_78(): int = target(78, 79)
-proc call_79(): int = target(79, 80)
-proc call_80(): int = target(80, 81)
-proc call_81(): int = target(81, 82)
-proc call_82(): int = target(82, 83)
-proc call_83(): int = target(83, 84)
-proc call_84(): int = target(84, 85)
-proc call_85(): int = target(85, 86)
-proc call_86(): int = target(86, 87)
-proc call_87(): int = target(87, 88)
-proc call_88(): int = target(88, 89)
-proc call_89(): int = target(89, 90)
-proc call_90(): int = target(90, 91)
-proc call_91(): int = target(91, 92)
-proc call_92(): int = target(92, 93)
-proc call_93(): int = target(93, 94)
-proc call_94(): int = target(94, 95)
-proc call_95(): int = target(95, 96)
-proc call_96(): int = target(96, 97)
-proc call_97(): int = target(97, 98)
-proc call_98(): int = target(98, 99)
-proc call_99(): int = target(99, 100)
-proc call_100(): int = target(100, 101)
-proc call_101(): int = target(101, 102)
-proc call_102(): int = target(102, 103)
-proc call_103(): int = target(103, 104)
-proc call_104(): int = target(104, 105)
-proc call_105(): int = target(105, 106)
-proc call_106(): int = target(106, 107)
-proc call_107(): int = target(107, 108)
-proc call_108(): int = target(108, 109)
-proc call_109(): int = target(109, 110)
-proc call_110(): int = target(110, 111)
-proc call_111(): int = target(111, 112)
-proc call_112(): int = target(112, 113)
-proc call_113(): int = target(113, 114)
-proc call_114(): int = target(114, 115)
-proc call_115(): int = target(115, 116)
-proc call_116(): int = target(116, 117)
-proc call_117(): int = target(117, 118)
-proc call_118(): int = target(118, 119)
-proc call_119(): int = target(119, 120)
-proc call_120(): int = target(120, 121)
-proc call_121(): int = target(121, 122)
-proc call_122(): int = target(122, 123)
-proc call_123(): int = target(123, 124)
-proc call_124(): int = target(124, 125)
-proc call_125(): int = target(125, 126)
-proc call_126(): int = target(126, 127)
-proc call_127(): int = target(127, 128)
-proc call_128(): int = target(128, 129)
-proc call_129(): int = target(129, 130)
-proc call_130(): int = target(130, 131)
-proc call_131(): int = target(131, 132)
-proc call_132(): int = target(132, 133)
-proc call_133(): int = target(133, 134)
-proc call_134(): int = target(134, 135)
-proc call_135(): int = target(135, 136)
-proc call_136(): int = target(136, 137)
-proc call_137(): int = target(137, 138)
-proc call_138(): int = target(138, 139)
-proc call_139(): int = target(139, 140)
-proc call_140(): int = target(140, 141)
-proc call_141(): int = target(141, 142)
-proc call_142(): int = target(142, 143)
-proc call_143(): int = target(143, 144)
-proc call_144(): int = target(144, 145)
-proc call_145(): int = target(145, 146)
-proc call_146(): int = target(146, 147)
-proc call_147(): int = target(147, 148)
-proc call_148(): int = target(148, 149)
-proc call_149(): int = target(149, 150)
-proc call_150(): int = target(150, 151)
-proc call_151(): int = target(151, 152)
-proc call_152(): int = target(152, 153)
-proc call_153(): int = target(153, 154)
-proc call_154(): int = target(154, 155)
-proc call_155(): int = target(155, 156)
-proc call_156(): int = target(156, 157)
-proc call_157(): int = target(157, 158)
-proc call_158(): int = target(158, 159)
-proc call_159(): int = target(159, 160)
-proc call_160(): int = target(160, 161)
-proc call_161(): int = target(161, 162)
-proc call_162(): int = target(162, 163)
-proc call_163(): int = target(163, 164)
-proc call_164(): int = target(164, 165)
-proc call_165(): int = target(165, 166)
-proc call_166(): int = target(166, 167)
-proc call_167(): int = target(167, 168)
-proc call_168(): int = target(168, 169)
-proc call_169(): int = target(169, 170)
-proc call_170(): int = target(170, 171)
-proc call_171(): int = target(171, 172)
-proc call_172(): int = target(172, 173)
-proc call_173(): int = target(173, 174)
-proc call_174(): int = target(174, 175)
-proc call_175(): int = target(175, 176)
-proc call_176(): int = target(176, 177)
-proc call_177(): int = target(177, 178)
-proc call_178(): int = target(178, 179)
-proc call_179(): int = target(179, 180)
-proc call_180(): int = target(180, 181)
-proc call_181(): int = target(181, 182)
-proc call_182(): int = target(182, 183)
-proc call_183(): int = target(183, 184)
-proc call_184(): int = target(184, 185)
-proc call_185(): int = target(185, 186)
-proc call_186(): int = target(186, 187)
-proc call_187(): int = target(187, 188)
-proc call_188(): int = target(188, 189)
-proc call_189(): int = target(189, 190)
-proc call_190(): int = target(190, 191)
-proc call_191(): int = target(191, 192)
-proc call_192(): int = target(192, 193)
-proc call_193(): int = target(193, 194)
-proc call_194(): int = target(194, 195)
-proc call_195(): int = target(195, 196)
-proc call_196(): int = target(196, 197)
-proc call_197(): int = target(197, 198)
-proc call_198(): int = target(198, 199)
-proc call_199(): int = target(199, 200)
-proc call_200(): int = target(200, 201)
-proc call_201(): int = target(201, 202)
-proc call_202(): int = target(202, 203)
-proc call_203(): int = target(203, 204)
-proc call_204(): int = target(204, 205)
-proc call_205(): int = target(205, 206)
-proc call_206(): int = target(206, 207)
-proc call_207(): int = target(207, 208)
-proc call_208(): int = target(208, 209)
-proc call_209(): int = target(209, 210)
-proc call_210(): int = target(210, 211)
-proc call_211(): int = target(211, 212)
-proc call_212(): int = target(212, 213)
-proc call_213(): int = target(213, 214)
-proc call_214(): int = target(214, 215)
-proc call_215(): int = target(215, 216)
-proc call_216(): int = target(216, 217)
-proc call_217(): int = target(217, 218)
-proc call_218(): int = target(218, 219)
-proc call_219(): int = target(219, 220)
-proc call_220(): int = target(220, 221)
-proc call_221(): int = target(221, 222)
-proc call_222(): int = target(222, 223)
-proc call_223(): int = target(223, 224)
-proc call_224(): int = target(224, 225)
-proc call_225(): int = target(225, 226)
-proc call_226(): int = target(226, 227)
-proc call_227(): int = target(227, 228)
-proc call_228(): int = target(228, 229)
-proc call_229(): int = target(229, 230)
-proc call_230(): int = target(230, 231)
-proc call_231(): int = target(231, 232)
-proc call_232(): int = target(232, 233)
-proc call_233(): int = target(233, 234)
-proc call_234(): int = target(234, 235)
-proc call_235(): int = target(235, 236)
-proc call_236(): int = target(236, 237)
-proc call_237(): int = target(237, 238)
-proc call_238(): int = target(238, 239)
-proc call_239(): int = target(239, 240)
-proc call_240(): int = target(240, 241)
-proc call_241(): int = target(241, 242)
-proc call_242(): int = target(242, 243)
-proc call_243(): int = target(243, 244)
-proc call_244(): int = target(244, 245)
-proc call_245(): int = target(245, 246)
-proc call_246(): int = target(246, 247)
-proc call_247(): int = target(247, 248)
-proc call_248(): int = target(248, 249)
-proc call_249(): int = target(249, 250)
-proc call_250(): int = target(250, 251)
-proc call_251(): int = target(251, 252)
-proc call_252(): int = target(252, 253)
-proc call_253(): int = target(253, 254)
-proc call_254(): int = target(254, 255)
-proc call_255(): int = target(255, 256)
-proc call_256(): int = target(256, 257)
-proc call_257(): int = target(257, 258)
-proc call_258(): int = target(258, 259)
-proc call_259(): int = target(259, 260)
-proc call_260(): int = target(260, 261)
-proc call_261(): int = target(261, 262)
-proc call_262(): int = target(262, 263)
-proc call_263(): int = target(263, 264)
-proc call_264(): int = target(264, 265)
-proc call_265(): int = target(265, 266)
-proc call_266(): int = target(266, 267)
-proc call_267(): int = target(267, 268)
-proc call_268(): int = target(268, 269)
-proc call_269(): int = target(269, 270)
-proc call_270(): int = target(270, 271)
-proc call_271(): int = target(271, 272)
-proc call_272(): int = target(272, 273)
-proc call_273(): int = target(273, 274)
-proc call_274(): int = target(274, 275)
-proc call_275(): int = target(275, 276)
-proc call_276(): int = target(276, 277)
-proc call_277(): int = target(277, 278)
-proc call_278(): int = target(278, 279)
-proc call_279(): int = target(279, 280)
-proc call_280(): int = target(280, 281)
-proc call_281(): int = target(281, 282)
-proc call_282(): int = target(282, 283)
-proc call_283(): int = target(283, 284)
-proc call_284(): int = target(284, 285)
-proc call_285(): int = target(285, 286)
-proc call_286(): int = target(286, 287)
-proc call_287(): int = target(287, 288)
-proc call_288(): int = target(288, 289)
-proc call_289(): int = target(289, 290)
-proc call_290(): int = target(290, 291)
-proc call_291(): int = target(291, 292)
-proc call_292(): int = target(292, 293)
-proc call_293(): int = target(293, 294)
-proc call_294(): int = target(294, 295)
-proc call_295(): int = target(295, 296)
-proc call_296(): int = target(296, 297)
-proc call_297(): int = target(297, 298)
-proc call_298(): int = target(298, 299)
-proc call_299(): int = target(299, 300)
-proc call_300(): int = target(300, 301)
-proc call_301(): int = target(301, 302)
-proc call_302(): int = target(302, 303)
-proc call_303(): int = target(303, 304)
-proc call_304(): int = target(304, 305)
-proc call_305(): int = target(305, 306)
-proc call_306(): int = target(306, 307)
-proc call_307(): int = target(307, 308)
-proc call_308(): int = target(308, 309)
-proc call_309(): int = target(309, 310)
-proc call_310(): int = target(310, 311)
-proc call_311(): int = target(311, 312)
-proc call_312(): int = target(312, 313)
-proc call_313(): int = target(313, 314)
-proc call_314(): int = target(314, 315)
-proc call_315(): int = target(315, 316)
-proc call_316(): int = target(316, 317)
-proc call_317(): int = target(317, 318)
-proc call_318(): int = target(318, 319)
-proc call_319(): int = target(319, 320)
-proc call_320(): int = target(320, 321)
-proc call_321(): int = target(321, 322)
-proc call_322(): int = target(322, 323)
-proc call_323(): int = target(323, 324)
-proc call_324(): int = target(324, 325)
-proc call_325(): int = target(325, 326)
-proc call_326(): int = target(326, 327)
-proc call_327(): int = target(327, 328)
-proc call_328(): int = target(328, 329)
-proc call_329(): int = target(329, 330)
-proc call_330(): int = target(330, 331)
-proc call_331(): int = target(331, 332)
-proc call_332(): int = target(332, 333)
-proc call_333(): int = target(333, 334)
-proc call_334(): int = target(334, 335)
-proc call_335(): int = target(335, 336)
-proc call_336(): int = target(336, 337)
-proc call_337(): int = target(337, 338)
-proc call_338(): int = target(338, 339)
-proc call_339(): int = target(339, 340)
-proc call_340(): int = target(340, 341)
-proc call_341(): int = target(341, 342)
-proc call_342(): int = target(342, 343)
-proc call_343(): int = target(343, 344)
-proc call_344(): int = target(344, 345)
-proc call_345(): int = target(345, 346)
-proc call_346(): int = target(346, 347)
-proc call_347(): int = target(347, 348)
-proc call_348(): int = target(348, 349)
-proc call_349(): int = target(349, 350)
-proc call_350(): int = target(350, 351)
-proc call_351(): int = target(351, 352)
-proc call_352(): int = target(352, 353)
-proc call_353(): int = target(353, 354)
-proc call_354(): int = target(354, 355)
-proc call_355(): int = target(355, 356)
-proc call_356(): int = target(356, 357)
-proc call_357(): int = target(357, 358)
-proc call_358(): int = target(358, 359)
-proc call_359(): int = target(359, 360)
-proc call_360(): int = target(360, 361)
-proc call_361(): int = target(361, 362)
-proc call_362(): int = target(362, 363)
-proc call_363(): int = target(363, 364)
-proc call_364(): int = target(364, 365)
-proc call_365(): int = target(365, 366)
-proc call_366(): int = target(366, 367)
-proc call_367(): int = target(367, 368)
-proc call_368(): int = target(368, 369)
-proc call_369(): int = target(369, 370)
-proc call_370(): int = target(370, 371)
-proc call_371(): int = target(371, 372)
-proc call_372(): int = target(372, 373)
-proc call_373(): int = target(373, 374)
-proc call_374(): int = target(374, 375)
-proc call_375(): int = target(375, 376)
-proc call_376(): int = target(376, 377)
-proc call_377(): int = target(377, 378)
-proc call_378(): int = target(378, 379)
-proc call_379(): int = target(379, 380)
-proc call_380(): int = target(380, 381)
-proc call_381(): int = target(381, 382)
-proc call_382(): int = target(382, 383)
-proc call_383(): int = target(383, 384)
-proc call_384(): int = target(384, 385)
-proc call_385(): int = target(385, 386)
-proc call_386(): int = target(386, 387)
-proc call_387(): int = target(387, 388)
-proc call_388(): int = target(388, 389)
-proc call_389(): int = target(389, 390)
-proc call_390(): int = target(390, 391)
-proc call_391(): int = target(391, 392)
-proc call_392(): int = target(392, 393)
-proc call_393(): int = target(393, 394)
-proc call_394(): int = target(394, 395)
-proc call_395(): int = target(395, 396)
-proc call_396(): int = target(396, 397)
-proc call_397(): int = target(397, 398)
-proc call_398(): int = target(398, 399)
-proc call_399(): int = target(399, 400)
-proc call_400(): int = target(400, 401)
-proc call_401(): int = target(401, 402)
-proc call_402(): int = target(402, 403)
-proc call_403(): int = target(403, 404)
-proc call_404(): int = target(404, 405)
-proc call_405(): int = target(405, 406)
-proc call_406(): int = target(406, 407)
-proc call_407(): int = target(407, 408)
-proc call_408(): int = target(408, 409)
-proc call_409(): int = target(409, 410)
-proc call_410(): int = target(410, 411)
-proc call_411(): int = target(411, 412)
-proc call_412(): int = target(412, 413)
-proc call_413(): int = target(413, 414)
-proc call_414(): int = target(414, 415)
-proc call_415(): int = target(415, 416)
-proc call_416(): int = target(416, 417)
-proc call_417(): int = target(417, 418)
-proc call_418(): int = target(418, 419)
-proc call_419(): int = target(419, 420)
-proc call_420(): int = target(420, 421)
-proc call_421(): int = target(421, 422)
-proc call_422(): int = target(422, 423)
-proc call_423(): int = target(423, 424)
-proc call_424(): int = target(424, 425)
-proc call_425(): int = target(425, 426)
-proc call_426(): int = target(426, 427)
-proc call_427(): int = target(427, 428)
-proc call_428(): int = target(428, 429)
-proc call_429(): int = target(429, 430)
-proc call_430(): int = target(430, 431)
-proc call_431(): int = target(431, 432)
-proc call_432(): int = target(432, 433)
-proc call_433(): int = target(433, 434)
-proc call_434(): int = target(434, 435)
-proc call_435(): int = target(435, 436)
-proc call_436(): int = target(436, 437)
-proc call_437(): int = target(437, 438)
-proc call_438(): int = target(438, 439)
-proc call_439(): int = target(439, 440)
-proc call_440(): int = target(440, 441)
-proc call_441(): int = target(441, 442)
-proc call_442(): int = target(442, 443)
-proc call_443(): int = target(443, 444)
-proc call_444(): int = target(444, 445)
-proc call_445(): int = target(445, 446)
-proc call_446(): int = target(446, 447)
-proc call_447(): int = target(447, 448)
-proc call_448(): int = target(448, 449)
-proc call_449(): int = target(449, 450)
-proc call_450(): int = target(450, 451)
-proc call_451(): int = target(451, 452)
-proc call_452(): int = target(452, 453)
-proc call_453(): int = target(453, 454)
-proc call_454(): int = target(454, 455)
-proc call_455(): int = target(455, 456)
-proc call_456(): int = target(456, 457)
-proc call_457(): int = target(457, 458)
-proc call_458(): int = target(458, 459)
-proc call_459(): int = target(459, 460)
-proc call_460(): int = target(460, 461)
-proc call_461(): int = target(461, 462)
-proc call_462(): int = target(462, 463)
-proc call_463(): int = target(463, 464)
-proc call_464(): int = target(464, 465)
-proc call_465(): int = target(465, 466)
-proc call_466(): int = target(466, 467)
-proc call_467(): int = target(467, 468)
-proc call_468(): int = target(468, 469)
-proc call_469(): int = target(469, 470)
-proc call_470(): int = target(470, 471)
-proc call_471(): int = target(471, 472)
-proc call_472(): int = target(472, 473)
-proc call_473(): int = target(473, 474)
-proc call_474(): int = target(474, 475)
-proc call_475(): int = target(475, 476)
-proc call_476(): int = target(476, 477)
-proc call_477(): int = target(477, 478)
-proc call_478(): int = target(478, 479)
-proc call_479(): int = target(479, 480)
-proc call_480(): int = target(480, 481)
-proc call_481(): int = target(481, 482)
-proc call_482(): int = target(482, 483)
-proc call_483(): int = target(483, 484)
-proc call_484(): int = target(484, 485)
-proc call_485(): int = target(485, 486)
-proc call_486(): int = target(486, 487)
-proc call_487(): int = target(487, 488)
-proc call_488(): int = target(488, 489)
-proc call_489(): int = target(489, 490)
-proc call_490(): int = target(490, 491)
-proc call_491(): int = target(491, 492)
-proc call_492(): int = target(492, 493)
-proc call_493(): int = target(493, 494)
-proc call_494(): int = target(494, 495)
-proc call_495(): int = target(495, 496)
-proc call_496(): int = target(496, 497)
-proc call_497(): int = target(497, 498)
-proc call_498(): int = target(498, 499)
-proc call_499(): int = target(499, 500)
-proc call_500(): int = target(500, 501)
-proc call_501(): int = target(501, 502)
-proc call_502(): int = target(502, 503)
-proc call_503(): int = target(503, 504)
-proc call_504(): int = target(504, 505)
-proc call_505(): int = target(505, 506)
-proc call_506(): int = target(506, 507)
-proc call_507(): int = target(507, 508)
-proc call_508(): int = target(508, 509)
-proc call_509(): int = target(509, 510)
-proc call_510(): int = target(510, 511)
-proc call_511(): int = target(511, 512)
-proc call_512(): int = target(512, 513)
-proc call_513(): int = target(513, 514)
-proc call_514(): int = target(514, 515)
-proc call_515(): int = target(515, 516)
-proc call_516(): int = target(516, 517)
-proc call_517(): int = target(517, 518)
-proc call_518(): int = target(518, 519)
-proc call_519(): int = target(519, 520)
-proc call_520(): int = target(520, 521)
-proc call_521(): int = target(521, 522)
-proc call_522(): int = target(522, 523)
-proc call_523(): int = target(523, 524)
-proc call_524(): int = target(524, 525)
-proc call_525(): int = target(525, 526)
-proc call_526(): int = target(526, 527)
-proc call_527(): int = target(527, 528)
-proc call_528(): int = target(528, 529)
-proc call_529(): int = target(529, 530)
-proc call_530(): int = target(530, 531)
-proc call_531(): int = target(531, 532)
-proc call_532(): int = target(532, 533)
-proc call_533(): int = target(533, 534)
-proc call_534(): int = target(534, 535)
-proc call_535(): int = target(535, 536)
-proc call_536(): int = target(536, 537)
-proc call_537(): int = target(537, 538)
-proc call_538(): int = target(538, 539)
-proc call_539(): int = target(539, 540)
-proc call_540(): int = target(540, 541)
-proc call_541(): int = target(541, 542)
-proc call_542(): int = target(542, 543)
-proc call_543(): int = target(543, 544)
-proc call_544(): int = target(544, 545)
-proc call_545(): int = target(545, 546)
-proc call_546(): int = target(546, 547)
-proc call_547(): int = target(547, 548)
-proc call_548(): int = target(548, 549)
-proc call_549(): int = target(549, 550)
-proc call_550(): int = target(550, 551)
-proc call_551(): int = target(551, 552)
-proc call_552(): int = target(552, 553)
-proc call_553(): int = target(553, 554)
-proc call_554(): int = target(554, 555)
-proc call_555(): int = target(555, 556)
-proc call_556(): int = target(556, 557)
-proc call_557(): int = target(557, 558)
-proc call_558(): int = target(558, 559)
-proc call_559(): int = target(559, 560)
-proc call_560(): int = target(560, 561)
-proc call_561(): int = target(561, 562)
-proc call_562(): int = target(562, 563)
-proc call_563(): int = target(563, 564)
-proc call_564(): int = target(564, 565)
-proc call_565(): int = target(565, 566)
-proc call_566(): int = target(566, 567)
-proc call_567(): int = target(567, 568)
-proc call_568(): int = target(568, 569)
-proc call_569(): int = target(569, 570)
-proc call_570(): int = target(570, 571)
-proc call_571(): int = target(571, 572)
-proc call_572(): int = target(572, 573)
-proc call_573(): int = target(573, 574)
-proc call_574(): int = target(574, 575)
-proc call_575(): int = target(575, 576)
-proc call_576(): int = target(576, 577)
-proc call_577(): int = target(577, 578)
-proc call_578(): int = target(578, 579)
-proc call_579(): int = target(579, 580)
-proc call_580(): int = target(580, 581)
-proc call_581(): int = target(581, 582)
-proc call_582(): int = target(582, 583)
-proc call_583(): int = target(583, 584)
-proc call_584(): int = target(584, 585)
-proc call_585(): int = target(585, 586)
-proc call_586(): int = target(586, 587)
-proc call_587(): int = target(587, 588)
-proc call_588(): int = target(588, 589)
-proc call_589(): int = target(589, 590)
-proc call_590(): int = target(590, 591)
-proc call_591(): int = target(591, 592)
-proc call_592(): int = target(592, 593)
-proc call_593(): int = target(593, 594)
-proc call_594(): int = target(594, 595)
-proc call_595(): int = target(595, 596)
-proc call_596(): int = target(596, 597)
-proc call_597(): int = target(597, 598)
-proc call_598(): int = target(598, 599)
-proc call_599(): int = target(599, 600)
-proc call_600(): int = target(600, 601)
-proc call_601(): int = target(601, 602)
-proc call_602(): int = target(602, 603)
-proc call_603(): int = target(603, 604)
-proc call_604(): int = target(604, 605)
-proc call_605(): int = target(605, 606)
-proc call_606(): int = target(606, 607)
-proc call_607(): int = target(607, 608)
-proc call_608(): int = target(608, 609)
-proc call_609(): int = target(609, 610)
-proc call_610(): int = target(610, 611)
-proc call_611(): int = target(611, 612)
-proc call_612(): int = target(612, 613)
-proc call_613(): int = target(613, 614)
-proc call_614(): int = target(614, 615)
-proc call_615(): int = target(615, 616)
-proc call_616(): int = target(616, 617)
-proc call_617(): int = target(617, 618)
-proc call_618(): int = target(618, 619)
-proc call_619(): int = target(619, 620)
-proc call_620(): int = target(620, 621)
-proc call_621(): int = target(621, 622)
-proc call_622(): int = target(622, 623)
-proc call_623(): int = target(623, 624)
-proc call_624(): int = target(624, 625)
-proc call_625(): int = target(625, 626)
-proc call_626(): int = target(626, 627)
-proc call_627(): int = target(627, 628)
-proc call_628(): int = target(628, 629)
-proc call_629(): int = target(629, 630)
-proc call_630(): int = target(630, 631)
-proc call_631(): int = target(631, 632)
-proc call_632(): int = target(632, 633)
-proc call_633(): int = target(633, 634)
-proc call_634(): int = target(634, 635)
-proc call_635(): int = target(635, 636)
-proc call_636(): int = target(636, 637)
-proc call_637(): int = target(637, 638)
-proc call_638(): int = target(638, 639)
-proc call_639(): int = target(639, 640)
-proc call_640(): int = target(640, 641)
-proc call_641(): int = target(641, 642)
-proc call_642(): int = target(642, 643)
-proc call_643(): int = target(643, 644)
-proc call_644(): int = target(644, 645)
-proc call_645(): int = target(645, 646)
-proc call_646(): int = target(646, 647)
-proc call_647(): int = target(647, 648)
-proc call_648(): int = target(648, 649)
-proc call_649(): int = target(649, 650)
-proc call_650(): int = target(650, 651)
-proc call_651(): int = target(651, 652)
-proc call_652(): int = target(652, 653)
-proc call_653(): int = target(653, 654)
-proc call_654(): int = target(654, 655)
-proc call_655(): int = target(655, 656)
-proc call_656(): int = target(656, 657)
-proc call_657(): int = target(657, 658)
-proc call_658(): int = target(658, 659)
-proc call_659(): int = target(659, 660)
-proc call_660(): int = target(660, 661)
-proc call_661(): int = target(661, 662)
-proc call_662(): int = target(662, 663)
-proc call_663(): int = target(663, 664)
-proc call_664(): int = target(664, 665)
-proc call_665(): int = target(665, 666)
-proc call_666(): int = target(666, 667)
-proc call_667(): int = target(667, 668)
-proc call_668(): int = target(668, 669)
-proc call_669(): int = target(669, 670)
-proc call_670(): int = target(670, 671)
-proc call_671(): int = target(671, 672)
-proc call_672(): int = target(672, 673)
-proc call_673(): int = target(673, 674)
-proc call_674(): int = target(674, 675)
-proc call_675(): int = target(675, 676)
-proc call_676(): int = target(676, 677)
-proc call_677(): int = target(677, 678)
-proc call_678(): int = target(678, 679)
-proc call_679(): int = target(679, 680)
-proc call_680(): int = target(680, 681)
-proc call_681(): int = target(681, 682)
-proc call_682(): int = target(682, 683)
-proc call_683(): int = target(683, 684)
-proc call_684(): int = target(684, 685)
-proc call_685(): int = target(685, 686)
-proc call_686(): int = target(686, 687)
-proc call_687(): int = target(687, 688)
-proc call_688(): int = target(688, 689)
-proc call_689(): int = target(689, 690)
-proc call_690(): int = target(690, 691)
-proc call_691(): int = target(691, 692)
-proc call_692(): int = target(692, 693)
-proc call_693(): int = target(693, 694)
-proc call_694(): int = target(694, 695)
-proc call_695(): int = target(695, 696)
-proc call_696(): int = target(696, 697)
-proc call_697(): int = target(697, 698)
-proc call_698(): int = target(698, 699)
-proc call_699(): int = target(699, 700)
-proc call_700(): int = target(700, 701)
-proc call_701(): int = target(701, 702)
-proc call_702(): int = target(702, 703)
-proc call_703(): int = target(703, 704)
-proc call_704(): int = target(704, 705)
-proc call_705(): int = target(705, 706)
-proc call_706(): int = target(706, 707)
-proc call_707(): int = target(707, 708)
-proc call_708(): int = target(708, 709)
-proc call_709(): int = target(709, 710)
-proc call_710(): int = target(710, 711)
-proc call_711(): int = target(711, 712)
-proc call_712(): int = target(712, 713)
-proc call_713(): int = target(713, 714)
-proc call_714(): int = target(714, 715)
-proc call_715(): int = target(715, 716)
-proc call_716(): int = target(716, 717)
-proc call_717(): int = target(717, 718)
-proc call_718(): int = target(718, 719)
-proc call_719(): int = target(719, 720)
-proc call_720(): int = target(720, 721)
-proc call_721(): int = target(721, 722)
-proc call_722(): int = target(722, 723)
-proc call_723(): int = target(723, 724)
-proc call_724(): int = target(724, 725)
-proc call_725(): int = target(725, 726)
-proc call_726(): int = target(726, 727)
-proc call_727(): int = target(727, 728)
-proc call_728(): int = target(728, 729)
-proc call_729(): int = target(729, 730)
-proc call_730(): int = target(730, 731)
-proc call_731(): int = target(731, 732)
-proc call_732(): int = target(732, 733)
-proc call_733(): int = target(733, 734)
-proc call_734(): int = target(734, 735)
-proc call_735(): int = target(735, 736)
-proc call_736(): int = target(736, 737)
-proc call_737(): int = target(737, 738)
-proc call_738(): int = target(738, 739)
-proc call_739(): int = target(739, 740)
-proc call_740(): int = target(740, 741)
-proc call_741(): int = target(741, 742)
-proc call_742(): int = target(742, 743)
-proc call_743(): int = target(743, 744)
-proc call_744(): int = target(744, 745)
-proc call_745(): int = target(745, 746)
-proc call_746(): int = target(746, 747)
-proc call_747(): int = target(747, 748)
-proc call_748(): int = target(748, 749)
-proc call_749(): int = target(749, 750)
-proc call_750(): int = target(750, 751)
-proc call_751(): int = target(751, 752)
-proc call_752(): int = target(752, 753)
-proc call_753(): int = target(753, 754)
-proc call_754(): int = target(754, 755)
-proc call_755(): int = target(755, 756)
-proc call_756(): int = target(756, 757)
-proc call_757(): int = target(757, 758)
-proc call_758(): int = target(758, 759)
-proc call_759(): int = target(759, 760)
-proc call_760(): int = target(760, 761)
-proc call_761(): int = target(761, 762)
-proc call_762(): int = target(762, 763)
-proc call_763(): int = target(763, 764)
-proc call_764(): int = target(764, 765)
-proc call_765(): int = target(765, 766)
-proc call_766(): int = target(766, 767)
-proc call_767(): int = target(767, 768)
-proc call_768(): int = target(768, 769)
-proc call_769(): int = target(769, 770)
-proc call_770(): int = target(770, 771)
-proc call_771(): int = target(771, 772)
-proc call_772(): int = target(772, 773)
-proc call_773(): int = target(773, 774)
-proc call_774(): int = target(774, 775)
-proc call_775(): int = target(775, 776)
-proc call_776(): int = target(776, 777)
-proc call_777(): int = target(777, 778)
-proc call_778(): int = target(778, 779)
-proc call_779(): int = target(779, 780)
-proc call_780(): int = target(780, 781)
-proc call_781(): int = target(781, 782)
-proc call_782(): int = target(782, 783)
-proc call_783(): int = target(783, 784)
-proc call_784(): int = target(784, 785)
-proc call_785(): int = target(785, 786)
-proc call_786(): int = target(786, 787)
-proc call_787(): int = target(787, 788)
-proc call_788(): int = target(788, 789)
-proc call_789(): int = target(789, 790)
-proc call_790(): int = target(790, 791)
-proc call_791(): int = target(791, 792)
-proc call_792(): int = target(792, 793)
-proc call_793(): int = target(793, 794)
-proc call_794(): int = target(794, 795)
-proc call_795(): int = target(795, 796)
-proc call_796(): int = target(796, 797)
-proc call_797(): int = target(797, 798)
-proc call_798(): int = target(798, 799)
-proc call_799(): int = target(799, 800)
-proc call_800(): int = target(800, 801)
-proc call_801(): int = target(801, 802)
-proc call_802(): int = target(802, 803)
-proc call_803(): int = target(803, 804)
-proc call_804(): int = target(804, 805)
-proc call_805(): int = target(805, 806)
-proc call_806(): int = target(806, 807)
-proc call_807(): int = target(807, 808)
-proc call_808(): int = target(808, 809)
-proc call_809(): int = target(809, 810)
-proc call_810(): int = target(810, 811)
-proc call_811(): int = target(811, 812)
-proc call_812(): int = target(812, 813)
-proc call_813(): int = target(813, 814)
-proc call_814(): int = target(814, 815)
-proc call_815(): int = target(815, 816)
-proc call_816(): int = target(816, 817)
-proc call_817(): int = target(817, 818)
-proc call_818(): int = target(818, 819)
-proc call_819(): int = target(819, 820)
-proc call_820(): int = target(820, 821)
-proc call_821(): int = target(821, 822)
-proc call_822(): int = target(822, 823)
-proc call_823(): int = target(823, 824)
-proc call_824(): int = target(824, 825)
-proc call_825(): int = target(825, 826)
-proc call_826(): int = target(826, 827)
-proc call_827(): int = target(827, 828)
-proc call_828(): int = target(828, 829)
-proc call_829(): int = target(829, 830)
-proc call_830(): int = target(830, 831)
-proc call_831(): int = target(831, 832)
-proc call_832(): int = target(832, 833)
-proc call_833(): int = target(833, 834)
-proc call_834(): int = target(834, 835)
-proc call_835(): int = target(835, 836)
-proc call_836(): int = target(836, 837)
-proc call_837(): int = target(837, 838)
-proc call_838(): int = target(838, 839)
-proc call_839(): int = target(839, 840)
-proc call_840(): int = target(840, 841)
-proc call_841(): int = target(841, 842)
-proc call_842(): int = target(842, 843)
-proc call_843(): int = target(843, 844)
-proc call_844(): int = target(844, 845)
-proc call_845(): int = target(845, 846)
-proc call_846(): int = target(846, 847)
-proc call_847(): int = target(847, 848)
-proc call_848(): int = target(848, 849)
-proc call_849(): int = target(849, 850)
-proc call_850(): int = target(850, 851)
-proc call_851(): int = target(851, 852)
-proc call_852(): int = target(852, 853)
-proc call_853(): int = target(853, 854)
-proc call_854(): int = target(854, 855)
-proc call_855(): int = target(855, 856)
-proc call_856(): int = target(856, 857)
-proc call_857(): int = target(857, 858)
-proc call_858(): int = target(858, 859)
-proc call_859(): int = target(859, 860)
-proc call_860(): int = target(860, 861)
-proc call_861(): int = target(861, 862)
-proc call_862(): int = target(862, 863)
-proc call_863(): int = target(863, 864)
-proc call_864(): int = target(864, 865)
-proc call_865(): int = target(865, 866)
-proc call_866(): int = target(866, 867)
-proc call_867(): int = target(867, 868)
-proc call_868(): int = target(868, 869)
-proc call_869(): int = target(869, 870)
-proc call_870(): int = target(870, 871)
-proc call_871(): int = target(871, 872)
-proc call_872(): int = target(872, 873)
-proc call_873(): int = target(873, 874)
-proc call_874(): int = target(874, 875)
-proc call_875(): int = target(875, 876)
-proc call_876(): int = target(876, 877)
-proc call_877(): int = target(877, 878)
-proc call_878(): int = target(878, 879)
-proc call_879(): int = target(879, 880)
-proc call_880(): int = target(880, 881)
-proc call_881(): int = target(881, 882)
-proc call_882(): int = target(882, 883)
-proc call_883(): int = target(883, 884)
-proc call_884(): int = target(884, 885)
-proc call_885(): int = target(885, 886)
-proc call_886(): int = target(886, 887)
-proc call_887(): int = target(887, 888)
-proc call_888(): int = target(888, 889)
-proc call_889(): int = target(889, 890)
-proc call_890(): int = target(890, 891)
-proc call_891(): int = target(891, 892)
-proc call_892(): int = target(892, 893)
-proc call_893(): int = target(893, 894)
-proc call_894(): int = target(894, 895)
-proc call_895(): int = target(895, 896)
-proc call_896(): int = target(896, 897)
-proc call_897(): int = target(897, 898)
-proc call_898(): int = target(898, 899)
-proc call_899(): int = target(899, 900)
-proc call_900(): int = target(900, 901)
-proc call_901(): int = target(901, 902)
-proc call_902(): int = target(902, 903)
-proc call_903(): int = target(903, 904)
-proc call_904(): int = target(904, 905)
-proc call_905(): int = target(905, 906)
-proc call_906(): int = target(906, 907)
-proc call_907(): int = target(907, 908)
-proc call_908(): int = target(908, 909)
-proc call_909(): int = target(909, 910)
-proc call_910(): int = target(910, 911)
-proc call_911(): int = target(911, 912)
-proc call_912(): int = target(912, 913)
-proc call_913(): int = target(913, 914)
-proc call_914(): int = target(914, 915)
-proc call_915(): int = target(915, 916)
-proc call_916(): int = target(916, 917)
-proc call_917(): int = target(917, 918)
-proc call_918(): int = target(918, 919)
-proc call_919(): int = target(919, 920)
-proc call_920(): int = target(920, 921)
-proc call_921(): int = target(921, 922)
-proc call_922(): int = target(922, 923)
-proc call_923(): int = target(923, 924)
-proc call_924(): int = target(924, 925)
-proc call_925(): int = target(925, 926)
-proc call_926(): int = target(926, 927)
-proc call_927(): int = target(927, 928)
-proc call_928(): int = target(928, 929)
-proc call_929(): int = target(929, 930)
-proc call_930(): int = target(930, 931)
-proc call_931(): int = target(931, 932)
-proc call_932(): int = target(932, 933)
-proc call_933(): int = target(933, 934)
-proc call_934(): int = target(934, 935)
-proc call_935(): int = target(935, 936)
-proc call_936(): int = target(936, 937)
-proc call_937(): int = target(937, 938)
-proc call_938(): int = target(938, 939)
-proc call_939(): int = target(939, 940)
-proc call_940(): int = target(940, 941)
-proc call_941(): int = target(941, 942)
-proc call_942(): int = target(942, 943)
-proc call_943(): int = target(943, 944)
-proc call_944(): int = target(944, 945)
-proc call_945(): int = target(945, 946)
-proc call_946(): int = target(946, 947)
-proc call_947(): int = target(947, 948)
-proc call_948(): int = target(948, 949)
-proc call_949(): int = target(949, 950)
-proc call_950(): int = target(950, 951)
-proc call_951(): int = target(951, 952)
-proc call_952(): int = target(952, 953)
-proc call_953(): int = target(953, 954)
-proc call_954(): int = target(954, 955)
-proc call_955(): int = target(955, 956)
-proc call_956(): int = target(956, 957)
-proc call_957(): int = target(957, 958)
-proc call_958(): int = target(958, 959)
-proc call_959(): int = target(959, 960)
-proc call_960(): int = target(960, 961)
-proc call_961(): int = target(961, 962)
-proc call_962(): int = target(962, 963)
-proc call_963(): int = target(963, 964)
-proc call_964(): int = target(964, 965)
-proc call_965(): int = target(965, 966)
-proc call_966(): int = target(966, 967)
-proc call_967(): int = target(967, 968)
-proc call_968(): int = target(968, 969)
-proc call_969(): int = target(969, 970)
-proc call_970(): int = target(970, 971)
-proc call_971(): int = target(971, 972)
-proc call_972(): int = target(972, 973)
-proc call_973(): int = target(973, 974)
-proc call_974(): int = target(974, 975)
-proc call_975(): int = target(975, 976)
-proc call_976(): int = target(976, 977)
-proc call_977(): int = target(977, 978)
-proc call_978(): int = target(978, 979)
-proc call_979(): int = target(979, 980)
-proc call_980(): int = target(980, 981)
-proc call_981(): int = target(981, 982)
-proc call_982(): int = target(982, 983)
-proc call_983(): int = target(983, 984)
-proc call_984(): int = target(984, 985)
-proc call_985(): int = target(985, 986)
-proc call_986(): int = target(986, 987)
-proc call_987(): int = target(987, 988)
-proc call_988(): int = target(988, 989)
-proc call_989(): int = target(989, 990)
-proc call_990(): int = target(990, 991)
-proc call_991(): int = target(991, 992)
-proc call_992(): int = target(992, 993)
-proc call_993(): int = target(993, 994)
-proc call_994(): int = target(994, 995)
-proc call_995(): int = target(995, 996)
-proc call_996(): int = target(996, 997)
-proc call_997(): int = target(997, 998)
-proc call_998(): int = target(998, 999)
-proc call_999(): int = target(999, 1000)
+proc call_0(): int =
+  target(0, 1)
+
+proc call_1(): int =
+  target(1, 2)
+
+proc call_2(): int =
+  target(2, 3)
+
+proc call_3(): int =
+  target(3, 4)
+
+proc call_4(): int =
+  target(4, 5)
+
+proc call_5(): int =
+  target(5, 6)
+
+proc call_6(): int =
+  target(6, 7)
+
+proc call_7(): int =
+  target(7, 8)
+
+proc call_8(): int =
+  target(8, 9)
+
+proc call_9(): int =
+  target(9, 10)
+
+proc call_10(): int =
+  target(10, 11)
+
+proc call_11(): int =
+  target(11, 12)
+
+proc call_12(): int =
+  target(12, 13)
+
+proc call_13(): int =
+  target(13, 14)
+
+proc call_14(): int =
+  target(14, 15)
+
+proc call_15(): int =
+  target(15, 16)
+
+proc call_16(): int =
+  target(16, 17)
+
+proc call_17(): int =
+  target(17, 18)
+
+proc call_18(): int =
+  target(18, 19)
+
+proc call_19(): int =
+  target(19, 20)
+
+proc call_20(): int =
+  target(20, 21)
+
+proc call_21(): int =
+  target(21, 22)
+
+proc call_22(): int =
+  target(22, 23)
+
+proc call_23(): int =
+  target(23, 24)
+
+proc call_24(): int =
+  target(24, 25)
+
+proc call_25(): int =
+  target(25, 26)
+
+proc call_26(): int =
+  target(26, 27)
+
+proc call_27(): int =
+  target(27, 28)
+
+proc call_28(): int =
+  target(28, 29)
+
+proc call_29(): int =
+  target(29, 30)
+
+proc call_30(): int =
+  target(30, 31)
+
+proc call_31(): int =
+  target(31, 32)
+
+proc call_32(): int =
+  target(32, 33)
+
+proc call_33(): int =
+  target(33, 34)
+
+proc call_34(): int =
+  target(34, 35)
+
+proc call_35(): int =
+  target(35, 36)
+
+proc call_36(): int =
+  target(36, 37)
+
+proc call_37(): int =
+  target(37, 38)
+
+proc call_38(): int =
+  target(38, 39)
+
+proc call_39(): int =
+  target(39, 40)
+
+proc call_40(): int =
+  target(40, 41)
+
+proc call_41(): int =
+  target(41, 42)
+
+proc call_42(): int =
+  target(42, 43)
+
+proc call_43(): int =
+  target(43, 44)
+
+proc call_44(): int =
+  target(44, 45)
+
+proc call_45(): int =
+  target(45, 46)
+
+proc call_46(): int =
+  target(46, 47)
+
+proc call_47(): int =
+  target(47, 48)
+
+proc call_48(): int =
+  target(48, 49)
+
+proc call_49(): int =
+  target(49, 50)
+
+proc call_50(): int =
+  target(50, 51)
+
+proc call_51(): int =
+  target(51, 52)
+
+proc call_52(): int =
+  target(52, 53)
+
+proc call_53(): int =
+  target(53, 54)
+
+proc call_54(): int =
+  target(54, 55)
+
+proc call_55(): int =
+  target(55, 56)
+
+proc call_56(): int =
+  target(56, 57)
+
+proc call_57(): int =
+  target(57, 58)
+
+proc call_58(): int =
+  target(58, 59)
+
+proc call_59(): int =
+  target(59, 60)
+
+proc call_60(): int =
+  target(60, 61)
+
+proc call_61(): int =
+  target(61, 62)
+
+proc call_62(): int =
+  target(62, 63)
+
+proc call_63(): int =
+  target(63, 64)
+
+proc call_64(): int =
+  target(64, 65)
+
+proc call_65(): int =
+  target(65, 66)
+
+proc call_66(): int =
+  target(66, 67)
+
+proc call_67(): int =
+  target(67, 68)
+
+proc call_68(): int =
+  target(68, 69)
+
+proc call_69(): int =
+  target(69, 70)
+
+proc call_70(): int =
+  target(70, 71)
+
+proc call_71(): int =
+  target(71, 72)
+
+proc call_72(): int =
+  target(72, 73)
+
+proc call_73(): int =
+  target(73, 74)
+
+proc call_74(): int =
+  target(74, 75)
+
+proc call_75(): int =
+  target(75, 76)
+
+proc call_76(): int =
+  target(76, 77)
+
+proc call_77(): int =
+  target(77, 78)
+
+proc call_78(): int =
+  target(78, 79)
+
+proc call_79(): int =
+  target(79, 80)
+
+proc call_80(): int =
+  target(80, 81)
+
+proc call_81(): int =
+  target(81, 82)
+
+proc call_82(): int =
+  target(82, 83)
+
+proc call_83(): int =
+  target(83, 84)
+
+proc call_84(): int =
+  target(84, 85)
+
+proc call_85(): int =
+  target(85, 86)
+
+proc call_86(): int =
+  target(86, 87)
+
+proc call_87(): int =
+  target(87, 88)
+
+proc call_88(): int =
+  target(88, 89)
+
+proc call_89(): int =
+  target(89, 90)
+
+proc call_90(): int =
+  target(90, 91)
+
+proc call_91(): int =
+  target(91, 92)
+
+proc call_92(): int =
+  target(92, 93)
+
+proc call_93(): int =
+  target(93, 94)
+
+proc call_94(): int =
+  target(94, 95)
+
+proc call_95(): int =
+  target(95, 96)
+
+proc call_96(): int =
+  target(96, 97)
+
+proc call_97(): int =
+  target(97, 98)
+
+proc call_98(): int =
+  target(98, 99)
+
+proc call_99(): int =
+  target(99, 100)
+
+proc call_100(): int =
+  target(100, 101)
+
+proc call_101(): int =
+  target(101, 102)
+
+proc call_102(): int =
+  target(102, 103)
+
+proc call_103(): int =
+  target(103, 104)
+
+proc call_104(): int =
+  target(104, 105)
+
+proc call_105(): int =
+  target(105, 106)
+
+proc call_106(): int =
+  target(106, 107)
+
+proc call_107(): int =
+  target(107, 108)
+
+proc call_108(): int =
+  target(108, 109)
+
+proc call_109(): int =
+  target(109, 110)
+
+proc call_110(): int =
+  target(110, 111)
+
+proc call_111(): int =
+  target(111, 112)
+
+proc call_112(): int =
+  target(112, 113)
+
+proc call_113(): int =
+  target(113, 114)
+
+proc call_114(): int =
+  target(114, 115)
+
+proc call_115(): int =
+  target(115, 116)
+
+proc call_116(): int =
+  target(116, 117)
+
+proc call_117(): int =
+  target(117, 118)
+
+proc call_118(): int =
+  target(118, 119)
+
+proc call_119(): int =
+  target(119, 120)
+
+proc call_120(): int =
+  target(120, 121)
+
+proc call_121(): int =
+  target(121, 122)
+
+proc call_122(): int =
+  target(122, 123)
+
+proc call_123(): int =
+  target(123, 124)
+
+proc call_124(): int =
+  target(124, 125)
+
+proc call_125(): int =
+  target(125, 126)
+
+proc call_126(): int =
+  target(126, 127)
+
+proc call_127(): int =
+  target(127, 128)
+
+proc call_128(): int =
+  target(128, 129)
+
+proc call_129(): int =
+  target(129, 130)
+
+proc call_130(): int =
+  target(130, 131)
+
+proc call_131(): int =
+  target(131, 132)
+
+proc call_132(): int =
+  target(132, 133)
+
+proc call_133(): int =
+  target(133, 134)
+
+proc call_134(): int =
+  target(134, 135)
+
+proc call_135(): int =
+  target(135, 136)
+
+proc call_136(): int =
+  target(136, 137)
+
+proc call_137(): int =
+  target(137, 138)
+
+proc call_138(): int =
+  target(138, 139)
+
+proc call_139(): int =
+  target(139, 140)
+
+proc call_140(): int =
+  target(140, 141)
+
+proc call_141(): int =
+  target(141, 142)
+
+proc call_142(): int =
+  target(142, 143)
+
+proc call_143(): int =
+  target(143, 144)
+
+proc call_144(): int =
+  target(144, 145)
+
+proc call_145(): int =
+  target(145, 146)
+
+proc call_146(): int =
+  target(146, 147)
+
+proc call_147(): int =
+  target(147, 148)
+
+proc call_148(): int =
+  target(148, 149)
+
+proc call_149(): int =
+  target(149, 150)
+
+proc call_150(): int =
+  target(150, 151)
+
+proc call_151(): int =
+  target(151, 152)
+
+proc call_152(): int =
+  target(152, 153)
+
+proc call_153(): int =
+  target(153, 154)
+
+proc call_154(): int =
+  target(154, 155)
+
+proc call_155(): int =
+  target(155, 156)
+
+proc call_156(): int =
+  target(156, 157)
+
+proc call_157(): int =
+  target(157, 158)
+
+proc call_158(): int =
+  target(158, 159)
+
+proc call_159(): int =
+  target(159, 160)
+
+proc call_160(): int =
+  target(160, 161)
+
+proc call_161(): int =
+  target(161, 162)
+
+proc call_162(): int =
+  target(162, 163)
+
+proc call_163(): int =
+  target(163, 164)
+
+proc call_164(): int =
+  target(164, 165)
+
+proc call_165(): int =
+  target(165, 166)
+
+proc call_166(): int =
+  target(166, 167)
+
+proc call_167(): int =
+  target(167, 168)
+
+proc call_168(): int =
+  target(168, 169)
+
+proc call_169(): int =
+  target(169, 170)
+
+proc call_170(): int =
+  target(170, 171)
+
+proc call_171(): int =
+  target(171, 172)
+
+proc call_172(): int =
+  target(172, 173)
+
+proc call_173(): int =
+  target(173, 174)
+
+proc call_174(): int =
+  target(174, 175)
+
+proc call_175(): int =
+  target(175, 176)
+
+proc call_176(): int =
+  target(176, 177)
+
+proc call_177(): int =
+  target(177, 178)
+
+proc call_178(): int =
+  target(178, 179)
+
+proc call_179(): int =
+  target(179, 180)
+
+proc call_180(): int =
+  target(180, 181)
+
+proc call_181(): int =
+  target(181, 182)
+
+proc call_182(): int =
+  target(182, 183)
+
+proc call_183(): int =
+  target(183, 184)
+
+proc call_184(): int =
+  target(184, 185)
+
+proc call_185(): int =
+  target(185, 186)
+
+proc call_186(): int =
+  target(186, 187)
+
+proc call_187(): int =
+  target(187, 188)
+
+proc call_188(): int =
+  target(188, 189)
+
+proc call_189(): int =
+  target(189, 190)
+
+proc call_190(): int =
+  target(190, 191)
+
+proc call_191(): int =
+  target(191, 192)
+
+proc call_192(): int =
+  target(192, 193)
+
+proc call_193(): int =
+  target(193, 194)
+
+proc call_194(): int =
+  target(194, 195)
+
+proc call_195(): int =
+  target(195, 196)
+
+proc call_196(): int =
+  target(196, 197)
+
+proc call_197(): int =
+  target(197, 198)
+
+proc call_198(): int =
+  target(198, 199)
+
+proc call_199(): int =
+  target(199, 200)
+
+proc call_200(): int =
+  target(200, 201)
+
+proc call_201(): int =
+  target(201, 202)
+
+proc call_202(): int =
+  target(202, 203)
+
+proc call_203(): int =
+  target(203, 204)
+
+proc call_204(): int =
+  target(204, 205)
+
+proc call_205(): int =
+  target(205, 206)
+
+proc call_206(): int =
+  target(206, 207)
+
+proc call_207(): int =
+  target(207, 208)
+
+proc call_208(): int =
+  target(208, 209)
+
+proc call_209(): int =
+  target(209, 210)
+
+proc call_210(): int =
+  target(210, 211)
+
+proc call_211(): int =
+  target(211, 212)
+
+proc call_212(): int =
+  target(212, 213)
+
+proc call_213(): int =
+  target(213, 214)
+
+proc call_214(): int =
+  target(214, 215)
+
+proc call_215(): int =
+  target(215, 216)
+
+proc call_216(): int =
+  target(216, 217)
+
+proc call_217(): int =
+  target(217, 218)
+
+proc call_218(): int =
+  target(218, 219)
+
+proc call_219(): int =
+  target(219, 220)
+
+proc call_220(): int =
+  target(220, 221)
+
+proc call_221(): int =
+  target(221, 222)
+
+proc call_222(): int =
+  target(222, 223)
+
+proc call_223(): int =
+  target(223, 224)
+
+proc call_224(): int =
+  target(224, 225)
+
+proc call_225(): int =
+  target(225, 226)
+
+proc call_226(): int =
+  target(226, 227)
+
+proc call_227(): int =
+  target(227, 228)
+
+proc call_228(): int =
+  target(228, 229)
+
+proc call_229(): int =
+  target(229, 230)
+
+proc call_230(): int =
+  target(230, 231)
+
+proc call_231(): int =
+  target(231, 232)
+
+proc call_232(): int =
+  target(232, 233)
+
+proc call_233(): int =
+  target(233, 234)
+
+proc call_234(): int =
+  target(234, 235)
+
+proc call_235(): int =
+  target(235, 236)
+
+proc call_236(): int =
+  target(236, 237)
+
+proc call_237(): int =
+  target(237, 238)
+
+proc call_238(): int =
+  target(238, 239)
+
+proc call_239(): int =
+  target(239, 240)
+
+proc call_240(): int =
+  target(240, 241)
+
+proc call_241(): int =
+  target(241, 242)
+
+proc call_242(): int =
+  target(242, 243)
+
+proc call_243(): int =
+  target(243, 244)
+
+proc call_244(): int =
+  target(244, 245)
+
+proc call_245(): int =
+  target(245, 246)
+
+proc call_246(): int =
+  target(246, 247)
+
+proc call_247(): int =
+  target(247, 248)
+
+proc call_248(): int =
+  target(248, 249)
+
+proc call_249(): int =
+  target(249, 250)
+
+proc call_250(): int =
+  target(250, 251)
+
+proc call_251(): int =
+  target(251, 252)
+
+proc call_252(): int =
+  target(252, 253)
+
+proc call_253(): int =
+  target(253, 254)
+
+proc call_254(): int =
+  target(254, 255)
+
+proc call_255(): int =
+  target(255, 256)
+
+proc call_256(): int =
+  target(256, 257)
+
+proc call_257(): int =
+  target(257, 258)
+
+proc call_258(): int =
+  target(258, 259)
+
+proc call_259(): int =
+  target(259, 260)
+
+proc call_260(): int =
+  target(260, 261)
+
+proc call_261(): int =
+  target(261, 262)
+
+proc call_262(): int =
+  target(262, 263)
+
+proc call_263(): int =
+  target(263, 264)
+
+proc call_264(): int =
+  target(264, 265)
+
+proc call_265(): int =
+  target(265, 266)
+
+proc call_266(): int =
+  target(266, 267)
+
+proc call_267(): int =
+  target(267, 268)
+
+proc call_268(): int =
+  target(268, 269)
+
+proc call_269(): int =
+  target(269, 270)
+
+proc call_270(): int =
+  target(270, 271)
+
+proc call_271(): int =
+  target(271, 272)
+
+proc call_272(): int =
+  target(272, 273)
+
+proc call_273(): int =
+  target(273, 274)
+
+proc call_274(): int =
+  target(274, 275)
+
+proc call_275(): int =
+  target(275, 276)
+
+proc call_276(): int =
+  target(276, 277)
+
+proc call_277(): int =
+  target(277, 278)
+
+proc call_278(): int =
+  target(278, 279)
+
+proc call_279(): int =
+  target(279, 280)
+
+proc call_280(): int =
+  target(280, 281)
+
+proc call_281(): int =
+  target(281, 282)
+
+proc call_282(): int =
+  target(282, 283)
+
+proc call_283(): int =
+  target(283, 284)
+
+proc call_284(): int =
+  target(284, 285)
+
+proc call_285(): int =
+  target(285, 286)
+
+proc call_286(): int =
+  target(286, 287)
+
+proc call_287(): int =
+  target(287, 288)
+
+proc call_288(): int =
+  target(288, 289)
+
+proc call_289(): int =
+  target(289, 290)
+
+proc call_290(): int =
+  target(290, 291)
+
+proc call_291(): int =
+  target(291, 292)
+
+proc call_292(): int =
+  target(292, 293)
+
+proc call_293(): int =
+  target(293, 294)
+
+proc call_294(): int =
+  target(294, 295)
+
+proc call_295(): int =
+  target(295, 296)
+
+proc call_296(): int =
+  target(296, 297)
+
+proc call_297(): int =
+  target(297, 298)
+
+proc call_298(): int =
+  target(298, 299)
+
+proc call_299(): int =
+  target(299, 300)
+
+proc call_300(): int =
+  target(300, 301)
+
+proc call_301(): int =
+  target(301, 302)
+
+proc call_302(): int =
+  target(302, 303)
+
+proc call_303(): int =
+  target(303, 304)
+
+proc call_304(): int =
+  target(304, 305)
+
+proc call_305(): int =
+  target(305, 306)
+
+proc call_306(): int =
+  target(306, 307)
+
+proc call_307(): int =
+  target(307, 308)
+
+proc call_308(): int =
+  target(308, 309)
+
+proc call_309(): int =
+  target(309, 310)
+
+proc call_310(): int =
+  target(310, 311)
+
+proc call_311(): int =
+  target(311, 312)
+
+proc call_312(): int =
+  target(312, 313)
+
+proc call_313(): int =
+  target(313, 314)
+
+proc call_314(): int =
+  target(314, 315)
+
+proc call_315(): int =
+  target(315, 316)
+
+proc call_316(): int =
+  target(316, 317)
+
+proc call_317(): int =
+  target(317, 318)
+
+proc call_318(): int =
+  target(318, 319)
+
+proc call_319(): int =
+  target(319, 320)
+
+proc call_320(): int =
+  target(320, 321)
+
+proc call_321(): int =
+  target(321, 322)
+
+proc call_322(): int =
+  target(322, 323)
+
+proc call_323(): int =
+  target(323, 324)
+
+proc call_324(): int =
+  target(324, 325)
+
+proc call_325(): int =
+  target(325, 326)
+
+proc call_326(): int =
+  target(326, 327)
+
+proc call_327(): int =
+  target(327, 328)
+
+proc call_328(): int =
+  target(328, 329)
+
+proc call_329(): int =
+  target(329, 330)
+
+proc call_330(): int =
+  target(330, 331)
+
+proc call_331(): int =
+  target(331, 332)
+
+proc call_332(): int =
+  target(332, 333)
+
+proc call_333(): int =
+  target(333, 334)
+
+proc call_334(): int =
+  target(334, 335)
+
+proc call_335(): int =
+  target(335, 336)
+
+proc call_336(): int =
+  target(336, 337)
+
+proc call_337(): int =
+  target(337, 338)
+
+proc call_338(): int =
+  target(338, 339)
+
+proc call_339(): int =
+  target(339, 340)
+
+proc call_340(): int =
+  target(340, 341)
+
+proc call_341(): int =
+  target(341, 342)
+
+proc call_342(): int =
+  target(342, 343)
+
+proc call_343(): int =
+  target(343, 344)
+
+proc call_344(): int =
+  target(344, 345)
+
+proc call_345(): int =
+  target(345, 346)
+
+proc call_346(): int =
+  target(346, 347)
+
+proc call_347(): int =
+  target(347, 348)
+
+proc call_348(): int =
+  target(348, 349)
+
+proc call_349(): int =
+  target(349, 350)
+
+proc call_350(): int =
+  target(350, 351)
+
+proc call_351(): int =
+  target(351, 352)
+
+proc call_352(): int =
+  target(352, 353)
+
+proc call_353(): int =
+  target(353, 354)
+
+proc call_354(): int =
+  target(354, 355)
+
+proc call_355(): int =
+  target(355, 356)
+
+proc call_356(): int =
+  target(356, 357)
+
+proc call_357(): int =
+  target(357, 358)
+
+proc call_358(): int =
+  target(358, 359)
+
+proc call_359(): int =
+  target(359, 360)
+
+proc call_360(): int =
+  target(360, 361)
+
+proc call_361(): int =
+  target(361, 362)
+
+proc call_362(): int =
+  target(362, 363)
+
+proc call_363(): int =
+  target(363, 364)
+
+proc call_364(): int =
+  target(364, 365)
+
+proc call_365(): int =
+  target(365, 366)
+
+proc call_366(): int =
+  target(366, 367)
+
+proc call_367(): int =
+  target(367, 368)
+
+proc call_368(): int =
+  target(368, 369)
+
+proc call_369(): int =
+  target(369, 370)
+
+proc call_370(): int =
+  target(370, 371)
+
+proc call_371(): int =
+  target(371, 372)
+
+proc call_372(): int =
+  target(372, 373)
+
+proc call_373(): int =
+  target(373, 374)
+
+proc call_374(): int =
+  target(374, 375)
+
+proc call_375(): int =
+  target(375, 376)
+
+proc call_376(): int =
+  target(376, 377)
+
+proc call_377(): int =
+  target(377, 378)
+
+proc call_378(): int =
+  target(378, 379)
+
+proc call_379(): int =
+  target(379, 380)
+
+proc call_380(): int =
+  target(380, 381)
+
+proc call_381(): int =
+  target(381, 382)
+
+proc call_382(): int =
+  target(382, 383)
+
+proc call_383(): int =
+  target(383, 384)
+
+proc call_384(): int =
+  target(384, 385)
+
+proc call_385(): int =
+  target(385, 386)
+
+proc call_386(): int =
+  target(386, 387)
+
+proc call_387(): int =
+  target(387, 388)
+
+proc call_388(): int =
+  target(388, 389)
+
+proc call_389(): int =
+  target(389, 390)
+
+proc call_390(): int =
+  target(390, 391)
+
+proc call_391(): int =
+  target(391, 392)
+
+proc call_392(): int =
+  target(392, 393)
+
+proc call_393(): int =
+  target(393, 394)
+
+proc call_394(): int =
+  target(394, 395)
+
+proc call_395(): int =
+  target(395, 396)
+
+proc call_396(): int =
+  target(396, 397)
+
+proc call_397(): int =
+  target(397, 398)
+
+proc call_398(): int =
+  target(398, 399)
+
+proc call_399(): int =
+  target(399, 400)
+
+proc call_400(): int =
+  target(400, 401)
+
+proc call_401(): int =
+  target(401, 402)
+
+proc call_402(): int =
+  target(402, 403)
+
+proc call_403(): int =
+  target(403, 404)
+
+proc call_404(): int =
+  target(404, 405)
+
+proc call_405(): int =
+  target(405, 406)
+
+proc call_406(): int =
+  target(406, 407)
+
+proc call_407(): int =
+  target(407, 408)
+
+proc call_408(): int =
+  target(408, 409)
+
+proc call_409(): int =
+  target(409, 410)
+
+proc call_410(): int =
+  target(410, 411)
+
+proc call_411(): int =
+  target(411, 412)
+
+proc call_412(): int =
+  target(412, 413)
+
+proc call_413(): int =
+  target(413, 414)
+
+proc call_414(): int =
+  target(414, 415)
+
+proc call_415(): int =
+  target(415, 416)
+
+proc call_416(): int =
+  target(416, 417)
+
+proc call_417(): int =
+  target(417, 418)
+
+proc call_418(): int =
+  target(418, 419)
+
+proc call_419(): int =
+  target(419, 420)
+
+proc call_420(): int =
+  target(420, 421)
+
+proc call_421(): int =
+  target(421, 422)
+
+proc call_422(): int =
+  target(422, 423)
+
+proc call_423(): int =
+  target(423, 424)
+
+proc call_424(): int =
+  target(424, 425)
+
+proc call_425(): int =
+  target(425, 426)
+
+proc call_426(): int =
+  target(426, 427)
+
+proc call_427(): int =
+  target(427, 428)
+
+proc call_428(): int =
+  target(428, 429)
+
+proc call_429(): int =
+  target(429, 430)
+
+proc call_430(): int =
+  target(430, 431)
+
+proc call_431(): int =
+  target(431, 432)
+
+proc call_432(): int =
+  target(432, 433)
+
+proc call_433(): int =
+  target(433, 434)
+
+proc call_434(): int =
+  target(434, 435)
+
+proc call_435(): int =
+  target(435, 436)
+
+proc call_436(): int =
+  target(436, 437)
+
+proc call_437(): int =
+  target(437, 438)
+
+proc call_438(): int =
+  target(438, 439)
+
+proc call_439(): int =
+  target(439, 440)
+
+proc call_440(): int =
+  target(440, 441)
+
+proc call_441(): int =
+  target(441, 442)
+
+proc call_442(): int =
+  target(442, 443)
+
+proc call_443(): int =
+  target(443, 444)
+
+proc call_444(): int =
+  target(444, 445)
+
+proc call_445(): int =
+  target(445, 446)
+
+proc call_446(): int =
+  target(446, 447)
+
+proc call_447(): int =
+  target(447, 448)
+
+proc call_448(): int =
+  target(448, 449)
+
+proc call_449(): int =
+  target(449, 450)
+
+proc call_450(): int =
+  target(450, 451)
+
+proc call_451(): int =
+  target(451, 452)
+
+proc call_452(): int =
+  target(452, 453)
+
+proc call_453(): int =
+  target(453, 454)
+
+proc call_454(): int =
+  target(454, 455)
+
+proc call_455(): int =
+  target(455, 456)
+
+proc call_456(): int =
+  target(456, 457)
+
+proc call_457(): int =
+  target(457, 458)
+
+proc call_458(): int =
+  target(458, 459)
+
+proc call_459(): int =
+  target(459, 460)
+
+proc call_460(): int =
+  target(460, 461)
+
+proc call_461(): int =
+  target(461, 462)
+
+proc call_462(): int =
+  target(462, 463)
+
+proc call_463(): int =
+  target(463, 464)
+
+proc call_464(): int =
+  target(464, 465)
+
+proc call_465(): int =
+  target(465, 466)
+
+proc call_466(): int =
+  target(466, 467)
+
+proc call_467(): int =
+  target(467, 468)
+
+proc call_468(): int =
+  target(468, 469)
+
+proc call_469(): int =
+  target(469, 470)
+
+proc call_470(): int =
+  target(470, 471)
+
+proc call_471(): int =
+  target(471, 472)
+
+proc call_472(): int =
+  target(472, 473)
+
+proc call_473(): int =
+  target(473, 474)
+
+proc call_474(): int =
+  target(474, 475)
+
+proc call_475(): int =
+  target(475, 476)
+
+proc call_476(): int =
+  target(476, 477)
+
+proc call_477(): int =
+  target(477, 478)
+
+proc call_478(): int =
+  target(478, 479)
+
+proc call_479(): int =
+  target(479, 480)
+
+proc call_480(): int =
+  target(480, 481)
+
+proc call_481(): int =
+  target(481, 482)
+
+proc call_482(): int =
+  target(482, 483)
+
+proc call_483(): int =
+  target(483, 484)
+
+proc call_484(): int =
+  target(484, 485)
+
+proc call_485(): int =
+  target(485, 486)
+
+proc call_486(): int =
+  target(486, 487)
+
+proc call_487(): int =
+  target(487, 488)
+
+proc call_488(): int =
+  target(488, 489)
+
+proc call_489(): int =
+  target(489, 490)
+
+proc call_490(): int =
+  target(490, 491)
+
+proc call_491(): int =
+  target(491, 492)
+
+proc call_492(): int =
+  target(492, 493)
+
+proc call_493(): int =
+  target(493, 494)
+
+proc call_494(): int =
+  target(494, 495)
+
+proc call_495(): int =
+  target(495, 496)
+
+proc call_496(): int =
+  target(496, 497)
+
+proc call_497(): int =
+  target(497, 498)
+
+proc call_498(): int =
+  target(498, 499)
+
+proc call_499(): int =
+  target(499, 500)
+
+proc call_500(): int =
+  target(500, 501)
+
+proc call_501(): int =
+  target(501, 502)
+
+proc call_502(): int =
+  target(502, 503)
+
+proc call_503(): int =
+  target(503, 504)
+
+proc call_504(): int =
+  target(504, 505)
+
+proc call_505(): int =
+  target(505, 506)
+
+proc call_506(): int =
+  target(506, 507)
+
+proc call_507(): int =
+  target(507, 508)
+
+proc call_508(): int =
+  target(508, 509)
+
+proc call_509(): int =
+  target(509, 510)
+
+proc call_510(): int =
+  target(510, 511)
+
+proc call_511(): int =
+  target(511, 512)
+
+proc call_512(): int =
+  target(512, 513)
+
+proc call_513(): int =
+  target(513, 514)
+
+proc call_514(): int =
+  target(514, 515)
+
+proc call_515(): int =
+  target(515, 516)
+
+proc call_516(): int =
+  target(516, 517)
+
+proc call_517(): int =
+  target(517, 518)
+
+proc call_518(): int =
+  target(518, 519)
+
+proc call_519(): int =
+  target(519, 520)
+
+proc call_520(): int =
+  target(520, 521)
+
+proc call_521(): int =
+  target(521, 522)
+
+proc call_522(): int =
+  target(522, 523)
+
+proc call_523(): int =
+  target(523, 524)
+
+proc call_524(): int =
+  target(524, 525)
+
+proc call_525(): int =
+  target(525, 526)
+
+proc call_526(): int =
+  target(526, 527)
+
+proc call_527(): int =
+  target(527, 528)
+
+proc call_528(): int =
+  target(528, 529)
+
+proc call_529(): int =
+  target(529, 530)
+
+proc call_530(): int =
+  target(530, 531)
+
+proc call_531(): int =
+  target(531, 532)
+
+proc call_532(): int =
+  target(532, 533)
+
+proc call_533(): int =
+  target(533, 534)
+
+proc call_534(): int =
+  target(534, 535)
+
+proc call_535(): int =
+  target(535, 536)
+
+proc call_536(): int =
+  target(536, 537)
+
+proc call_537(): int =
+  target(537, 538)
+
+proc call_538(): int =
+  target(538, 539)
+
+proc call_539(): int =
+  target(539, 540)
+
+proc call_540(): int =
+  target(540, 541)
+
+proc call_541(): int =
+  target(541, 542)
+
+proc call_542(): int =
+  target(542, 543)
+
+proc call_543(): int =
+  target(543, 544)
+
+proc call_544(): int =
+  target(544, 545)
+
+proc call_545(): int =
+  target(545, 546)
+
+proc call_546(): int =
+  target(546, 547)
+
+proc call_547(): int =
+  target(547, 548)
+
+proc call_548(): int =
+  target(548, 549)
+
+proc call_549(): int =
+  target(549, 550)
+
+proc call_550(): int =
+  target(550, 551)
+
+proc call_551(): int =
+  target(551, 552)
+
+proc call_552(): int =
+  target(552, 553)
+
+proc call_553(): int =
+  target(553, 554)
+
+proc call_554(): int =
+  target(554, 555)
+
+proc call_555(): int =
+  target(555, 556)
+
+proc call_556(): int =
+  target(556, 557)
+
+proc call_557(): int =
+  target(557, 558)
+
+proc call_558(): int =
+  target(558, 559)
+
+proc call_559(): int =
+  target(559, 560)
+
+proc call_560(): int =
+  target(560, 561)
+
+proc call_561(): int =
+  target(561, 562)
+
+proc call_562(): int =
+  target(562, 563)
+
+proc call_563(): int =
+  target(563, 564)
+
+proc call_564(): int =
+  target(564, 565)
+
+proc call_565(): int =
+  target(565, 566)
+
+proc call_566(): int =
+  target(566, 567)
+
+proc call_567(): int =
+  target(567, 568)
+
+proc call_568(): int =
+  target(568, 569)
+
+proc call_569(): int =
+  target(569, 570)
+
+proc call_570(): int =
+  target(570, 571)
+
+proc call_571(): int =
+  target(571, 572)
+
+proc call_572(): int =
+  target(572, 573)
+
+proc call_573(): int =
+  target(573, 574)
+
+proc call_574(): int =
+  target(574, 575)
+
+proc call_575(): int =
+  target(575, 576)
+
+proc call_576(): int =
+  target(576, 577)
+
+proc call_577(): int =
+  target(577, 578)
+
+proc call_578(): int =
+  target(578, 579)
+
+proc call_579(): int =
+  target(579, 580)
+
+proc call_580(): int =
+  target(580, 581)
+
+proc call_581(): int =
+  target(581, 582)
+
+proc call_582(): int =
+  target(582, 583)
+
+proc call_583(): int =
+  target(583, 584)
+
+proc call_584(): int =
+  target(584, 585)
+
+proc call_585(): int =
+  target(585, 586)
+
+proc call_586(): int =
+  target(586, 587)
+
+proc call_587(): int =
+  target(587, 588)
+
+proc call_588(): int =
+  target(588, 589)
+
+proc call_589(): int =
+  target(589, 590)
+
+proc call_590(): int =
+  target(590, 591)
+
+proc call_591(): int =
+  target(591, 592)
+
+proc call_592(): int =
+  target(592, 593)
+
+proc call_593(): int =
+  target(593, 594)
+
+proc call_594(): int =
+  target(594, 595)
+
+proc call_595(): int =
+  target(595, 596)
+
+proc call_596(): int =
+  target(596, 597)
+
+proc call_597(): int =
+  target(597, 598)
+
+proc call_598(): int =
+  target(598, 599)
+
+proc call_599(): int =
+  target(599, 600)
+
+proc call_600(): int =
+  target(600, 601)
+
+proc call_601(): int =
+  target(601, 602)
+
+proc call_602(): int =
+  target(602, 603)
+
+proc call_603(): int =
+  target(603, 604)
+
+proc call_604(): int =
+  target(604, 605)
+
+proc call_605(): int =
+  target(605, 606)
+
+proc call_606(): int =
+  target(606, 607)
+
+proc call_607(): int =
+  target(607, 608)
+
+proc call_608(): int =
+  target(608, 609)
+
+proc call_609(): int =
+  target(609, 610)
+
+proc call_610(): int =
+  target(610, 611)
+
+proc call_611(): int =
+  target(611, 612)
+
+proc call_612(): int =
+  target(612, 613)
+
+proc call_613(): int =
+  target(613, 614)
+
+proc call_614(): int =
+  target(614, 615)
+
+proc call_615(): int =
+  target(615, 616)
+
+proc call_616(): int =
+  target(616, 617)
+
+proc call_617(): int =
+  target(617, 618)
+
+proc call_618(): int =
+  target(618, 619)
+
+proc call_619(): int =
+  target(619, 620)
+
+proc call_620(): int =
+  target(620, 621)
+
+proc call_621(): int =
+  target(621, 622)
+
+proc call_622(): int =
+  target(622, 623)
+
+proc call_623(): int =
+  target(623, 624)
+
+proc call_624(): int =
+  target(624, 625)
+
+proc call_625(): int =
+  target(625, 626)
+
+proc call_626(): int =
+  target(626, 627)
+
+proc call_627(): int =
+  target(627, 628)
+
+proc call_628(): int =
+  target(628, 629)
+
+proc call_629(): int =
+  target(629, 630)
+
+proc call_630(): int =
+  target(630, 631)
+
+proc call_631(): int =
+  target(631, 632)
+
+proc call_632(): int =
+  target(632, 633)
+
+proc call_633(): int =
+  target(633, 634)
+
+proc call_634(): int =
+  target(634, 635)
+
+proc call_635(): int =
+  target(635, 636)
+
+proc call_636(): int =
+  target(636, 637)
+
+proc call_637(): int =
+  target(637, 638)
+
+proc call_638(): int =
+  target(638, 639)
+
+proc call_639(): int =
+  target(639, 640)
+
+proc call_640(): int =
+  target(640, 641)
+
+proc call_641(): int =
+  target(641, 642)
+
+proc call_642(): int =
+  target(642, 643)
+
+proc call_643(): int =
+  target(643, 644)
+
+proc call_644(): int =
+  target(644, 645)
+
+proc call_645(): int =
+  target(645, 646)
+
+proc call_646(): int =
+  target(646, 647)
+
+proc call_647(): int =
+  target(647, 648)
+
+proc call_648(): int =
+  target(648, 649)
+
+proc call_649(): int =
+  target(649, 650)
+
+proc call_650(): int =
+  target(650, 651)
+
+proc call_651(): int =
+  target(651, 652)
+
+proc call_652(): int =
+  target(652, 653)
+
+proc call_653(): int =
+  target(653, 654)
+
+proc call_654(): int =
+  target(654, 655)
+
+proc call_655(): int =
+  target(655, 656)
+
+proc call_656(): int =
+  target(656, 657)
+
+proc call_657(): int =
+  target(657, 658)
+
+proc call_658(): int =
+  target(658, 659)
+
+proc call_659(): int =
+  target(659, 660)
+
+proc call_660(): int =
+  target(660, 661)
+
+proc call_661(): int =
+  target(661, 662)
+
+proc call_662(): int =
+  target(662, 663)
+
+proc call_663(): int =
+  target(663, 664)
+
+proc call_664(): int =
+  target(664, 665)
+
+proc call_665(): int =
+  target(665, 666)
+
+proc call_666(): int =
+  target(666, 667)
+
+proc call_667(): int =
+  target(667, 668)
+
+proc call_668(): int =
+  target(668, 669)
+
+proc call_669(): int =
+  target(669, 670)
+
+proc call_670(): int =
+  target(670, 671)
+
+proc call_671(): int =
+  target(671, 672)
+
+proc call_672(): int =
+  target(672, 673)
+
+proc call_673(): int =
+  target(673, 674)
+
+proc call_674(): int =
+  target(674, 675)
+
+proc call_675(): int =
+  target(675, 676)
+
+proc call_676(): int =
+  target(676, 677)
+
+proc call_677(): int =
+  target(677, 678)
+
+proc call_678(): int =
+  target(678, 679)
+
+proc call_679(): int =
+  target(679, 680)
+
+proc call_680(): int =
+  target(680, 681)
+
+proc call_681(): int =
+  target(681, 682)
+
+proc call_682(): int =
+  target(682, 683)
+
+proc call_683(): int =
+  target(683, 684)
+
+proc call_684(): int =
+  target(684, 685)
+
+proc call_685(): int =
+  target(685, 686)
+
+proc call_686(): int =
+  target(686, 687)
+
+proc call_687(): int =
+  target(687, 688)
+
+proc call_688(): int =
+  target(688, 689)
+
+proc call_689(): int =
+  target(689, 690)
+
+proc call_690(): int =
+  target(690, 691)
+
+proc call_691(): int =
+  target(691, 692)
+
+proc call_692(): int =
+  target(692, 693)
+
+proc call_693(): int =
+  target(693, 694)
+
+proc call_694(): int =
+  target(694, 695)
+
+proc call_695(): int =
+  target(695, 696)
+
+proc call_696(): int =
+  target(696, 697)
+
+proc call_697(): int =
+  target(697, 698)
+
+proc call_698(): int =
+  target(698, 699)
+
+proc call_699(): int =
+  target(699, 700)
+
+proc call_700(): int =
+  target(700, 701)
+
+proc call_701(): int =
+  target(701, 702)
+
+proc call_702(): int =
+  target(702, 703)
+
+proc call_703(): int =
+  target(703, 704)
+
+proc call_704(): int =
+  target(704, 705)
+
+proc call_705(): int =
+  target(705, 706)
+
+proc call_706(): int =
+  target(706, 707)
+
+proc call_707(): int =
+  target(707, 708)
+
+proc call_708(): int =
+  target(708, 709)
+
+proc call_709(): int =
+  target(709, 710)
+
+proc call_710(): int =
+  target(710, 711)
+
+proc call_711(): int =
+  target(711, 712)
+
+proc call_712(): int =
+  target(712, 713)
+
+proc call_713(): int =
+  target(713, 714)
+
+proc call_714(): int =
+  target(714, 715)
+
+proc call_715(): int =
+  target(715, 716)
+
+proc call_716(): int =
+  target(716, 717)
+
+proc call_717(): int =
+  target(717, 718)
+
+proc call_718(): int =
+  target(718, 719)
+
+proc call_719(): int =
+  target(719, 720)
+
+proc call_720(): int =
+  target(720, 721)
+
+proc call_721(): int =
+  target(721, 722)
+
+proc call_722(): int =
+  target(722, 723)
+
+proc call_723(): int =
+  target(723, 724)
+
+proc call_724(): int =
+  target(724, 725)
+
+proc call_725(): int =
+  target(725, 726)
+
+proc call_726(): int =
+  target(726, 727)
+
+proc call_727(): int =
+  target(727, 728)
+
+proc call_728(): int =
+  target(728, 729)
+
+proc call_729(): int =
+  target(729, 730)
+
+proc call_730(): int =
+  target(730, 731)
+
+proc call_731(): int =
+  target(731, 732)
+
+proc call_732(): int =
+  target(732, 733)
+
+proc call_733(): int =
+  target(733, 734)
+
+proc call_734(): int =
+  target(734, 735)
+
+proc call_735(): int =
+  target(735, 736)
+
+proc call_736(): int =
+  target(736, 737)
+
+proc call_737(): int =
+  target(737, 738)
+
+proc call_738(): int =
+  target(738, 739)
+
+proc call_739(): int =
+  target(739, 740)
+
+proc call_740(): int =
+  target(740, 741)
+
+proc call_741(): int =
+  target(741, 742)
+
+proc call_742(): int =
+  target(742, 743)
+
+proc call_743(): int =
+  target(743, 744)
+
+proc call_744(): int =
+  target(744, 745)
+
+proc call_745(): int =
+  target(745, 746)
+
+proc call_746(): int =
+  target(746, 747)
+
+proc call_747(): int =
+  target(747, 748)
+
+proc call_748(): int =
+  target(748, 749)
+
+proc call_749(): int =
+  target(749, 750)
+
+proc call_750(): int =
+  target(750, 751)
+
+proc call_751(): int =
+  target(751, 752)
+
+proc call_752(): int =
+  target(752, 753)
+
+proc call_753(): int =
+  target(753, 754)
+
+proc call_754(): int =
+  target(754, 755)
+
+proc call_755(): int =
+  target(755, 756)
+
+proc call_756(): int =
+  target(756, 757)
+
+proc call_757(): int =
+  target(757, 758)
+
+proc call_758(): int =
+  target(758, 759)
+
+proc call_759(): int =
+  target(759, 760)
+
+proc call_760(): int =
+  target(760, 761)
+
+proc call_761(): int =
+  target(761, 762)
+
+proc call_762(): int =
+  target(762, 763)
+
+proc call_763(): int =
+  target(763, 764)
+
+proc call_764(): int =
+  target(764, 765)
+
+proc call_765(): int =
+  target(765, 766)
+
+proc call_766(): int =
+  target(766, 767)
+
+proc call_767(): int =
+  target(767, 768)
+
+proc call_768(): int =
+  target(768, 769)
+
+proc call_769(): int =
+  target(769, 770)
+
+proc call_770(): int =
+  target(770, 771)
+
+proc call_771(): int =
+  target(771, 772)
+
+proc call_772(): int =
+  target(772, 773)
+
+proc call_773(): int =
+  target(773, 774)
+
+proc call_774(): int =
+  target(774, 775)
+
+proc call_775(): int =
+  target(775, 776)
+
+proc call_776(): int =
+  target(776, 777)
+
+proc call_777(): int =
+  target(777, 778)
+
+proc call_778(): int =
+  target(778, 779)
+
+proc call_779(): int =
+  target(779, 780)
+
+proc call_780(): int =
+  target(780, 781)
+
+proc call_781(): int =
+  target(781, 782)
+
+proc call_782(): int =
+  target(782, 783)
+
+proc call_783(): int =
+  target(783, 784)
+
+proc call_784(): int =
+  target(784, 785)
+
+proc call_785(): int =
+  target(785, 786)
+
+proc call_786(): int =
+  target(786, 787)
+
+proc call_787(): int =
+  target(787, 788)
+
+proc call_788(): int =
+  target(788, 789)
+
+proc call_789(): int =
+  target(789, 790)
+
+proc call_790(): int =
+  target(790, 791)
+
+proc call_791(): int =
+  target(791, 792)
+
+proc call_792(): int =
+  target(792, 793)
+
+proc call_793(): int =
+  target(793, 794)
+
+proc call_794(): int =
+  target(794, 795)
+
+proc call_795(): int =
+  target(795, 796)
+
+proc call_796(): int =
+  target(796, 797)
+
+proc call_797(): int =
+  target(797, 798)
+
+proc call_798(): int =
+  target(798, 799)
+
+proc call_799(): int =
+  target(799, 800)
+
+proc call_800(): int =
+  target(800, 801)
+
+proc call_801(): int =
+  target(801, 802)
+
+proc call_802(): int =
+  target(802, 803)
+
+proc call_803(): int =
+  target(803, 804)
+
+proc call_804(): int =
+  target(804, 805)
+
+proc call_805(): int =
+  target(805, 806)
+
+proc call_806(): int =
+  target(806, 807)
+
+proc call_807(): int =
+  target(807, 808)
+
+proc call_808(): int =
+  target(808, 809)
+
+proc call_809(): int =
+  target(809, 810)
+
+proc call_810(): int =
+  target(810, 811)
+
+proc call_811(): int =
+  target(811, 812)
+
+proc call_812(): int =
+  target(812, 813)
+
+proc call_813(): int =
+  target(813, 814)
+
+proc call_814(): int =
+  target(814, 815)
+
+proc call_815(): int =
+  target(815, 816)
+
+proc call_816(): int =
+  target(816, 817)
+
+proc call_817(): int =
+  target(817, 818)
+
+proc call_818(): int =
+  target(818, 819)
+
+proc call_819(): int =
+  target(819, 820)
+
+proc call_820(): int =
+  target(820, 821)
+
+proc call_821(): int =
+  target(821, 822)
+
+proc call_822(): int =
+  target(822, 823)
+
+proc call_823(): int =
+  target(823, 824)
+
+proc call_824(): int =
+  target(824, 825)
+
+proc call_825(): int =
+  target(825, 826)
+
+proc call_826(): int =
+  target(826, 827)
+
+proc call_827(): int =
+  target(827, 828)
+
+proc call_828(): int =
+  target(828, 829)
+
+proc call_829(): int =
+  target(829, 830)
+
+proc call_830(): int =
+  target(830, 831)
+
+proc call_831(): int =
+  target(831, 832)
+
+proc call_832(): int =
+  target(832, 833)
+
+proc call_833(): int =
+  target(833, 834)
+
+proc call_834(): int =
+  target(834, 835)
+
+proc call_835(): int =
+  target(835, 836)
+
+proc call_836(): int =
+  target(836, 837)
+
+proc call_837(): int =
+  target(837, 838)
+
+proc call_838(): int =
+  target(838, 839)
+
+proc call_839(): int =
+  target(839, 840)
+
+proc call_840(): int =
+  target(840, 841)
+
+proc call_841(): int =
+  target(841, 842)
+
+proc call_842(): int =
+  target(842, 843)
+
+proc call_843(): int =
+  target(843, 844)
+
+proc call_844(): int =
+  target(844, 845)
+
+proc call_845(): int =
+  target(845, 846)
+
+proc call_846(): int =
+  target(846, 847)
+
+proc call_847(): int =
+  target(847, 848)
+
+proc call_848(): int =
+  target(848, 849)
+
+proc call_849(): int =
+  target(849, 850)
+
+proc call_850(): int =
+  target(850, 851)
+
+proc call_851(): int =
+  target(851, 852)
+
+proc call_852(): int =
+  target(852, 853)
+
+proc call_853(): int =
+  target(853, 854)
+
+proc call_854(): int =
+  target(854, 855)
+
+proc call_855(): int =
+  target(855, 856)
+
+proc call_856(): int =
+  target(856, 857)
+
+proc call_857(): int =
+  target(857, 858)
+
+proc call_858(): int =
+  target(858, 859)
+
+proc call_859(): int =
+  target(859, 860)
+
+proc call_860(): int =
+  target(860, 861)
+
+proc call_861(): int =
+  target(861, 862)
+
+proc call_862(): int =
+  target(862, 863)
+
+proc call_863(): int =
+  target(863, 864)
+
+proc call_864(): int =
+  target(864, 865)
+
+proc call_865(): int =
+  target(865, 866)
+
+proc call_866(): int =
+  target(866, 867)
+
+proc call_867(): int =
+  target(867, 868)
+
+proc call_868(): int =
+  target(868, 869)
+
+proc call_869(): int =
+  target(869, 870)
+
+proc call_870(): int =
+  target(870, 871)
+
+proc call_871(): int =
+  target(871, 872)
+
+proc call_872(): int =
+  target(872, 873)
+
+proc call_873(): int =
+  target(873, 874)
+
+proc call_874(): int =
+  target(874, 875)
+
+proc call_875(): int =
+  target(875, 876)
+
+proc call_876(): int =
+  target(876, 877)
+
+proc call_877(): int =
+  target(877, 878)
+
+proc call_878(): int =
+  target(878, 879)
+
+proc call_879(): int =
+  target(879, 880)
+
+proc call_880(): int =
+  target(880, 881)
+
+proc call_881(): int =
+  target(881, 882)
+
+proc call_882(): int =
+  target(882, 883)
+
+proc call_883(): int =
+  target(883, 884)
+
+proc call_884(): int =
+  target(884, 885)
+
+proc call_885(): int =
+  target(885, 886)
+
+proc call_886(): int =
+  target(886, 887)
+
+proc call_887(): int =
+  target(887, 888)
+
+proc call_888(): int =
+  target(888, 889)
+
+proc call_889(): int =
+  target(889, 890)
+
+proc call_890(): int =
+  target(890, 891)
+
+proc call_891(): int =
+  target(891, 892)
+
+proc call_892(): int =
+  target(892, 893)
+
+proc call_893(): int =
+  target(893, 894)
+
+proc call_894(): int =
+  target(894, 895)
+
+proc call_895(): int =
+  target(895, 896)
+
+proc call_896(): int =
+  target(896, 897)
+
+proc call_897(): int =
+  target(897, 898)
+
+proc call_898(): int =
+  target(898, 899)
+
+proc call_899(): int =
+  target(899, 900)
+
+proc call_900(): int =
+  target(900, 901)
+
+proc call_901(): int =
+  target(901, 902)
+
+proc call_902(): int =
+  target(902, 903)
+
+proc call_903(): int =
+  target(903, 904)
+
+proc call_904(): int =
+  target(904, 905)
+
+proc call_905(): int =
+  target(905, 906)
+
+proc call_906(): int =
+  target(906, 907)
+
+proc call_907(): int =
+  target(907, 908)
+
+proc call_908(): int =
+  target(908, 909)
+
+proc call_909(): int =
+  target(909, 910)
+
+proc call_910(): int =
+  target(910, 911)
+
+proc call_911(): int =
+  target(911, 912)
+
+proc call_912(): int =
+  target(912, 913)
+
+proc call_913(): int =
+  target(913, 914)
+
+proc call_914(): int =
+  target(914, 915)
+
+proc call_915(): int =
+  target(915, 916)
+
+proc call_916(): int =
+  target(916, 917)
+
+proc call_917(): int =
+  target(917, 918)
+
+proc call_918(): int =
+  target(918, 919)
+
+proc call_919(): int =
+  target(919, 920)
+
+proc call_920(): int =
+  target(920, 921)
+
+proc call_921(): int =
+  target(921, 922)
+
+proc call_922(): int =
+  target(922, 923)
+
+proc call_923(): int =
+  target(923, 924)
+
+proc call_924(): int =
+  target(924, 925)
+
+proc call_925(): int =
+  target(925, 926)
+
+proc call_926(): int =
+  target(926, 927)
+
+proc call_927(): int =
+  target(927, 928)
+
+proc call_928(): int =
+  target(928, 929)
+
+proc call_929(): int =
+  target(929, 930)
+
+proc call_930(): int =
+  target(930, 931)
+
+proc call_931(): int =
+  target(931, 932)
+
+proc call_932(): int =
+  target(932, 933)
+
+proc call_933(): int =
+  target(933, 934)
+
+proc call_934(): int =
+  target(934, 935)
+
+proc call_935(): int =
+  target(935, 936)
+
+proc call_936(): int =
+  target(936, 937)
+
+proc call_937(): int =
+  target(937, 938)
+
+proc call_938(): int =
+  target(938, 939)
+
+proc call_939(): int =
+  target(939, 940)
+
+proc call_940(): int =
+  target(940, 941)
+
+proc call_941(): int =
+  target(941, 942)
+
+proc call_942(): int =
+  target(942, 943)
+
+proc call_943(): int =
+  target(943, 944)
+
+proc call_944(): int =
+  target(944, 945)
+
+proc call_945(): int =
+  target(945, 946)
+
+proc call_946(): int =
+  target(946, 947)
+
+proc call_947(): int =
+  target(947, 948)
+
+proc call_948(): int =
+  target(948, 949)
+
+proc call_949(): int =
+  target(949, 950)
+
+proc call_950(): int =
+  target(950, 951)
+
+proc call_951(): int =
+  target(951, 952)
+
+proc call_952(): int =
+  target(952, 953)
+
+proc call_953(): int =
+  target(953, 954)
+
+proc call_954(): int =
+  target(954, 955)
+
+proc call_955(): int =
+  target(955, 956)
+
+proc call_956(): int =
+  target(956, 957)
+
+proc call_957(): int =
+  target(957, 958)
+
+proc call_958(): int =
+  target(958, 959)
+
+proc call_959(): int =
+  target(959, 960)
+
+proc call_960(): int =
+  target(960, 961)
+
+proc call_961(): int =
+  target(961, 962)
+
+proc call_962(): int =
+  target(962, 963)
+
+proc call_963(): int =
+  target(963, 964)
+
+proc call_964(): int =
+  target(964, 965)
+
+proc call_965(): int =
+  target(965, 966)
+
+proc call_966(): int =
+  target(966, 967)
+
+proc call_967(): int =
+  target(967, 968)
+
+proc call_968(): int =
+  target(968, 969)
+
+proc call_969(): int =
+  target(969, 970)
+
+proc call_970(): int =
+  target(970, 971)
+
+proc call_971(): int =
+  target(971, 972)
+
+proc call_972(): int =
+  target(972, 973)
+
+proc call_973(): int =
+  target(973, 974)
+
+proc call_974(): int =
+  target(974, 975)
+
+proc call_975(): int =
+  target(975, 976)
+
+proc call_976(): int =
+  target(976, 977)
+
+proc call_977(): int =
+  target(977, 978)
+
+proc call_978(): int =
+  target(978, 979)
+
+proc call_979(): int =
+  target(979, 980)
+
+proc call_980(): int =
+  target(980, 981)
+
+proc call_981(): int =
+  target(981, 982)
+
+proc call_982(): int =
+  target(982, 983)
+
+proc call_983(): int =
+  target(983, 984)
+
+proc call_984(): int =
+  target(984, 985)
+
+proc call_985(): int =
+  target(985, 986)
+
+proc call_986(): int =
+  target(986, 987)
+
+proc call_987(): int =
+  target(987, 988)
+
+proc call_988(): int =
+  target(988, 989)
+
+proc call_989(): int =
+  target(989, 990)
+
+proc call_990(): int =
+  target(990, 991)
+
+proc call_991(): int =
+  target(991, 992)
+
+proc call_992(): int =
+  target(992, 993)
+
+proc call_993(): int =
+  target(993, 994)
+
+proc call_994(): int =
+  target(994, 995)
+
+proc call_995(): int =
+  target(995, 996)
+
+proc call_996(): int =
+  target(996, 997)
+
+proc call_997(): int =
+  target(997, 998)
+
+proc call_998(): int =
+  target(998, 999)
+
+proc call_999(): int =
+  target(999, 1000)
 
 var sink = 0
 sink = sink + call_0()

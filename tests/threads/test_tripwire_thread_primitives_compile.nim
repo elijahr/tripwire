@@ -14,7 +14,7 @@
 
 import std/unittest
 import tripwire/threads
-import tripwire/sandbox  # Verifier, newVerifier
+import tripwire/sandbox # Verifier, newVerifier
 
 # Worker signature required by tripwireThread.
 proc noopWorker(data: int) {.thread, nimcall, gcsafe.} =
@@ -35,6 +35,7 @@ suite "tripwire/threads: compile surface":
     proc compileOnly_tripwireThread() =
       var thr: Thread[int]
       tripwireThread(thr, noopWorker, 0)
+
     check compiles(compileOnly_tripwireThread())
 
   test "runWithVerifier template compiles at a call site":
@@ -55,6 +56,7 @@ suite "tripwire/threads: compile surface":
     proc compileOnly_withTripwireThread() =
       withTripwireThread:
         echo "unreachable"
+
     check compiles(compileOnly_withTripwireThread())
 
   test "childEntry symbol is referenceable":

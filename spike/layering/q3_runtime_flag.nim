@@ -12,7 +12,8 @@ var httpRewrites* {.global.} = 0
 ## The rewrite body receives `url`. To "fall through" we need to invoke the
 ## real httpGet, but a naive re-call would re-match the pattern (infinite
 ## recursion). Use `{.noRewrite.}:` to escape the loop and reach the original.
-template rewriteHttpGet*{httpGet(url)}(url: string): string =
+template rewriteHttpGet*{
+  httpGet(url)}(url: string): string =
   if httpInterceptEnabled:
     inc(httpRewrites)
     "fake-response"

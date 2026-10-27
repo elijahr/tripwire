@@ -68,7 +68,9 @@ proc uniqueDriverPath(dir: string, prefix: string): string =
   ## runs do not collide.
   dir / (prefix & "_" & $getTime().toUnix() & "_" & $rand(high(int))) & ".nim"
 
-template runNim(defines: seq[string], target: string): tuple[output: string, code: int] =
+template runNim(
+    defines: seq[string], target: string
+): tuple[output: string, code: int] =
   ## Drive `nim c --compileOnly --hints:on` against `target` with the
   ## supplied define flags. `--hints:on` is required so the audit's
   ## `{.hint.}` emission appears in captured output.
@@ -83,8 +85,9 @@ template runNim(defines: seq[string], target: string): tuple[output: string, cod
   var defs = ""
   for d in defines:
     defs.add " -d:" & d
-  let cmd = "nim c --compileOnly --hints:on --path:" & quoteShell(SrcPath) &
-    defs & " " & quoteShell(target) & " 2>&1"
+  let cmd =
+    "nim c --compileOnly --hints:on --path:" & quoteShell(SrcPath) & defs & " " &
+    quoteShell(target) & " 2>&1"
   var output: string
   var code: int
   (output, code) = execCmdEx(cmd)
@@ -106,7 +109,6 @@ proc extractIntAfter(output: string, prefix: string): int =
   -1
 
 suite "audit_ffi transitive opt-in (Task 1.4)":
-
   test "default -d:tripwireAuditFFI keeps Task-1.2 placeholder; no per-package section":
     # Case A: compile `audit_ffi.nim` itself with ONLY the direct
     # define. projectPath resolves to `src/tripwire`, which has no
@@ -117,7 +119,8 @@ suite "audit_ffi transitive opt-in (Task 1.4)":
     var code: int
     {.noRewrite.}:
       (output, code) = runNim(@["tripwireAuditFFI"], AuditTarget)
-    if code != 0: echo output
+    if code != 0:
+      echo output
     check code == 0
     # Task-1.2 placeholder must be present.
     check "Transitive FFI: 0 (not scanned" in output
@@ -140,9 +143,10 @@ suite "audit_ffi transitive opt-in (Task 1.4)":
       var output: string
       var code: int
       {.noRewrite.}:
-        (output, code) = runNim(
-          @["tripwireAuditFFI", "tripwireAuditFFITransitive"], driverPath)
-      if code != 0: echo output
+        (output, code) =
+          runNim(@["tripwireAuditFFI", "tripwireAuditFFITransitive"], driverPath)
+      if code != 0:
+        echo output
       check code == 0
       # Task-1.4 aggregate header present (Task-1.2 placeholder absent).
       check "Transitive FFI (per-package aggregate" in output
@@ -177,9 +181,9 @@ suite "audit_ffi transitive opt-in (Task 1.4)":
     # resolves to the tmp dir; findFirstNimble returns ""; the
     # scanTransitive branch emits a `{.warning.}` and returns
     # empty aggregates. The compile MUST succeed (warning, not error).
-    let tmpDir = getTempDir() / ("tripwire_ffi_no_nimble_" &
-                                 $getTime().toUnix() & "_" &
-                                 $rand(high(int)))
+    let tmpDir =
+      getTempDir() /
+      ("tripwire_ffi_no_nimble_" & $getTime().toUnix() & "_" & $rand(high(int)))
     createDir(tmpDir)
     let driverPath = uniqueDriverPath(tmpDir, "driver")
     writeFile(driverPath, "import tripwire/audit_ffi\n")
@@ -187,9 +191,10 @@ suite "audit_ffi transitive opt-in (Task 1.4)":
       var output: string
       var code: int
       {.noRewrite.}:
-        (output, code) = runNim(
-          @["tripwireAuditFFI", "tripwireAuditFFITransitive"], driverPath)
-      if code != 0: echo output
+        (output, code) =
+          runNim(@["tripwireAuditFFI", "tripwireAuditFFITransitive"], driverPath)
+      if code != 0:
+        echo output
       check code == 0
       # Warning MUST fire: mentions the missing-nimble condition and
       # the projectPath it searched. We pin substrings rather than
@@ -214,9 +219,9 @@ suite "audit_ffi transitive opt-in (Task 1.4)":
     # aggregate MUST include `parsetoml:` — proves the escape hatch
     # threaded through `mergeExtraRequires` into the transitive scan
     # even though the `.nimble` had no auto-detected requires.
-    let tmpDir = getTempDir() / ("tripwire_ffi_extras_" &
-                                 $getTime().toUnix() & "_" &
-                                 $rand(high(int)))
+    let tmpDir =
+      getTempDir() /
+      ("tripwire_ffi_extras_" & $getTime().toUnix() & "_" & $rand(high(int)))
     createDir(tmpDir)
     writeFile(tmpDir / "stub.nimble", "# minimal stub, no requires\n")
     let driverPath = uniqueDriverPath(tmpDir, "driver")
@@ -226,11 +231,14 @@ suite "audit_ffi transitive opt-in (Task 1.4)":
       var code: int
       {.noRewrite.}:
         (output, code) = runNim(
-          @["tripwireAuditFFI",
-            "tripwireAuditFFITransitive",
-            "tripwireAuditFFIExtraRequires:parsetoml"],
-          driverPath)
-      if code != 0: echo output
+          @[
+            "tripwireAuditFFI", "tripwireAuditFFITransitive",
+            "tripwireAuditFFIExtraRequires:parsetoml",
+          ],
+          driverPath,
+        )
+      if code != 0:
+        echo output
       check code == 0
       # parsetoml appears in the aggregate despite stub.nimble having
       # zero requires. This is the escape hatch proof.

@@ -28,7 +28,6 @@ import tripwire
 import tripwire/plugins/httpclient as nfhttp
 
 suite "Three Guarantees — self-test":
-
   test "G1 (pre-authorization): unmocked call raises UnmockedInteractionDefect":
     expect UnmockedInteractionDefect:
       sandbox:
@@ -41,8 +40,10 @@ suite "Three Guarantees — self-test":
         let c = newHttpClient()
         nfhttp.expectHttp get(c, "http://example.com"):
           respond:
-            status: 200
-            body: "ok"
+            status:
+              200
+            body:
+              "ok"
         discard c.get("http://example.com")
         # no `assert` of the interaction → sandbox verifyAll raises.
 
@@ -52,8 +53,10 @@ suite "Three Guarantees — self-test":
         let c = newHttpClient()
         nfhttp.expectHttp get(c, "http://example.com"):
           respond:
-            status: 200
-            body: "ok"
+            status:
+              200
+            body:
+              "ok"
         # no call at all → UnusedMocksDefect.
 
   test "G1 fires for async httpclient calls":
@@ -68,13 +71,16 @@ suite "Three Guarantees — self-test":
       let c = newHttpClient()
       nfhttp.expectHttp get(c, "http://a"):
         respond:
-          status: 200
-          body: "ok"
+          status:
+            200
+          body:
+            "ok"
       let resp = c.get("http://a")
       check resp.status == "200"
       nfhttp.assertHttp get(c, "http://a"):
         responded:
-          status: 200
+          status:
+            200
     # If this test reports a defect, the sandbox teardown is regressing.
 
   test "nested sandbox: inner verifyAll surfaces first":
@@ -83,12 +89,14 @@ suite "Three Guarantees — self-test":
     # the inner sandbox's finally clause before control returns to the
     # outer sandbox's verifyAll).
     expect UnassertedInteractionsDefect:
-      sandbox:  # outer
-        sandbox:  # inner
+      sandbox: # outer
+        sandbox: # inner
           let c = newHttpClient()
           nfhttp.expectHttp get(c, "http://a"):
             respond:
-              status: 200
-              body: "ok"
+              status:
+                200
+              body:
+                "ok"
           discard c.get("http://a")
           # no assert → inner verifier raises UnassertedInteractionsDefect.

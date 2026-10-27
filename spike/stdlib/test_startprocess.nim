@@ -5,9 +5,14 @@ import std/strtabs
 
 var rewriteCount {.global.} = 0
 
-template rewriteStart{startProcess(command, workingDir, args, env, options)}(
-    command: string, workingDir: string, args: seq[string],
-    env: StringTableRef, options: set[ProcessOption]): Process =
+template rewriteStart{
+  startProcess(command, workingDir, args, env, options)}(
+    command: string,
+    workingDir: string,
+    args: seq[string],
+    env: StringTableRef,
+    options: set[ProcessOption],
+): Process =
   inc(rewriteCount)
   Process(nil)
 

@@ -14,7 +14,8 @@ proc makeMocked(val: string): Future[string] =
   result = newFuture[string]("fakeFetch")
   result.complete(val)
 
-template rewriteFetch*{fetchAsync(url)}(url: string): Future[string] =
+template rewriteFetch*{
+  fetchAsync(url)}(url: string): Future[string] =
   inc(rewriteCount)
   makeMocked("mocked result")
 

@@ -9,13 +9,18 @@ import std/httpclient
 
 var rewriteCount {.global.} = 0
 
-template rewriteRequest{request(client, url, httpMethod, body, headers, multipart)}(
-    client: HttpClient, url: string, httpMethod: HttpMethod, body: string,
-    headers: HttpHeaders, multipart: MultipartData): Response =
+template rewriteRequest{
+  request(client, url, httpMethod, body, headers, multipart)}(
+    client: HttpClient,
+    url: string,
+    httpMethod: HttpMethod,
+    body: string,
+    headers: HttpHeaders,
+    multipart: MultipartData,
+): Response =
   inc(rewriteCount)
   Response(nil)
 
 let c = newHttpClient()
-let r = c.request("http://example.invalid/", HttpPost, "body=1",
-                  newHttpHeaders(), nil)
+let r = c.request("http://example.invalid/", HttpPost, "body=1", newHttpHeaders(), nil)
 echo "got nil? ", r.isNil, " rewriteCount=", rewriteCount

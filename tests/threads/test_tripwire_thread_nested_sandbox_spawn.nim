@@ -105,9 +105,10 @@ import tripwire/threads
 #     interaction lands on innerV.timeline, consumed by A inside the
 #     inner sandbox before inner-sandbox exit.
 proc outerCall(x: int): int =
-  x * 10   # real impl; TRM intercepts
+  x * 10 # real impl; TRM intercepts
+
 proc grandCall(y: int): int =
-  y * 100  # real impl; TRM intercepts
+  y * 100 # real impl; TRM intercepts
 
 # Module-scope TRM emissions. Dummy args only provide arity/types.
 mockable(outerCall(0))
@@ -163,7 +164,8 @@ suite "withTripwireThread: grandchild-spawn from inner sandbox (E8)":
         # Sentinel 9700 — real impl produces 7*100=700, so this value
         # cannot come from a fall-through.
         mock.expect grandCall(7):
-          respond value: 9700
+          respond value:
+            9700
 
         # Spawn grandchild B from INSIDE the inner sandbox. At this
         # spawn site, `currentVerifier()` returns innerV (top of A's
@@ -183,13 +185,13 @@ suite "withTripwireThread: grandchild-spawn from inner sandbox (E8)":
         let innerEntry = innerV.timeline.entries[0]
         doAssert innerEntry.procName == "grandCall"
         doAssert innerEntry.asserted == false
-        doAssert innerEntry.args[".fp"] ==
-          fingerprintOf("grandCall", @[$7])
+        doAssert innerEntry.args[".fp"] == fingerprintOf("grandCall", @[$7])
         innerV.timeline.markAsserted(innerEntry)
       # Inner sandbox exit: popVerifier retires innerV (sandbox-owned,
       # retire is correct); verifyAll runs on innerV cleanly (one mock
       # consumed, one interaction asserted). A's stack back to [parentV].
       doAssert verifierStack.len == 1
+
     # childEntry does raw `verifierStack.pop()` after A's body returns,
     # removing parentV (borrowed). A's stack empty.
 
@@ -206,7 +208,8 @@ suite "withTripwireThread: grandchild-spawn from inner sandbox (E8)":
       # land on innerV (not parentV).
       # Sentinel 9010 distinct from real-impl result 1*10=10.
       mock.expect outerCall(1):
-        respond value: 9010
+        respond value:
+          9010
       check callOuter(1) == 9010
 
       # Consume the parent interaction before spawning so that when we
@@ -235,9 +238,8 @@ suite "withTripwireThread: grandchild-spawn from inner sandbox (E8)":
       check parentV.timeline.entries.len == 1
       let onlyEntry = parentV.timeline.entries[0]
       check onlyEntry.procName == "outerCall"
-      check onlyEntry.asserted == true  # already consumed above
-      check onlyEntry.args[".fp"] ==
-        fingerprintOf("outerCall", @[$1])
+      check onlyEntry.asserted == true # already consumed above
+      check onlyEntry.args[".fp"] == fingerprintOf("outerCall", @[$1])
     # Parent sandbox exit: verifyAll runs on parentV, sees one consumed
     # interaction (outerCall) and no unused mocks. If the grandchild's
     # grandCall had leaked onto parentV.timeline, the above in-test

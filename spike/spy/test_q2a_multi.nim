@@ -1,8 +1,13 @@
 import nimfoot_spy_q2a, common_spy
 
-proc siteA(): int = target(2, 3)
-proc siteB(): int = target(10, 20)
-proc siteC(x: int): int = target(x, x)
+proc siteA(): int =
+  target(2, 3)
+
+proc siteB(): int =
+  target(10, 20)
+
+proc siteC(x: int): int =
+  target(x, x)
 
 let a = siteA()
 let b = siteB()

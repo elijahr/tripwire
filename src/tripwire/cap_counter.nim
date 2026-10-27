@@ -37,8 +37,10 @@ macro tripwireCountRewrite*(): untyped =
   ## directs the user to split the test.
   inc(nfRewriteCount)
   if nfRewriteCount > TripwireCapThreshold:
-    error("tripwire: more than " & $TripwireCapThreshold &
-      " TRM rewrites in a single compilation unit. Nim's rewrite " &
-      "engine silently drops rewrites past ~19. Split the test with " &
-      "`sandbox:` sub-blocks or refactor into smaller helpers.")
+    error(
+      "tripwire: more than " & $TripwireCapThreshold &
+        " TRM rewrites in a single compilation unit. Nim's rewrite " &
+        "engine silently drops rewrites past ~19. Split the test with " &
+        "`sandbox:` sub-blocks or refactor into smaller helpers."
+    )
   result = newStmtList()

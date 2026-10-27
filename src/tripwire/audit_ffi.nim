@@ -52,15 +52,17 @@ when defined(tripwireAuditFFI):
     ## being the number of FFI-pragma matches in that file. Empty
     ## `paths` -> empty command that produces empty output.
     if paths.len == 0:
-      return "true"  # no-op; staticExec returns empty string
+      return "true" # no-op; staticExec returns empty string
     # Split on comma, space-join as find arguments. Each entry is
     # shell-quoted so spaces and special chars in repo paths don't
     # break the command.
     var findArgs = ""
     for p in paths.split(','):
       let trimmed = p.strip()
-      if trimmed.len == 0: continue
-      if findArgs.len > 0: findArgs.add ' '
+      if trimmed.len == 0:
+        continue
+      if findArgs.len > 0:
+        findArgs.add ' '
       findArgs.add quoteShell(trimmed)
     if findArgs.len == 0:
       return "true"
@@ -75,10 +77,9 @@ when defined(tripwireAuditFFI):
     # SUM line for the grand total. Zero-count lines are kept so the
     # test suite can assert "c_clean.nim: 0" is either reported or
     # omitted; we keep them to make the report self-describing.
-    result = "find " & findArgs &
-      " -type f -name '*.nim' -print0 2>/dev/null" &
-      " | xargs -0 grep -cE " & quoteShell(FFIPragmaRegex) &
-      " /dev/null 2>/dev/null" &
+    result =
+      "find " & findArgs & " -type f -name '*.nim' -print0 2>/dev/null" &
+      " | xargs -0 grep -cE " & quoteShell(FFIPragmaRegex) & " /dev/null 2>/dev/null" &
       " | awk -F: 'BEGIN{sum=0} !/^\\/dev\\/null:/ {sum+=$NF; print $0} END{print \"SUM:\"sum}'"
       # `$NF` (last field) — not `$2` — because paths may contain
       # colons (e.g. Windows `C:\...\foo.nim:3` splits into 3 fields;
@@ -86,7 +87,9 @@ when defined(tripwireAuditFFI):
       # `grep -c ... /dev/null` padding line that forces file:count
       # output for single-file inputs.
 
-  proc tripwireFfiParseReport(raw: string): tuple[perFile: string, total: int] {.compileTime.} =
+  proc tripwireFfiParseReport(
+      raw: string
+  ): tuple[perFile: string, total: int] {.compileTime.} =
     ## Parse the shell output into a pretty per-file block plus a grand
     ## total. Input lines look like:
     ##   /path/to/foo.nim:3
@@ -99,12 +102,14 @@ when defined(tripwireAuditFFI):
     var total = 0
     for ln in raw.splitLines():
       let line = ln.strip()
-      if line.len == 0: continue
+      if line.len == 0:
+        continue
       if line.startsWith("SUM:"):
         total = parseInt(line[4 .. ^1])
         continue
       let colon = line.rfind(':')
-      if colon < 0: continue
+      if colon < 0:
+        continue
       let countStr = line[colon + 1 .. ^1].strip()
       var count: int
       try:
@@ -182,7 +187,7 @@ when defined(tripwireAuditFFI):
         # forms, both of which are unusual but syntactically valid in
         # `.nimble` files.
         if s.len <= kw.len or
-           (s[kw.len] != ' ' and s[kw.len] != '\t' and s[kw.len] != '"'):
+            (s[kw.len] != ' ' and s[kw.len] != '\t' and s[kw.len] != '"'):
           continue
         # Variable-expansion guard (documented miss): `requires "foo" & ver`.
         # Skip the line rather than return a malformed pkg name.
@@ -259,12 +264,17 @@ when defined(tripwireAuditFFI):
         if kind in {pcFile, pcLinkToFile} and path.endsWith(".nimble"):
           matches.add(path)
       matches.sort()
-      if matches.len > 0: matches[0] else: ""
+      if matches.len > 0:
+        matches[0]
+      else:
+        ""
 
     proc isAllDigits(s: string): bool {.compileTime.} =
-      if s.len == 0: return false
+      if s.len == 0:
+        return false
       for ch in s:
-        if ch notin {'0'..'9'}: return false
+        if ch notin {'0' .. '9'}:
+          return false
       true
 
     proc cmpVersion(a, b: string): int {.compileTime.} =
@@ -283,15 +293,20 @@ when defined(tripwireAuditFFI):
         if isAllDigits(ap) and isAllDigits(bp):
           let ai = parseInt(ap)
           let bi = parseInt(bp)
-          if ai < bi: return -1
-          if ai > bi: return 1
+          if ai < bi:
+            return -1
+          if ai > bi:
+            return 1
         else:
-          if ap < bp: return -1
-          if ap > bp: return 1
+          if ap < bp:
+            return -1
+          if ap > bp:
+            return 1
       cmp(aParts.len, bParts.len)
 
-    proc locatePackageDir(pkgName: string,
-                          roots: seq[string] = @[]): string {.compileTime.} =
+    proc locatePackageDir(
+        pkgName: string, roots: seq[string] = @[]
+    ): string {.compileTime.} =
       ## Resolve an installed package name to its on-disk directory.
       ## Search order (design §5.3 lines 982-1000):
       ##   1. `<root>/pkgs2/<pkgName>-<version>-<hash>/`
@@ -309,12 +324,18 @@ when defined(tripwireAuditFFI):
       ## `cmpVersion` (numeric component-wise) so `pkg-1.10` beats
       ## `pkg-1.9` — lexicographic sort would pick the older version.
       let searchRoots =
-        if roots.len > 0: roots
-        else: @[getHomeDir() / ".nimble"]
+        if roots.len > 0:
+          roots
+        else:
+          @[getHomeDir() / ".nimble"]
       let needle = pkgName.toLowerAscii
       for root in searchRoots:
         for subdir in ["pkgs2", "pkgs", ""]:
-          let searchRoot = if subdir.len > 0: root / subdir else: root
+          let searchRoot =
+            if subdir.len > 0:
+              root / subdir
+            else:
+              root
           if not dirExists(searchRoot):
             continue
           var matches: seq[string] = @[]
@@ -332,11 +353,10 @@ when defined(tripwireAuditFFI):
             # (e.g. searching for `json` must NOT match
             # `json-serialization-1.0.0`). Nimble package names cannot
             # start with a digit; versions always do.
-            if name == needle or
-               (name.len > needle.len + 1 and
-                name[0 ..< needle.len] == needle and
-                name[needle.len] == '-' and
-                name[needle.len + 1] in {'0'..'9'}):
+            if name == needle or (
+              name.len > needle.len + 1 and name[0 ..< needle.len] == needle and
+              name[needle.len] == '-' and name[needle.len + 1] in {'0' .. '9'}
+            ):
               matches.add(path)
           if matches.len > 0:
             # Sort by version suffix using cmpVersion. For a bare match
@@ -350,8 +370,11 @@ when defined(tripwireAuditFFI):
                 n[needle.len + 1 .. ^1]
               else:
                 ""
-            matches.sort(proc(a, b: string): int =
-              cmpVersion(versionSuffix(a), versionSuffix(b)))
+
+            matches.sort(
+              proc(a, b: string): int =
+                cmpVersion(versionSuffix(a), versionSuffix(b))
+            )
             return matches[^1]
       ""
 
@@ -406,8 +429,8 @@ when defined(tripwireAuditFFI):
       for pkg in final:
         let dir = locatePackageDir(pkg, nimblePaths)
         if dir.len == 0:
-          echo "tripwire FFI transitive: package ", pkg,
-               " not found under nimblePaths; skipped."
+          echo "tripwire FFI transitive: package ",
+            pkg, " not found under nimblePaths; skipped."
           continue
         let (_, total) = scanDir(dir)
         lines.add "  " & pkg & ": " & $total & "\n"
@@ -416,8 +439,10 @@ when defined(tripwireAuditFFI):
 
     const transitiveProjectPath = querySetting(SingleValueSetting.projectPath)
     const transitiveProjectDir =
-      when transitiveProjectPath.len == 0: getCurrentDir()
-      else: transitiveProjectPath
+      when transitiveProjectPath.len == 0:
+        getCurrentDir()
+      else:
+        transitiveProjectPath
     const transitiveNimblePath = findFirstNimble(transitiveProjectDir)
     when transitiveNimblePath.len == 0:
       # Load-bearing `when` guard: `{.warning.}` is a pragma statement
@@ -426,7 +451,11 @@ when defined(tripwireAuditFFI):
       # happy path. Users who see this warning know Task-1.4's
       # transitive scan found no `.nimble` under projectPath and
       # silently reverted to direct-scope coverage.
-      {.warning: "tripwire FFI transitive: no .nimble found at " & transitiveProjectDir & "; transitive scope skipped.".}
+      {.
+        warning:
+          "tripwire FFI transitive: no .nimble found at " & transitiveProjectDir &
+          "; transitive scope skipped."
+      .}
 
     when defined(tripwireAuditFFITestHook):
       ## Test-only re-export. Production builds do NOT export these
@@ -438,7 +467,9 @@ when defined(tripwireAuditFFI):
       ## public-API break.
       export parseNimbleRequires, mergeExtraRequires, findFirstNimble, locatePackageDir
 
-  proc scanProjectPath(): tuple[dir: string, perFile: string, total: int] {.compileTime.} =
+  proc scanProjectPath(): tuple[dir: string, perFile: string, total: int] {.
+      compileTime
+  .} =
     ## Scan the project's own source tree. Uses
     ## `querySetting(SingleValueSetting.projectPath)` (design §5.2.1)
     ## to pick up the directory containing the main compile target.
@@ -451,7 +482,10 @@ when defined(tripwireAuditFFI):
     ## without re-querying the setting.
     const projectPath = querySetting(SingleValueSetting.projectPath)
     when projectPath.len == 0:
-      {.warning: "tripwire FFI: querySetting(projectPath) returned empty; falling back to getCurrentDir(). This is unexpected under `nim c`; please report it at https://github.com/elijahr/tripwire/issues with your invocation.".}
+      {.
+        warning:
+          "tripwire FFI: querySetting(projectPath) returned empty; falling back to getCurrentDir(). This is unexpected under `nim c`; please report it at https://github.com/elijahr/tripwire/issues with your invocation."
+      .}
       let cwd = getCurrentDir()
       let r = scanDir(cwd)
       (cwd, r.perFile, r.total)

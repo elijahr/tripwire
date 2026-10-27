@@ -6,6 +6,7 @@ let origTarget* = target
 
 var rewriteCount* {.global.} = 0
 
-template rewriteTarget*{target(a, b)}(a, b: int): int =
+template rewriteTarget*{
+  target(a, b)}(a, b: int): int =
   inc(rewriteCount)
   origTarget(a, b)

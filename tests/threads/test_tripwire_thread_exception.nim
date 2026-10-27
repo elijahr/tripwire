@@ -78,7 +78,7 @@ import tripwire/threads
 # User proc to be mocked. Side-effect-free so the child body running
 # under `--mm:arc` touches only the shared ref Verifier (design §8).
 proc computeOnThread(x: int): int =
-  x * 2   # real impl; TRM intercepts this
+  x * 2 # real impl; TRM intercepts this
 
 # Module-scope TRM emission. The dummy arg (0) only provides arity/type
 # for the pattern's formal params; the value is not used at runtime.
@@ -128,7 +128,8 @@ suite "withTripwireThread: exception propagation":
         # Sentinel 999 distinct from real-impl result 7*2=14 — if the TRM
         # ever falls through, the return would collide with the real value.
         mock.expect computeOnThread(7):
-          respond value: 999
+          respond value:
+            999
         withTripwireThread:
           childBody()
         # Control never reaches here — ValueError is in flight. Sandbox's
@@ -158,7 +159,8 @@ suite "withTripwireThread: exception propagation":
       # Sentinel 1001 distinct from real-impl result 11*2=22 — avoids
       # green-mirage collision if the TRM ever fell through.
       mock.expect computeOnThread(11):
-        respond value: 1001
+        respond value:
+          1001
       try:
         withTripwireThread:
           childBody()
@@ -177,8 +179,7 @@ suite "withTripwireThread: exception propagation":
       let entry = v.timeline.entries[0]
       check entry.procName == "computeOnThread"
       check entry.asserted == false
-      check entry.args[".fp"] ==
-        fingerprintOf("computeOnThread", @[$11])
+      check entry.args[".fp"] == fingerprintOf("computeOnThread", @[$11])
       v.timeline.markAsserted(entry)
     # sandbox exit runs verifyAll: zero unasserted interactions, zero
     # unused mocks. This proves the marshaling didn't corrupt state:

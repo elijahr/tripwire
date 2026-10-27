@@ -25,8 +25,8 @@
 ## compile-time error terminates the subprocess, not the main
 ## test binary.
 import std/[unittest, osproc, strutils]
-import tripwire/[types, errors, timeline, sandbox, verify, intercept,
-                futures, cap_counter]
+import
+  tripwire/[types, errors, timeline, sandbox, verify, intercept, futures, cap_counter]
 
 const FixturePath = "tests/fixtures/defense1_probe.nim"
 
@@ -41,8 +41,7 @@ suite "Defense 1: facade activation guard (G2)":
     check "tripwire was imported but not activated" in output
 
   test "D1: -d:tripwireAllowInactive suppresses the error":
-    let cmd = "nim check --hints:off -d:tripwireAllowInactive " &
-      FixturePath & " 2>&1"
+    let cmd = "nim check --hints:off -d:tripwireAllowInactive " & FixturePath & " 2>&1"
     var output: string
     var code: int
     {.noRewrite.}:
@@ -52,8 +51,7 @@ suite "Defense 1: facade activation guard (G2)":
   test "D1: -d:tripwireActive (the activation path) also suppresses":
     # Sanity check: the intended happy path (user set tripwireActive)
     # must also compile clean.
-    let cmd = "nim check --hints:off -d:tripwireActive " &
-      FixturePath & " 2>&1"
+    let cmd = "nim check --hints:off -d:tripwireActive " & FixturePath & " 2>&1"
     var output: string
     var code: int
     {.noRewrite.}:
@@ -68,8 +66,7 @@ suite "Defense 1: facade activation guard (G2)":
     # facade fails to re-export them, `nim check` on the fixture with
     # `-d:tripwireActive` will error with `undeclared identifier`.
     const SurfacePath = "tests/fixtures/facade_surface.nim"
-    let cmd = "nim check --hints:off -d:tripwireActive " &
-      SurfacePath & " 2>&1"
+    let cmd = "nim check --hints:off -d:tripwireActive " & SurfacePath & " 2>&1"
     var output: string
     var code: int
     {.noRewrite.}:
@@ -110,8 +107,7 @@ suite "Defense 3: cap-counter message shape":
 # code paths the TRM bodies use.
 suite "Defense 6: LeakedInteractionDefect":
   test "constructor builds an informative message":
-    let d = newLeakedInteractionDefect(0,
-      (filename: "t.nim", line: 10, column: 3))
+    let d = newLeakedInteractionDefect(0, (filename: "t.nim", line: 10, column: 3))
     check d.threadId == 0
     check "no active verifier" in d.msg
     check "t.nim:10" in d.msg
@@ -123,8 +119,7 @@ suite "Defense 6: LeakedInteractionDefect":
     # + "leaked interaction" paths — both fire the raise. Duplicating the
     # TRM-site setup here would collide with the 15-TRM cap in the
     # aggregate build, so this file only checks the constructor surface.
-    let d = newLeakedInteractionDefect(1,
-      (filename: "call.nim", line: 5, column: 0))
+    let d = newLeakedInteractionDefect(1, (filename: "call.nim", line: 5, column: 0))
     check d != nil
 
 suite "Defense 6: PostTestInteractionDefect":

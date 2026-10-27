@@ -9,7 +9,8 @@ import std/httpclient
 
 var rewriteCount {.global.} = 0
 
-template rewriteGet{get(client, url)}(client: HttpClient, url: string): Response =
+template rewriteGet{
+  get(client, url)}(client: HttpClient, url: string): Response =
   inc(rewriteCount)
   Response(nil)
 

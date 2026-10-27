@@ -4,10 +4,9 @@
 
 import std/locks
 
-type
-  Verifier = ref object
-    name: string
-    rewriteCount: int
+type Verifier = ref object
+  name: string
+  rewriteCount: int
 
 var verifierStack {.threadvar.}: seq[Verifier]
 
@@ -19,15 +18,21 @@ proc popVerifier(): Verifier =
   result = verifierStack.pop()
 
 proc currentVerifier(): Verifier =
-  if verifierStack.len > 0: verifierStack[^1] else: nil
+  if verifierStack.len > 0:
+    verifierStack[^1]
+  else:
+    nil
 
-proc target*(x: int): int = x * 2
+proc target*(x: int): int =
+  x * 2
 
-template rewriteTarget*{target(a)}(a: int): int =
+template rewriteTarget*{
+  target(a)}(a: int): int =
   let v = currentVerifier()
-  echo "[T", getThreadId(), "] TRM fired, verifier: ",
-       (if v != nil: v.name else: "<NIL>")
-  if v != nil: inc(v.rewriteCount)
+  echo "[T",
+    getThreadId(), "] TRM fired, verifier: ", (if v != nil: v.name else: "<NIL>")
+  if v != nil:
+    inc(v.rewriteCount)
   a * 2
 
 # We need a shared handoff slot so the child can see the parent's verifier ref
@@ -58,7 +63,7 @@ proc nimfootThread(h: ptr Handoff) =
 
 proc test4() =
   let parent = pushVerifier("test4-main")
-  discard target(1)  # main-local call
+  discard target(1) # main-local call
   handoff = Handoff(parentName: parent.name, childCount: 0)
   nimfootThread(addr handoff)
   # Fold child count into parent

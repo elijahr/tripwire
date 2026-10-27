@@ -78,14 +78,14 @@ type
     ## more characters, `?` matches exactly one. `*.example.com` and
     ## `127.0.0.*` are the load-bearing forms — kept simple; no regex.
     host*: string
-    port*: int      ## -1 = unset
+    port*: int ## -1 = unset
     httpMethod*: string
     path*: string
     scheme*: string
-    procName*: string  ## optional: gate by intercepted procName
+    procName*: string ## optional: gate by intercepted procName
 
-  AllowPredicate* = proc(procName, fingerprint: string): bool {.
-                         closure, gcsafe, raises: [].}
+  AllowPredicate* =
+    proc(procName, fingerprint: string): bool {.closure, gcsafe, raises: [].}
     ## Closure-escape-hatch firewall predicate. Use when matchers don't
     ## express the policy you need — e.g. fingerprint substring tests,
     ## counters, file-state probes.
@@ -99,7 +99,9 @@ type
     ## must catch their own exceptions internally.
 
   AllowEntryKind* = enum
-    aekAllPlugin, aekPredicate, aekMatcher
+    aekAllPlugin
+    aekPredicate
+    aekMatcher
 
   AllowEntry* = object
     plugin*: Plugin
@@ -137,12 +139,18 @@ type
     firewallMode*: FirewallMode
 
 proc newVerifier*(name: string = ""): Verifier =
-  Verifier(name: name, timeline: Timeline(nextSeq: 0),
-           mockQueues: initTable[string, MockQueue](),
-           context: AssertionContext(strict: true),
-           generation: 0, createdAt: getMonoTime(), active: true,
-           allowPredicates: @[], restrictPredicates: @[],
-           firewallMode: fmError)
+  Verifier(
+    name: name,
+    timeline: Timeline(nextSeq: 0),
+    mockQueues: initTable[string, MockQueue](),
+    context: AssertionContext(strict: true),
+    generation: 0,
+    createdAt: getMonoTime(),
+    active: true,
+    allowPredicates: @[],
+    restrictPredicates: @[],
+    firewallMode: fmError,
+  )
 
 var verifierStack* {.threadvar.}: seq[Verifier]
 
@@ -157,17 +165,27 @@ proc popVerifier*(): Verifier =
   result.active = false
 
 proc currentVerifier*(): Verifier {.inline, raises: [].} =
-  if verifierStack.len == 0: nil else: verifierStack[^1]
+  if verifierStack.len == 0:
+    nil
+  else:
+    verifierStack[^1]
 
 # ---- Matcher DSL ---------------------------------------------------------
 
-proc initMatcher*(host = ""; port = -1; httpMethod = ""; path = "";
-                  scheme = ""; procName = ""): Matcher =
+proc initMatcher*(
+    host = "", port = -1, httpMethod = "", path = "", scheme = "", procName = ""
+): Matcher =
   ## Construct a Matcher. Direct callers may use this; the `M(...)`
   ## template is the keyword-arg-friendly façade most call sites should
   ## reach for.
-  Matcher(host: host, port: port, httpMethod: httpMethod, path: path,
-          scheme: scheme, procName: procName)
+  Matcher(
+    host: host,
+    port: port,
+    httpMethod: httpMethod,
+    path: path,
+    scheme: scheme,
+    procName: procName,
+  )
 
 template M*(args: varargs[untyped]): Matcher =
   ## Keyword-arg matcher constructor. Mirrors pytest-tripwire's `M(...)`. Only
@@ -182,12 +200,14 @@ proc globMatch*(pat, s: string): bool {.raises: [].} =
   ## Glob match: `*` zero-or-more, `?` exactly one. Anchored start +
   ## end. Linear-scan with single-segment backtracking; sufficient for
   ## host/path patterns. No regex dep.
-  if pat.len == 0: return s.len == 0
+  if pat.len == 0:
+    return s.len == 0
   var pi, si, starPi, starSi = 0
   starPi = -1
   while si < s.len:
     if pi < pat.len and (pat[pi] == '?' or pat[pi] == s[si]):
-      inc pi; inc si
+      inc pi
+      inc si
     elif pi < pat.len and pat[pi] == '*':
       starPi = pi
       starSi = si
@@ -227,13 +247,15 @@ proc tokenizeMatcherHead*(fingerprint: string): seq[string] {.raises: [].} =
   ## return "not found" anyway.
   let bodyIdx = fingerprint.find(" body=")
   let head =
-    if bodyIdx >= 0: fingerprint.substr(0, bodyIdx - 1)
-    else: fingerprint
+    if bodyIdx >= 0:
+      fingerprint.substr(0, bodyIdx - 1)
+    else:
+      fingerprint
   result = head.split(' ')
 
-proc tokenValueRef(tokens: openArray[string], prefix: string):
-    tuple[found: bool, tok: int, valueStart: int]
-    {.inline, raises: [].} =
+proc tokenValueRef(
+    tokens: openArray[string], prefix: string
+): tuple[found: bool, tok: int, valueStart: int] {.inline, raises: [].} =
   ## Locate the FIRST whitespace-delimited token that starts with
   ## `<prefix>` and return the index of that token plus the byte
   ## offset where the value (substring after `<prefix>`) begins.
@@ -246,30 +268,32 @@ proc tokenValueRef(tokens: openArray[string], prefix: string):
       return (true, i, prefix.len)
   (false, -1, 0)
 
-proc equalsAt(tok: string; start: int; s: string): bool
-    {.inline, raises: [].} =
+proc equalsAt(tok: string, start: int, s: string): bool {.inline, raises: [].} =
   ## Compare `s` against the substring `tok[start .. ^1]` in-place.
   ## Equivalent to `tok[start .. ^1] == s` but does not allocate.
-  if tok.len - start != s.len: return false
+  if tok.len - start != s.len:
+    return false
   for i in 0 ..< s.len:
-    if tok[start + i] != s[i]: return false
+    if tok[start + i] != s[i]:
+      return false
   true
 
-proc globMatchAt(pat: string; s: string; sStart: int): bool
-    {.inline, raises: [].} =
+proc globMatchAt(pat: string, s: string, sStart: int): bool {.inline, raises: [].} =
   ## Glob match where `s` is treated as starting at byte `sStart`.
   ## Mirrors the structure of `globMatch` exactly; only differs in
   ## that `si` and `starSi` index from `sStart` instead of 0. Used
   ## by the firewall hot path to glob-match a matcher pattern
   ## against `tok[valueStart .. ^1]` without allocating the slice.
-  if pat.len == 0: return sStart == s.len
+  if pat.len == 0:
+    return sStart == s.len
   var pi = 0
   var si = sStart
   var starPi = -1
   var starSi = sStart
   while si < s.len:
     if pi < pat.len and (pat[pi] == '?' or pat[pi] == s[si]):
-      inc pi; inc si
+      inc pi
+      inc si
     elif pi < pat.len and pat[pi] == '*':
       starPi = pi
       starSi = si
@@ -284,9 +308,9 @@ proc globMatchAt(pat: string; s: string; sStart: int): bool
     inc pi
   pi == pat.len
 
-proc fieldHitsTokens(field: string;
-                     tokens: openArray[string]; prefix: string): bool {.
-    inline, raises: [].} =
+proc fieldHitsTokens(
+    field: string, tokens: openArray[string], prefix: string
+): bool {.inline, raises: [].} =
   ## Anchored typed-token match. Looks up the `prefix=` token in the
   ## already-tokenized fingerprint and matches `field` against the
   ## value-after-`=` (glob if wildcards, equality otherwise).
@@ -302,14 +326,16 @@ proc fieldHitsTokens(field: string;
   ## per-field/per-matcher hot path does NOT allocate a sliced
   ## value string.
   let (found, tokIdx, valueStart) = tokenValueRef(tokens, prefix)
-  if not found: return false
+  if not found:
+    return false
   if "*" in field or "?" in field:
     globMatchAt(field, tokens[tokIdx], valueStart)
   else:
     equalsAt(tokens[tokIdx], valueStart, field)
 
-proc pathHitsTokens(pattern: string;
-                    tokens: openArray[string]): bool {.inline, raises: [].} =
+proc pathHitsTokens(
+    pattern: string, tokens: openArray[string]
+): bool {.inline, raises: [].} =
   ## Anchored path match. `path=<value>` is a single token under the
   ## new typed format, so `path` is treated like host/port/scheme/method
   ## (anchor on `path=` and match the value). The legacy "unanchored
@@ -318,14 +344,16 @@ proc pathHitsTokens(pattern: string;
   ## token split shredded. Without wildcards, equality on the value;
   ## with wildcards, glob against the value.
   let (found, tokIdx, valueStart) = tokenValueRef(tokens, "path=")
-  if not found: return false
+  if not found:
+    return false
   if "*" in pattern or "?" in pattern:
     globMatchAt(pattern, tokens[tokIdx], valueStart)
   else:
     equalsAt(tokens[tokIdx], valueStart, pattern)
 
-proc matchesFingerprintTokens*(m: Matcher, procName: string,
-                                tokens: openArray[string]): bool {.raises: [].} =
+proc matchesFingerprintTokens*(
+    m: Matcher, procName: string, tokens: openArray[string]
+): bool {.raises: [].} =
   ## Pre-tokenized variant. The firewall hot loop (`sandboxAllowsFor` /
   ## `sandboxRestrictsFor`) tokenizes the fingerprint ONCE per call and
   ## reuses the resulting `seq[string]` across every Matcher entry,
@@ -337,8 +365,7 @@ proc matchesFingerprintTokens*(m: Matcher, procName: string,
   ## delegating).
   if m.host.len > 0 and not fieldHitsTokens(m.host, tokens, "host="):
     return false
-  if m.httpMethod.len > 0 and
-     not fieldHitsTokens(m.httpMethod, tokens, "method="):
+  if m.httpMethod.len > 0 and not fieldHitsTokens(m.httpMethod, tokens, "method="):
     return false
   if m.path.len > 0 and not pathHitsTokens(m.path, tokens):
     return false
@@ -348,8 +375,9 @@ proc matchesFingerprintTokens*(m: Matcher, procName: string,
     return false
   true
 
-proc matchesFingerprint*(m: Matcher, procName,
-                         fingerprint: string): bool {.raises: [].} =
+proc matchesFingerprint*(
+    m: Matcher, procName, fingerprint: string
+): bool {.raises: [].} =
   ## Default Matcher → fingerprint matcher.
   ##
   ## ## Fingerprint format
@@ -389,8 +417,8 @@ proc matchesFingerprint*(m: Matcher, procName,
   if m.procName.len > 0 and m.procName != procName:
     return false
   # No Matcher field set → trivially matches (procName already checked).
-  if m.host.len == 0 and m.httpMethod.len == 0 and m.path.len == 0 and
-     m.scheme.len == 0 and m.port < 0:
+  if m.host.len == 0 and m.httpMethod.len == 0 and m.path.len == 0 and m.scheme.len == 0 and
+      m.port < 0:
     return true
   matchesFingerprintTokens(m, procName, tokenizeMatcherHead(fingerprint))
 
@@ -411,8 +439,9 @@ proc allow*(plugin: Plugin, predicate: AllowPredicate) =
   let v = currentVerifier()
   if v.isNil:
     raise newLeakedInteractionDefect(getThreadId(), instantiationInfo())
-  v.allowPredicates.add(AllowEntry(plugin: plugin, kind: aekPredicate,
-                                   predicate: predicate))
+  v.allowPredicates.add(
+    AllowEntry(plugin: plugin, kind: aekPredicate, predicate: predicate)
+  )
 
 proc allow*(plugin: Plugin, matcher: Matcher) =
   ## Matcher-DSL form. The matcher is consulted via
@@ -422,8 +451,7 @@ proc allow*(plugin: Plugin, matcher: Matcher) =
   let v = currentVerifier()
   if v.isNil:
     raise newLeakedInteractionDefect(getThreadId(), instantiationInfo())
-  v.allowPredicates.add(AllowEntry(plugin: plugin, kind: aekMatcher,
-                                   matcher: matcher))
+  v.allowPredicates.add(AllowEntry(plugin: plugin, kind: aekMatcher, matcher: matcher))
 
 proc restrict*(plugin: Plugin) =
   ## Ceiling-on-`allow`, plugin-name shorthand. A blanket `restrict`
@@ -446,8 +474,9 @@ proc restrict*(plugin: Plugin, predicate: AllowPredicate) =
   let v = currentVerifier()
   if v.isNil:
     raise newLeakedInteractionDefect(getThreadId(), instantiationInfo())
-  v.restrictPredicates.add(AllowEntry(plugin: plugin, kind: aekPredicate,
-                                      predicate: predicate))
+  v.restrictPredicates.add(
+    AllowEntry(plugin: plugin, kind: aekPredicate, predicate: predicate)
+  )
 
 proc restrict*(plugin: Plugin, matcher: Matcher) =
   ## Ceiling on `allow`, matcher-DSL form. The matcher is the canonical
@@ -457,14 +486,18 @@ proc restrict*(plugin: Plugin, matcher: Matcher) =
   let v = currentVerifier()
   if v.isNil:
     raise newLeakedInteractionDefect(getThreadId(), instantiationInfo())
-  v.restrictPredicates.add(AllowEntry(plugin: plugin, kind: aekMatcher,
-                                      matcher: matcher))
+  v.restrictPredicates.add(
+    AllowEntry(plugin: plugin, kind: aekMatcher, matcher: matcher)
+  )
 
 # ---- Consultation helpers (used by intercept combinators) ---------------
 
-proc entryMatchesTokens(entry: AllowEntry, plugin: Plugin,
-                        procName, fingerprint: string;
-                        tokens: openArray[string]): bool {.raises: [].} =
+proc entryMatchesTokens(
+    entry: AllowEntry,
+    plugin: Plugin,
+    procName, fingerprint: string,
+    tokens: openArray[string],
+): bool {.raises: [].} =
   ## Per-entry match, taking pre-tokenized fingerprint head so the
   ## caller's loop avoids re-splitting on every entry. Predicate-form
   ## entries still receive the raw fingerprint string (they may inspect
@@ -480,38 +513,41 @@ proc entryMatchesTokens(entry: AllowEntry, plugin: Plugin,
     # Inline the procName check + no-fields-set fast path here to
     # mirror what `matchesFingerprint` does before delegating, so the
     # tokens variant can be called directly without re-tokenizing.
-    if entry.matcher.procName.len > 0 and
-       entry.matcher.procName != procName:
+    if entry.matcher.procName.len > 0 and entry.matcher.procName != procName:
       false
     elif entry.matcher.host.len == 0 and entry.matcher.httpMethod.len == 0 and
-         entry.matcher.path.len == 0 and entry.matcher.scheme.len == 0 and
-         entry.matcher.port < 0:
+        entry.matcher.path.len == 0 and entry.matcher.scheme.len == 0 and
+        entry.matcher.port < 0:
       true
     else:
       matchesFingerprintTokens(entry.matcher, procName, tokens)
 
-proc entryMatches(entry: AllowEntry, plugin: Plugin,
-                  procName, fingerprint: string): bool {.raises: [].} =
+proc entryMatches(
+    entry: AllowEntry, plugin: Plugin, procName, fingerprint: string
+): bool {.raises: [].} =
   ## Single-entry match for callers that have just one entry to check
   ## (or that haven't tokenized yet). Tokenizes lazily.
-  entryMatchesTokens(entry, plugin, procName, fingerprint,
-                     tokenizeMatcherHead(fingerprint))
+  entryMatchesTokens(
+    entry, plugin, procName, fingerprint, tokenizeMatcherHead(fingerprint)
+  )
 
-proc sandboxAllowsForTokens(v: Verifier, plugin: Plugin,
-                            procName, fingerprint: string,
-                            tokens: seq[string]): bool {.raises: [].} =
+proc sandboxAllowsForTokens(
+    v: Verifier, plugin: Plugin, procName, fingerprint: string, tokens: seq[string]
+): bool {.raises: [].} =
   ## Internal tokens-already-computed variant. Lets `firewallDecideRaw`
   ## tokenize the fingerprint once and reuse those tokens across both
   ## the allow loop and the restrict loop, rather than tokenizing
   ## twice per intercepted call.
-  if v.isNil: return false
+  if v.isNil:
+    return false
   for entry in v.allowPredicates:
     if entry.entryMatchesTokens(plugin, procName, fingerprint, tokens):
       return true
   false
 
-proc sandboxAllowsFor*(v: Verifier, plugin: Plugin,
-                       procName, fingerprint: string): bool {.raises: [].} =
+proc sandboxAllowsFor*(
+    v: Verifier, plugin: Plugin, procName, fingerprint: string
+): bool {.raises: [].} =
   ## OR over all per-sandbox `allow` entries registered against `plugin`
   ## (by ref identity). Returns `true` on the first match. Used by the
   ## TRM-body combinators to extend the existing
@@ -521,15 +557,15 @@ proc sandboxAllowsFor*(v: Verifier, plugin: Plugin,
   ## Tokenizes the fingerprint ONCE for the entire predicate loop and
   ## reuses the tokens across every entry — relevant for sandboxes
   ## carrying many `allow`/`restrict` rules.
-  if v.isNil: return false
-  sandboxAllowsForTokens(v, plugin, procName, fingerprint,
-                         tokenizeMatcherHead(fingerprint))
+  if v.isNil:
+    return false
+  sandboxAllowsForTokens(
+    v, plugin, procName, fingerprint, tokenizeMatcherHead(fingerprint)
+  )
 
-proc sandboxRestrictsForTokens(v: Verifier, plugin: Plugin,
-                               procName, fingerprint: string,
-                               tokens: seq[string]):
-                               tuple[active: bool, allows: bool]
-                               {.raises: [].} =
+proc sandboxRestrictsForTokens(
+    v: Verifier, plugin: Plugin, procName, fingerprint: string, tokens: seq[string]
+): tuple[active: bool, allows: bool] {.raises: [].} =
   ## Internal tokens-already-computed variant of `sandboxRestrictsFor`.
   ## See `sandboxAllowsForTokens` for rationale.
   if v.isNil or v.restrictPredicates.len == 0:
@@ -542,9 +578,9 @@ proc sandboxRestrictsForTokens(v: Verifier, plugin: Plugin,
         return (active: true, allows: true)
   (active: hasRestrictionsForPlugin, allows: false)
 
-proc sandboxRestrictsFor*(v: Verifier, plugin: Plugin,
-                          procName, fingerprint: string):
-                          tuple[active: bool, allows: bool] {.raises: [].} =
+proc sandboxRestrictsFor*(
+    v: Verifier, plugin: Plugin, procName, fingerprint: string
+): tuple[active: bool, allows: bool] {.raises: [].} =
   ## Computes the ceiling side of the firewall decision. The runtime
   ## decision (in `firewallDecideRaw`) is "allow ∩ restrict" at call
   ## time: passthrough requires a matching `allow` AND, if any
@@ -569,8 +605,9 @@ proc sandboxRestrictsFor*(v: Verifier, plugin: Plugin,
   ##     regardless of `allow`. With no `allow` registered the ceiling
   ##     also rejects (the intersection of empty allow with anything
   ##     is empty).
-  sandboxRestrictsForTokens(v, plugin, procName, fingerprint,
-                            tokenizeMatcherHead(fingerprint))
+  sandboxRestrictsForTokens(
+    v, plugin, procName, fingerprint, tokenizeMatcherHead(fingerprint)
+  )
 
 # ---- Firewall mode helpers ----------------------------------------------
 
@@ -582,8 +619,7 @@ proc guard*(v: Verifier, mode: FirewallMode) =
     raise newLeakedInteractionDefect(getThreadId(), instantiationInfo())
   v.firewallMode = mode
 
-proc emitFirewallWarning*(pluginName, procName,
-                          fingerprint: string) {.raises: [].} =
+proc emitFirewallWarning*(pluginName, procName, fingerprint: string) {.raises: [].} =
   ## Stderr write for `fmWarn` mode. Single-line, prefix-stable so
   ## consumers can grep / filter. Called by the intercept combinators
   ## just before they fall through to `spyBody`.
@@ -596,16 +632,19 @@ proc emitFirewallWarning*(pluginName, procName,
   ## unmodelled CatchableError out of the hot path. Stderr write
   ## failures are vanishingly rare in practice (no disk involved).
   try:
-    stderr.writeLine "tripwire firewall: warn passthrough for " &
-      pluginName & "." & procName & " (fp=" & fingerprint & ")"
+    stderr.writeLine "tripwire firewall: warn passthrough for " & pluginName & "." &
+      procName & " (fp=" & fingerprint & ")"
   except IOError:
     discard
 
 type FirewallDecision* = enum
-  fdAllow, fdWarn, fdRaise
+  fdAllow
+  fdWarn
+  fdRaise
 
-proc firewallDecideRaw*(v: Verifier, plugin: Plugin, procName,
-                        fingerprint: string): FirewallDecision {.raises: [].} =
+proc firewallDecideRaw*(
+    v: Verifier, plugin: Plugin, procName, fingerprint: string
+): FirewallDecision {.raises: [].} =
   ## Pure decision proc — exposed for unit tests and plugin authors
   ## writing custom intercept combinators. Side-effect-free.
   ##
@@ -636,8 +675,7 @@ proc firewallDecideRaw*(v: Verifier, plugin: Plugin, procName,
   ## is configured to permit the call).
   if v.isNil:
     return fdRaise
-  let pluginPasses = plugin.supportsPassthrough() and
-                     plugin.passthroughFor(procName)
+  let pluginPasses = plugin.supportsPassthrough() and plugin.passthroughFor(procName)
   if pluginPasses:
     return fdAllow
   # Hot-path optimization: tokenize the fingerprint ONCE per call and
@@ -648,16 +686,16 @@ proc firewallDecideRaw*(v: Verifier, plugin: Plugin, procName,
   # carrying many rules where this proc runs on every intercepted
   # interaction.
   let tokens = tokenizeMatcherHead(fingerprint)
-  let r = sandboxRestrictsForTokens(v, plugin, procName, fingerprint,
-                                    tokens)
+  let r = sandboxRestrictsForTokens(v, plugin, procName, fingerprint, tokens)
   if r.active and not r.allows:
     return (if v.firewallMode == fmWarn: fdWarn else: fdRaise)
   if sandboxAllowsForTokens(v, plugin, procName, fingerprint, tokens):
     return fdAllow
   if v.firewallMode == fmWarn: fdWarn else: fdRaise
 
-proc firewallDecide*(v: Verifier, plugin: Plugin, procName,
-                     fingerprint: string): FirewallDecision {.raises: [].} =
+proc firewallDecide*(
+    v: Verifier, plugin: Plugin, procName, fingerprint: string
+): FirewallDecision {.raises: [].} =
   ## Side-effecting decision used by the intercept combinators. In the
   ## `fdWarn` lane, this proc emits the stderr warning so the TRM body
   ## structure remains a single `if fdRaise: raise; spyBody` — the
@@ -668,8 +706,9 @@ proc firewallDecide*(v: Verifier, plugin: Plugin, procName,
   if result == fdWarn:
     emitFirewallWarning(plugin.name, procName, fingerprint)
 
-proc firewallShouldRaise*(v: Verifier, plugin: Plugin, procName,
-                          fingerprint: string): bool {.inline, raises: [].} =
+proc firewallShouldRaise*(
+    v: Verifier, plugin: Plugin, procName, fingerprint: string
+): bool {.inline, raises: [].} =
   ## Bool-returning convenience used inside TRM combinator bodies.
   ## Emits the warn-side stderr line as a side effect of running
   ## `firewallDecide`. Returns `true` iff the call should raise

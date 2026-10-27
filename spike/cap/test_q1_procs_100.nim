@@ -1,106 +1,305 @@
 ## Generated test: 100 call sites, one per proc.
 import nimfoot_q1, common_q1
 
-proc call_0(): int = target(0, 1)
-proc call_1(): int = target(1, 2)
-proc call_2(): int = target(2, 3)
-proc call_3(): int = target(3, 4)
-proc call_4(): int = target(4, 5)
-proc call_5(): int = target(5, 6)
-proc call_6(): int = target(6, 7)
-proc call_7(): int = target(7, 8)
-proc call_8(): int = target(8, 9)
-proc call_9(): int = target(9, 10)
-proc call_10(): int = target(10, 11)
-proc call_11(): int = target(11, 12)
-proc call_12(): int = target(12, 13)
-proc call_13(): int = target(13, 14)
-proc call_14(): int = target(14, 15)
-proc call_15(): int = target(15, 16)
-proc call_16(): int = target(16, 17)
-proc call_17(): int = target(17, 18)
-proc call_18(): int = target(18, 19)
-proc call_19(): int = target(19, 20)
-proc call_20(): int = target(20, 21)
-proc call_21(): int = target(21, 22)
-proc call_22(): int = target(22, 23)
-proc call_23(): int = target(23, 24)
-proc call_24(): int = target(24, 25)
-proc call_25(): int = target(25, 26)
-proc call_26(): int = target(26, 27)
-proc call_27(): int = target(27, 28)
-proc call_28(): int = target(28, 29)
-proc call_29(): int = target(29, 30)
-proc call_30(): int = target(30, 31)
-proc call_31(): int = target(31, 32)
-proc call_32(): int = target(32, 33)
-proc call_33(): int = target(33, 34)
-proc call_34(): int = target(34, 35)
-proc call_35(): int = target(35, 36)
-proc call_36(): int = target(36, 37)
-proc call_37(): int = target(37, 38)
-proc call_38(): int = target(38, 39)
-proc call_39(): int = target(39, 40)
-proc call_40(): int = target(40, 41)
-proc call_41(): int = target(41, 42)
-proc call_42(): int = target(42, 43)
-proc call_43(): int = target(43, 44)
-proc call_44(): int = target(44, 45)
-proc call_45(): int = target(45, 46)
-proc call_46(): int = target(46, 47)
-proc call_47(): int = target(47, 48)
-proc call_48(): int = target(48, 49)
-proc call_49(): int = target(49, 50)
-proc call_50(): int = target(50, 51)
-proc call_51(): int = target(51, 52)
-proc call_52(): int = target(52, 53)
-proc call_53(): int = target(53, 54)
-proc call_54(): int = target(54, 55)
-proc call_55(): int = target(55, 56)
-proc call_56(): int = target(56, 57)
-proc call_57(): int = target(57, 58)
-proc call_58(): int = target(58, 59)
-proc call_59(): int = target(59, 60)
-proc call_60(): int = target(60, 61)
-proc call_61(): int = target(61, 62)
-proc call_62(): int = target(62, 63)
-proc call_63(): int = target(63, 64)
-proc call_64(): int = target(64, 65)
-proc call_65(): int = target(65, 66)
-proc call_66(): int = target(66, 67)
-proc call_67(): int = target(67, 68)
-proc call_68(): int = target(68, 69)
-proc call_69(): int = target(69, 70)
-proc call_70(): int = target(70, 71)
-proc call_71(): int = target(71, 72)
-proc call_72(): int = target(72, 73)
-proc call_73(): int = target(73, 74)
-proc call_74(): int = target(74, 75)
-proc call_75(): int = target(75, 76)
-proc call_76(): int = target(76, 77)
-proc call_77(): int = target(77, 78)
-proc call_78(): int = target(78, 79)
-proc call_79(): int = target(79, 80)
-proc call_80(): int = target(80, 81)
-proc call_81(): int = target(81, 82)
-proc call_82(): int = target(82, 83)
-proc call_83(): int = target(83, 84)
-proc call_84(): int = target(84, 85)
-proc call_85(): int = target(85, 86)
-proc call_86(): int = target(86, 87)
-proc call_87(): int = target(87, 88)
-proc call_88(): int = target(88, 89)
-proc call_89(): int = target(89, 90)
-proc call_90(): int = target(90, 91)
-proc call_91(): int = target(91, 92)
-proc call_92(): int = target(92, 93)
-proc call_93(): int = target(93, 94)
-proc call_94(): int = target(94, 95)
-proc call_95(): int = target(95, 96)
-proc call_96(): int = target(96, 97)
-proc call_97(): int = target(97, 98)
-proc call_98(): int = target(98, 99)
-proc call_99(): int = target(99, 100)
+proc call_0(): int =
+  target(0, 1)
+
+proc call_1(): int =
+  target(1, 2)
+
+proc call_2(): int =
+  target(2, 3)
+
+proc call_3(): int =
+  target(3, 4)
+
+proc call_4(): int =
+  target(4, 5)
+
+proc call_5(): int =
+  target(5, 6)
+
+proc call_6(): int =
+  target(6, 7)
+
+proc call_7(): int =
+  target(7, 8)
+
+proc call_8(): int =
+  target(8, 9)
+
+proc call_9(): int =
+  target(9, 10)
+
+proc call_10(): int =
+  target(10, 11)
+
+proc call_11(): int =
+  target(11, 12)
+
+proc call_12(): int =
+  target(12, 13)
+
+proc call_13(): int =
+  target(13, 14)
+
+proc call_14(): int =
+  target(14, 15)
+
+proc call_15(): int =
+  target(15, 16)
+
+proc call_16(): int =
+  target(16, 17)
+
+proc call_17(): int =
+  target(17, 18)
+
+proc call_18(): int =
+  target(18, 19)
+
+proc call_19(): int =
+  target(19, 20)
+
+proc call_20(): int =
+  target(20, 21)
+
+proc call_21(): int =
+  target(21, 22)
+
+proc call_22(): int =
+  target(22, 23)
+
+proc call_23(): int =
+  target(23, 24)
+
+proc call_24(): int =
+  target(24, 25)
+
+proc call_25(): int =
+  target(25, 26)
+
+proc call_26(): int =
+  target(26, 27)
+
+proc call_27(): int =
+  target(27, 28)
+
+proc call_28(): int =
+  target(28, 29)
+
+proc call_29(): int =
+  target(29, 30)
+
+proc call_30(): int =
+  target(30, 31)
+
+proc call_31(): int =
+  target(31, 32)
+
+proc call_32(): int =
+  target(32, 33)
+
+proc call_33(): int =
+  target(33, 34)
+
+proc call_34(): int =
+  target(34, 35)
+
+proc call_35(): int =
+  target(35, 36)
+
+proc call_36(): int =
+  target(36, 37)
+
+proc call_37(): int =
+  target(37, 38)
+
+proc call_38(): int =
+  target(38, 39)
+
+proc call_39(): int =
+  target(39, 40)
+
+proc call_40(): int =
+  target(40, 41)
+
+proc call_41(): int =
+  target(41, 42)
+
+proc call_42(): int =
+  target(42, 43)
+
+proc call_43(): int =
+  target(43, 44)
+
+proc call_44(): int =
+  target(44, 45)
+
+proc call_45(): int =
+  target(45, 46)
+
+proc call_46(): int =
+  target(46, 47)
+
+proc call_47(): int =
+  target(47, 48)
+
+proc call_48(): int =
+  target(48, 49)
+
+proc call_49(): int =
+  target(49, 50)
+
+proc call_50(): int =
+  target(50, 51)
+
+proc call_51(): int =
+  target(51, 52)
+
+proc call_52(): int =
+  target(52, 53)
+
+proc call_53(): int =
+  target(53, 54)
+
+proc call_54(): int =
+  target(54, 55)
+
+proc call_55(): int =
+  target(55, 56)
+
+proc call_56(): int =
+  target(56, 57)
+
+proc call_57(): int =
+  target(57, 58)
+
+proc call_58(): int =
+  target(58, 59)
+
+proc call_59(): int =
+  target(59, 60)
+
+proc call_60(): int =
+  target(60, 61)
+
+proc call_61(): int =
+  target(61, 62)
+
+proc call_62(): int =
+  target(62, 63)
+
+proc call_63(): int =
+  target(63, 64)
+
+proc call_64(): int =
+  target(64, 65)
+
+proc call_65(): int =
+  target(65, 66)
+
+proc call_66(): int =
+  target(66, 67)
+
+proc call_67(): int =
+  target(67, 68)
+
+proc call_68(): int =
+  target(68, 69)
+
+proc call_69(): int =
+  target(69, 70)
+
+proc call_70(): int =
+  target(70, 71)
+
+proc call_71(): int =
+  target(71, 72)
+
+proc call_72(): int =
+  target(72, 73)
+
+proc call_73(): int =
+  target(73, 74)
+
+proc call_74(): int =
+  target(74, 75)
+
+proc call_75(): int =
+  target(75, 76)
+
+proc call_76(): int =
+  target(76, 77)
+
+proc call_77(): int =
+  target(77, 78)
+
+proc call_78(): int =
+  target(78, 79)
+
+proc call_79(): int =
+  target(79, 80)
+
+proc call_80(): int =
+  target(80, 81)
+
+proc call_81(): int =
+  target(81, 82)
+
+proc call_82(): int =
+  target(82, 83)
+
+proc call_83(): int =
+  target(83, 84)
+
+proc call_84(): int =
+  target(84, 85)
+
+proc call_85(): int =
+  target(85, 86)
+
+proc call_86(): int =
+  target(86, 87)
+
+proc call_87(): int =
+  target(87, 88)
+
+proc call_88(): int =
+  target(88, 89)
+
+proc call_89(): int =
+  target(89, 90)
+
+proc call_90(): int =
+  target(90, 91)
+
+proc call_91(): int =
+  target(91, 92)
+
+proc call_92(): int =
+  target(92, 93)
+
+proc call_93(): int =
+  target(93, 94)
+
+proc call_94(): int =
+  target(94, 95)
+
+proc call_95(): int =
+  target(95, 96)
+
+proc call_96(): int =
+  target(96, 97)
+
+proc call_97(): int =
+  target(97, 98)
+
+proc call_98(): int =
+  target(98, 99)
+
+proc call_99(): int =
+  target(99, 100)
 
 var sink = 0
 sink = sink + call_0()

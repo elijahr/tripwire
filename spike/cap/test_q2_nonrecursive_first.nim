@@ -15,7 +15,7 @@ let b = triggerNonRecursive()
 let c = triggerNonRecursive()
 let d = triggerNonRecursive()
 let a = triggerRecursive()
-let e = triggerNonRecursive()  # post-recursive-trip call site
+let e = triggerNonRecursive() # post-recursive-trip call site
 
 echo "recursive result=", a
 echo "nimfoot results=", b, " ", c, " ", d, " ", e

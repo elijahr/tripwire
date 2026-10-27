@@ -69,7 +69,7 @@ std_ut.suite "plain asyncCheck regression guard":
       try:
         # === body under test ===
         fut = leaker()
-        asyncCheck fut     # PLAIN asyncCheck — not registered with nfV
+        asyncCheck fut # PLAIN asyncCheck — not registered with nfV
         # === end body ===
 
         # Post-§4.5 ordering: drain first (no-op here — empty
@@ -101,11 +101,10 @@ std_ut.suite "plain asyncCheck regression guard":
     # template's raise-site (wrong `name` passed, wrong constructor)
     # regresses this test rather than silently passing.
     std_ut.check raised != nil
-    let expectedMsg = "test '" & testName &
-      "' ended with pending async operations." &
+    let expectedMsg =
+      "test '" & testName & "' ended with pending async operations." &
       "\nUse `waitFor` to drain futures, or -d:tripwireAllowPendingAsync to" &
-      " suppress." &
-      "\n(tripwire intercepts Nim source calls only. " &
+      " suppress." & "\n(tripwire intercepts Nim source calls only. " &
       "FFI ({.importc.}, {.dynlib.}, {.header.}) is not intercepted in v0. " &
       "See docs/concepts.md#scope.)"
     std_ut.check raised.msg == expectedMsg

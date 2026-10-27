@@ -48,13 +48,13 @@ const FixtureDir = RepoRoot / "tests" / "fixtures" / "nimble_parser"
 # from the stdlib tree. See the per-test comments for the origin
 # reasoning per filename.
 const StdlibFilenames = [
-  "posix.nim",        # std/posix -- heavy importc surface
-  "winlean.nim",      # std/winlean -- Windows FFI
-  "httpclient.nim",   # std/httpclient -- openssl dynlib bindings
-  "openssl.nim",      # std/openssl -- ssl FFI
-  "dynlib.nim",       # std/dynlib -- dlopen family
-  "times.nim",        # std/times -- localtime/gmtime importc
-  "os.nim",           # std/os -- pulls posix/winlean transitively
+  "posix.nim", # std/posix -- heavy importc surface
+  "winlean.nim", # std/winlean -- Windows FFI
+  "httpclient.nim", # std/httpclient -- openssl dynlib bindings
+  "openssl.nim", # std/openssl -- ssl FFI
+  "dynlib.nim", # std/dynlib -- dlopen family
+  "times.nim", # std/times -- localtime/gmtime importc
+  "os.nim", # std/os -- pulls posix/winlean transitively
 ]
 
 # Stdlib PATH fragments that MUST NOT appear in the `Direct FFI (paths: ...)`
@@ -68,8 +68,9 @@ const StdlibPathFragments = [
   "/lib/std/",
   "/lib/posix",
   "/lib/windows",
-  "/nim/2.2.6/lib",  # mise layout for this dev; if the path appears here
-                     # it means the scanner walked the stdlib root.
+  "/nim/2.2.6/lib",
+    # mise layout for this dev; if the path appears here
+    # it means the scanner walked the stdlib root.
 ]
 
 # `randomize()` needed for `rand()` in tmp-path generation.
@@ -83,7 +84,9 @@ proc uniqueTmpDir(prefix: string): string =
   createDir(p)
   p
 
-template runNim(defines: seq[string], target: string): tuple[output: string, code: int] =
+template runNim(
+    defines: seq[string], target: string
+): tuple[output: string, code: int] =
   ## Drive `nim c --compileOnly --hints:on` against `target` with the
   ## supplied define flags. `--hints:on` is required so the audit's
   ## `{.hint.}` emission lands in captured output.
@@ -97,15 +100,17 @@ template runNim(defines: seq[string], target: string): tuple[output: string, cod
   var defs = ""
   for d in defines:
     defs.add " -d:" & d
-  let cmd = "nim c --compileOnly --hints:on --path:" & quoteShell(SrcPath) &
-    defs & " " & quoteShell(target) & " 2>&1"
+  let cmd =
+    "nim c --compileOnly --hints:on --path:" & quoteShell(SrcPath) & defs & " " &
+    quoteShell(target) & " 2>&1"
   var output: string
   var code: int
   (output, code) = execCmdEx(cmd)
   (output, code)
 
-template compileDriverWithTestHook(driverPath: string,
-                                   extraDefines: seq[string] = @[]): tuple[output: string, code: int] =
+template compileDriverWithTestHook(
+    driverPath: string, extraDefines: seq[string] = @[]
+): tuple[output: string, code: int] =
   ## Compile a driver that reaches into the internal CT helpers via
   ## `-d:tripwireAuditFFITestHook`. Used only by the `requires "nim"`
   ## parser/merge tests where the driver calls `parseNimbleRequires`
@@ -115,11 +120,13 @@ template compileDriverWithTestHook(driverPath: string,
   ## wrap template invocations in `{.noRewrite.}:` to suppress the
   ## osproc TRM and keep the aggregate test's TRM-rewrite count under
   ## Defense 3's 15-rewrite cap.
-  var defs = " -d:tripwireAuditFFI -d:tripwireAuditFFITransitive -d:tripwireAuditFFITestHook"
+  var defs =
+    " -d:tripwireAuditFFI -d:tripwireAuditFFITransitive -d:tripwireAuditFFITestHook"
   for d in extraDefines:
     defs.add " -d:" & d
-  let cmd = "nim c --compileOnly --hints:off --path:" & quoteShell(SrcPath) &
-    defs & " " & quoteShell(driverPath) & " 2>&1"
+  let cmd =
+    "nim c --compileOnly --hints:off --path:" & quoteShell(SrcPath) & defs & " " &
+    quoteShell(driverPath) & " 2>&1"
   var output: string
   var code: int
   (output, code) = execCmdEx(cmd)
@@ -161,7 +168,6 @@ proc tripleQuote(s: string): string =
   "\"\"\"\n" & s & "\n\"\"\""
 
 suite "audit_ffi stdlib-never-scanned guard (Task 1.5)":
-
   test "stdlib filenames not cited in FFI report (both defines active)":
     # Compile a driver in a sandboxed tmp dir with both defines. The
     # tmp dir has no `.nimble`, so the transitive scan fires its
@@ -182,16 +188,17 @@ suite "audit_ffi stdlib-never-scanned guard (Task 1.5)":
       var output: string
       var code: int
       {.noRewrite.}:
-        (output, code) = runNim(
-          @["tripwireAuditFFI", "tripwireAuditFFITransitive"], driverPath)
-      if code != 0: echo output
+        (output, code) =
+          runNim(@["tripwireAuditFFI", "tripwireAuditFFITransitive"], driverPath)
+      if code != 0:
+        echo output
       check code == 0
       # Bracket the assertion set with a sanity check that the audit
       # hint actually fired; otherwise the negative checks pass
       # vacuously.
       check "tripwire FFI audit (Defense 2 Part 3)" in output
       let report = extractAuditReport(output)
-      check report.len > 0  # sanity: extraction actually found bounds
+      check report.len > 0 # sanity: extraction actually found bounds
       # Per §5.5 the report must not cite any stdlib filename.
       for fn in StdlibFilenames:
         check fn notin report
@@ -221,21 +228,25 @@ suite "audit_ffi stdlib-never-scanned guard (Task 1.5)":
     # Driver: `static: echo NIM_LIB_PATH=...` so the test harness can
     # extract the Nim stdlib root from compile stdout and assert it
     # is absent from the audit report.
-    writeFile(driverPath, """
+    writeFile(
+      driverPath,
+      """
 import std/compilesettings
 import tripwire/audit_ffi
 static:
   const p = querySetting(SingleValueSetting.libPath)
   doAssert p.len > 0, "nim libPath should always be set at CT"
   echo "NIM_LIB_PATH=" & p
-""")
+""",
+    )
     try:
       var output: string
       var code: int
       {.noRewrite.}:
-        (output, code) = runNim(
-          @["tripwireAuditFFI", "tripwireAuditFFITransitive"], driverPath)
-      if code != 0: echo output
+        (output, code) =
+          runNim(@["tripwireAuditFFI", "tripwireAuditFFITransitive"], driverPath)
+      if code != 0:
+        echo output
       check code == 0
       # Extract NimLibPath from the driver's CT echo.
       var nimLibPath = ""
@@ -244,7 +255,7 @@ static:
         if s.startsWith("NIM_LIB_PATH="):
           nimLibPath = s["NIM_LIB_PATH=".len .. ^1]
           break
-      check nimLibPath.len > 0  # sanity: the CT echo fired
+      check nimLibPath.len > 0 # sanity: the CT echo fired
       # Scope stdlib-absence checks to the audit report region, not
       # the full compile stdout (which contains nim c's own config
       # diagnostics that reference the stdlib path).
@@ -288,11 +299,13 @@ static:
     # stdlib-guard vantage point -- a parser regression that let `nim`
     # through would chain into a stdlib walk via scanTransitive.
     let nimDep = readFile(FixtureDir / "nim_dep.nimble")
-    let driverBody = """
+    let driverBody =
+      """
 import std/[os, strutils]
 import tripwire/audit_ffi
 
-const content = """ & tripleQuote(nimDep) & """
+const content = """ &
+      tripleQuote(nimDep) & """
 
 static:
   let got = parseNimbleRequires(content)
@@ -306,7 +319,8 @@ static:
       var code: int
       {.noRewrite.}:
         (output, code) = compileDriverWithTestHook(driverPath)
-      if code != 0: echo output
+      if code != 0:
+        echo output
       check code == 0
     finally:
       removeFile(driverPath)
@@ -346,8 +360,10 @@ static:
       var code: int
       {.noRewrite.}:
         (output, code) = compileDriverWithTestHook(
-          driverPath, @["tripwireAuditFFIExtraRequires:\"nim,parsetoml\""])
-      if code != 0: echo output
+          driverPath, @["tripwireAuditFFIExtraRequires:\"nim,parsetoml\""]
+        )
+      if code != 0:
+        echo output
       check code == 0
       # CT-echo assertion: the `nim` filter must surface to the
       # operator. The design-§5.5 phrase is the load-bearing substring

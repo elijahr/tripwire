@@ -17,15 +17,21 @@ proc popVerifier(): Verifier =
   result = verifierStack.pop()
 
 proc currentVerifier(): Verifier =
-  if verifierStack.len > 0: verifierStack[^1] else: nil
+  if verifierStack.len > 0:
+    verifierStack[^1]
+  else:
+    nil
 
-proc target*(x: int): int = x * 2
+proc target*(x: int): int =
+  x * 2
 
-template rewriteTarget*{target(a)}(a: int): int =
+template rewriteTarget*{
+  target(a)}(a: int): int =
   let v = currentVerifier()
-  echo "[T", getThreadId(), "] TRM fired, verifier: ",
-       (if v != nil: v.name else: "<NIL>")
-  if v != nil: inc(v.rewriteCount)
+  echo "[T",
+    getThreadId(), "] TRM fired, verifier: ", (if v != nil: v.name else: "<NIL>")
+  if v != nil:
+    inc(v.rewriteCount)
   a * 2
 
 proc workerSpawn(): int {.gcsafe.} =
@@ -33,7 +39,7 @@ proc workerSpawn(): int {.gcsafe.} =
 
 proc test2() =
   discard pushVerifier("test2-main")
-  discard target(1)  # main-thread baseline
+  discard target(1) # main-thread baseline
   let fv = spawn workerSpawn()
   let res = ^fv
   let popped = popVerifier()

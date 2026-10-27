@@ -10,22 +10,22 @@
 ## (path, query) without each plugin pulling in `sandbox` (which would
 ## create a cycle).
 
-type
-  FirewallMode* = enum
-    ## Disposition of unmocked-and-not-allowed calls.
-    ##
-    ## Used in two contexts:
-    ##   * Per-Verifier (`Verifier.firewallMode`): inside-sandbox unmocked-call
-    ##     disposition. `fmError` raises UnmockedInteractionDefect; `fmWarn`
-    ##     emits a stderr warning and proceeds via passthrough.
-    ##   * Project-wide (`FirewallConfig.guard`): outside-sandbox disposition
-    ##     for unmocked TRM calls. `fmError` raises LeakedInteractionDefect;
-    ##     `fmWarn` either passes through (plugin supports it) or raises
-    ##     OutsideSandboxNoPassthroughDefect (plugin doesn't).
-    ##
-    ## Defaults to `fmError` in both contexts to preserve "every external call
-    ## is pre-authorized" without explicit opt-in.
-    fmError, fmWarn
+type FirewallMode* = enum
+  ## Disposition of unmocked-and-not-allowed calls.
+  ##
+  ## Used in two contexts:
+  ##   * Per-Verifier (`Verifier.firewallMode`): inside-sandbox unmocked-call
+  ##     disposition. `fmError` raises UnmockedInteractionDefect; `fmWarn`
+  ##     emits a stderr warning and proceeds via passthrough.
+  ##   * Project-wide (`FirewallConfig.guard`): outside-sandbox disposition
+  ##     for unmocked TRM calls. `fmError` raises LeakedInteractionDefect;
+  ##     `fmWarn` either passes through (plugin supports it) or raises
+  ##     OutsideSandboxNoPassthroughDefect (plugin doesn't).
+  ##
+  ## Defaults to `fmError` in both contexts to preserve "every external call
+  ## is pre-authorized" without explicit opt-in.
+  fmError
+  fmWarn
 
 proc escapeFingerprintField*(s: string): string {.raises: [].} =
   ## Make `s` safe to embed as a single whitespace-delimited token in a
@@ -84,12 +84,18 @@ proc escapeFingerprintField*(s: string): string {.raises: [].} =
   for c in s:
     if c in {' ', '\t', '\n', '\r'}:
       inc escapeCount
-  if escapeCount == 0: return s
+  if escapeCount == 0:
+    return s
   result = newStringOfCap(s.len + escapeCount * 2)
   for c in s:
     case c
-    of ' ':  result.add("%20")
-    of '\t': result.add("%09")
-    of '\n': result.add("%0A")
-    of '\r': result.add("%0D")
-    else:    result.add(c)
+    of ' ':
+      result.add("%20")
+    of '\t':
+      result.add("%09")
+    of '\n':
+      result.add("%0A")
+    of '\r':
+      result.add("%0D")
+    else:
+      result.add(c)

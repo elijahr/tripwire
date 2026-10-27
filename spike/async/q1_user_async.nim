@@ -11,7 +11,8 @@ proc fetchAsync*(url: string): Future[string] {.async.} =
 
 var rewriteCount* = 0
 
-template rewriteFetch*{fetchAsync(url)}(url: string): Future[string] =
+template rewriteFetch*{
+  fetchAsync(url)}(url: string): Future[string] =
   inc(rewriteCount)
   let f = newFuture[string]("fakeFetch")
   f.complete("mocked result")

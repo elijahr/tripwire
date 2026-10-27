@@ -24,8 +24,8 @@
 ## The unittest2 matrix cell is covered by `test_integration_unittest2.nim`.
 when not defined(tripwireUnittest2):
   import std/[unittest as std_ut, tables, options]
-  import tripwire/[types, errors, timeline, sandbox, verify, intercept,
-                  integration_unittest]
+  import
+    tripwire/[types, errors, timeline, sandbox, verify, intercept, integration_unittest]
 
   # ---- Local test plugin ----
   # The `it` plugin is a minimal shim so we can register a mock and
@@ -34,14 +34,14 @@ when not defined(tripwireUnittest2):
     ItPlugin = ref object of Plugin
     ItResp = ref object of MockResponse
       v: int
-  method realize(r: ItResp): int = r.v
+
+  method realize(r: ItResp): int =
+    r.v
 
   let itPlugin = ItPlugin(name: "it", enabled: true)
 
   proc itCall(a: int): int =
-    tripwireInterceptBody(itPlugin, "itCall",
-      fingerprintOf("itCall", @[$a]),
-      ItResp):
+    tripwireInterceptBody(itPlugin, "itCall", fingerprintOf("itCall", @[$a]), ItResp):
       {.noRewrite.}:
         a
 
@@ -54,9 +54,12 @@ when not defined(tripwireUnittest2):
       test "inner-happy":
         let v = currentVerifier()
         std_ut.check v != nil
-        let m = newMock("itCall", fingerprintOf("itCall", @["5"]),
+        let m = newMock(
+          "itCall",
+          fingerprintOf("itCall", @["5"]),
           ItResp(v: 42),
-          (filename: "t.nim", line: 1, column: 0))
+          (filename: "t.nim", line: 1, column: 0),
+        )
         registerMock(v, "it", m)
         std_ut.check itCall(5) == 42
         v.timeline.markAsserted(v.timeline.entries[0])
@@ -70,13 +73,14 @@ when not defined(tripwireUnittest2):
       std_ut.expect UnusedMocksDefect:
         let nfV = pushVerifier(newVerifier("inner-unused-mock"))
         try:
-          let m = newMock("itCall", "x", ItResp(v: 1),
-            (filename: "t.nim", line: 1, column: 0))
+          let m = newMock(
+            "itCall", "x", ItResp(v: 1), (filename: "t.nim", line: 1, column: 0)
+          )
           registerMock(nfV, "it", m)
           # body ends without consuming the mock
         finally:
           discard popVerifier()
-          nfV.verifyAll()  # raises UnusedMocksDefect
+          nfV.verifyAll() # raises UnusedMocksDefect
 
     std_ut.test "tripwire test lifecycle raises UnassertedInteractionsDefect":
       # Same direct invocation, this time with a consumed mock but no
@@ -84,9 +88,12 @@ when not defined(tripwireUnittest2):
       std_ut.expect UnassertedInteractionsDefect:
         let nfV = pushVerifier(newVerifier("inner-unasserted"))
         try:
-          let m = newMock("itCall", fingerprintOf("itCall", @["7"]),
+          let m = newMock(
+            "itCall",
+            fingerprintOf("itCall", @["7"]),
             ItResp(v: 99),
-            (filename: "t.nim", line: 1, column: 0))
+            (filename: "t.nim", line: 1, column: 0),
+          )
           registerMock(nfV, "it", m)
           std_ut.check itCall(7) == 99
           # no markAsserted -> verifyAll raises
@@ -101,11 +108,11 @@ when not defined(tripwireUnittest2):
       # stack with an unused mock, call verifyAllOnExit directly, and
       # check the stack was drained.
       let nfV = pushVerifier(newVerifier("leaked"))
-      let m = newMock("itCall", "x", ItResp(v: 1),
-        (filename: "t.nim", line: 1, column: 0))
+      let m =
+        newMock("itCall", "x", ItResp(v: 1), (filename: "t.nim", line: 1, column: 0))
       registerMock(nfV, "it", m)
       std_ut.check verifierStack.len == 1
-      verifyAllOnExit()   # must not raise
+      verifyAllOnExit() # must not raise
       std_ut.check verifierStack.len == 0
 
     std_ut.test "backend alias exposes std/unittest under default build":

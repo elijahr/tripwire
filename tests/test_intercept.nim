@@ -7,9 +7,12 @@ type
   TestIntResp* = ref object of MockResponse
     val*: int
 
-method realize*(r: TestIntResp): int = r.val
+method realize*(r: TestIntResp): int =
+  r.val
 
-method supportsPassthrough*(p: TestIntPlugin): bool = true
+method supportsPassthrough*(p: TestIntPlugin): bool =
+  true
+
 method passthroughFor*(p: TestIntPlugin, procName: string): bool =
   procName == "spyProc"
 
@@ -20,16 +23,19 @@ let testIntPlugin* = TestIntPlugin(name: "testint", enabled: true)
 # calls it on known args. Real plugins have this body inside a TRM
 # template; for unit-testing the combinator, a regular proc suffices.
 proc interceptedAdd(a, b: int): int =
-  tripwireInterceptBody(testIntPlugin, "interceptedAdd",
+  tripwireInterceptBody(
+    testIntPlugin,
+    "interceptedAdd",
     fingerprintOf("interceptedAdd", @[$a, $b]),
-    TestIntResp):
+    TestIntResp,
+  ):
     {.noRewrite.}:
       a + b
 
 proc spyProc(x: int): int =
-  tripwireInterceptBody(testIntPlugin, "spyProc",
-    fingerprintOf("spyProc", @[$x]),
-    TestIntResp):
+  tripwireInterceptBody(
+    testIntPlugin, "spyProc", fingerprintOf("spyProc", @[$x]), TestIntResp
+  ):
     {.noRewrite.}:
       x * 10
 
@@ -45,8 +51,8 @@ suite "intercept":
   test "popped verifier -> PostTestInteractionDefect":
     let v = newVerifier("t")
     discard pushVerifier(v)
-    discard popVerifier()            # v.active now false
-    discard pushVerifier(v)          # push again to become current
+    discard popVerifier() # v.active now false
+    discard pushVerifier(v) # push again to become current
     expect PostTestInteractionDefect:
       discard interceptedAdd(1, 2)
     discard popVerifier()
@@ -54,10 +60,12 @@ suite "intercept":
   test "matched mock returns realized value":
     sandbox:
       let v = currentVerifier()
-      let m = newMock("interceptedAdd",
+      let m = newMock(
+        "interceptedAdd",
         fingerprintOf("interceptedAdd", @["1", "2"]),
         TestIntResp(val: 42),
-        (filename: "x.nim", line: 1, column: 0))
+        (filename: "x.nim", line: 1, column: 0),
+      )
       registerMock(v, "testint", m)
       check interceptedAdd(1, 2) == 42
       # Must assert the interaction or verifyAll raises Unasserted.

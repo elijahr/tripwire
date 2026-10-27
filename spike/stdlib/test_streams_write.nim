@@ -5,7 +5,8 @@ import std/streams
 
 var rewriteCount {.global.} = 0
 
-template rewriteWrite{write(s, x)}(s: Stream, x: int) =
+template rewriteWrite{
+  write(s, x)}(s: Stream, x: int) =
   inc(rewriteCount)
   discard
 

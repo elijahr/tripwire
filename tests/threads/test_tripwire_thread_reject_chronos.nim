@@ -102,12 +102,14 @@
 import std/[unittest, strutils]
 import tripwire/[sandbox, verify, errors]
 import tripwire/threads
-import tripwire/futures   # `callSoon` (re-exported from asyncdispatch) and
-                          # `hasPendingOperations` (the tripwire wrapper).
-                          # `verify` is imported so sandbox's `verifyAll`
-                          # expansion resolves at the parent sandbox exit
-                          # (sandbox.nim line 63); every sibling threads
-                          # test imports it for the same reason.
+import
+  tripwire/futures
+    # `callSoon` (re-exported from asyncdispatch) and
+    # `hasPendingOperations` (the tripwire wrapper).
+    # `verify` is imported so sandbox's `verifyAll`
+    # expansion resolves at the parent sandbox exit
+    # (sandbox.nim line 63); every sibling threads
+    # test imports it for the same reason.
 
 # Test-only child entry: bootstraps a pending dispatcher op on this
 # thread, then invokes the real `childEntry`. The bootstrapping MUST
@@ -123,7 +125,10 @@ proc testChildEntry(h: ThreadHandoff) {.thread, nimcall, gcsafe.} =
     # the instant `childEntry` reads `hasPendingOperations()`; whether
     # the callback ever fires is irrelevant (the child thread raises
     # and exits before any drain could run).
-    callSoon(proc() {.gcsafe.} = discard)
+    callSoon(
+      proc() {.gcsafe.} =
+        discard
+    )
     doAssert hasPendingOperations(),
       "test setup: callSoon failed to seed pending op on child dispatcher"
   # Now invoke the real childEntry — it should hit its
@@ -161,7 +166,8 @@ suite "withTripwireThread: chronos rejection (F4; design §3.6 lines 432-450)":
           # If this EVER runs, the rejection check either didn't fire
           # or fired AFTER pushVerifier and body. Both are contract
           # violations the test must catch.
-          bodyRan = true)
+          bodyRan = true,
+      )
       GC_ref(h)
       var thr: Thread[ThreadHandoff]
       try:

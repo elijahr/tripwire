@@ -40,8 +40,7 @@ proc writeDriver(body: string): string =
   ## Each test writes its own driver so failures don't cross-contaminate.
   let runRoot = getTempDir() / "tripwire_nimble_parser_test"
   createDir(runRoot)
-  let subdir = runRoot / ("driver_" & $getTime().toUnix() & "_" &
-                          $rand(high(int)))
+  let subdir = runRoot / ("driver_" & $getTime().toUnix() & "_" & $rand(high(int)))
   createDir(subdir)
   let path = subdir / "driver.nim"
   writeFile(path, body)
@@ -59,10 +58,10 @@ template compileDriver(driverPath: string): tuple[output: string, code: int] =
   ## scope and the osproc plugin's `execCmdExTRM` is suppressed.
   ## Defense 3's 15-rewrite cap (cap_counter.nim) would otherwise trip
   ## in the aggregate `tests/all_tests.nim` compile.
-  let cmd = "nim c --compileOnly --hints:off --path:" & quoteShell(SrcPath) &
+  let cmd =
+    "nim c --compileOnly --hints:off --path:" & quoteShell(SrcPath) &
     " -d:tripwireAuditFFI -d:tripwireAuditFFITransitive" &
-    " -d:tripwireAuditFFITestHook " &
-    quoteShell(driverPath) & " 2>&1"
+    " -d:tripwireAuditFFITestHook " & quoteShell(driverPath) & " 2>&1"
   var output: string
   var code: int
   (output, code) = execCmdEx(cmd)
@@ -90,7 +89,6 @@ proc tripleQuote(s: string): string =
   "\"\"\"\n" & s & "\n\"\"\""
 
 suite "audit_ffi .nimble parser limits (Task 1.3)":
-
   # Reclaim accumulated per-driver subdirs from prior runs. Each
   # driver lives in its own subdir (per writeDriver), so wiping the
   # parent here is safe and bounded. Without this, the shared parent
@@ -105,7 +103,8 @@ suite "audit_ffi .nimble parser limits (Task 1.3)":
     # Happy path: `requires "foo"` and `requires "bar >= 1.0"`.
     # Version bounds stripped; output order preserved; dedup'd.
     let simple = readFile(FixtureDir / "simple.nimble")
-    let driver = DriverHeader & "\nconst content = " & tripleQuote(simple) & """
+    let driver =
+      DriverHeader & "\nconst content = " & tripleQuote(simple) & """
 
 static:
   let got = parseNimbleRequires(content)
@@ -116,7 +115,8 @@ static:
     var code: int
     {.noRewrite.}:
       (output, code) = compileDriver(path)
-    if code != 0: echo output
+    if code != 0:
+      echo output
     check code == 0
 
   test "parseNimbleRequires accepts tab-separator and zero-space forms after keyword":
@@ -125,7 +125,8 @@ static:
     # All three are syntactically valid in `.nimble` files; rejecting
     # them silently dropped real deps.
     let tabNoSpace = readFile(FixtureDir / "tab_no_space.nimble")
-    let driver = DriverHeader & "\nconst content = " & tripleQuote(tabNoSpace) & """
+    let driver =
+      DriverHeader & "\nconst content = " & tripleQuote(tabNoSpace) & """
 
 static:
   let got = parseNimbleRequires(content)
@@ -136,7 +137,8 @@ static:
     var code: int
     {.noRewrite.}:
       (output, code) = compileDriver(path)
-    if code != 0: echo output
+    if code != 0:
+      echo output
     check code == 0
 
   test "parseNimbleRequires strips version bound with no space between pkg and operator":
@@ -152,7 +154,8 @@ requires "gamma<3.0"
 requires "delta^=1.2"
 requires "epsilon"
 """
-    let driver = DriverHeader & "\nconst content = " & tripleQuote(content) & """
+    let driver =
+      DriverHeader & "\nconst content = " & tripleQuote(content) & """
 
 static:
   let got = parseNimbleRequires(content)
@@ -163,7 +166,8 @@ static:
     var code: int
     {.noRewrite.}:
       (output, code) = compileDriver(path)
-    if code != 0: echo output
+    if code != 0:
+      echo output
     check code == 0
 
   test "parseNimbleRequires MISSES continuation lines of multi-line requires (documented limit)":
@@ -171,7 +175,8 @@ static:
     # Only `first` is captured. `second` and `third` are on continuation
     # lines which the line-by-line parser does not inspect.
     let multiline = readFile(FixtureDir / "multiline.nimble")
-    let driver = DriverHeader & "\nconst content = " & tripleQuote(multiline) & """
+    let driver =
+      DriverHeader & "\nconst content = " & tripleQuote(multiline) & """
 
 static:
   let got = parseNimbleRequires(content)
@@ -182,14 +187,16 @@ static:
     var code: int
     {.noRewrite.}:
       (output, code) = compileDriver(path)
-    if code != 0: echo output
+    if code != 0:
+      echo output
     check code == 0
 
   test "parseNimbleRequires INCLUDES requires inside when/if blocks (documented limit)":
     # Control flow is NOT evaluated; every quoted requires line is
     # picked up regardless of syntactic context.
     let conditional = readFile(FixtureDir / "conditional.nimble")
-    let driver = DriverHeader & "\nconst content = " & tripleQuote(conditional) & """
+    let driver =
+      DriverHeader & "\nconst content = " & tripleQuote(conditional) & """
 
 static:
   let got = parseNimbleRequires(content)
@@ -200,7 +207,8 @@ static:
     var code: int
     {.noRewrite.}:
       (output, code) = compileDriver(path)
-    if code != 0: echo output
+    if code != 0:
+      echo output
     check code == 0
 
   test "parseNimbleRequires SKIPS variable-expansion requires (documented limit)":
@@ -208,7 +216,8 @@ static:
     # resolve; line is skipped entirely, leaving the returned seq empty
     # for this fixture (the fixture has no other requires).
     let variable = readFile(FixtureDir / "variable.nimble")
-    let driver = DriverHeader & "\nconst content = " & tripleQuote(variable) & """
+    let driver =
+      DriverHeader & "\nconst content = " & tripleQuote(variable) & """
 
 static:
   let got = parseNimbleRequires(content)
@@ -219,7 +228,8 @@ static:
     var code: int
     {.noRewrite.}:
       (output, code) = compileDriver(path)
-    if code != 0: echo output
+    if code != 0:
+      echo output
     check code == 0
 
   test "parseNimbleRequires SKIPS requires \"nim\" lines":
@@ -228,7 +238,8 @@ static:
     # and `requires "nim >= 2.0"` forms are filtered, while other deps
     # on the same file remain.
     let nimDep = readFile(FixtureDir / "nim_dep.nimble")
-    let driver = DriverHeader & "\nconst content = " & tripleQuote(nimDep) & """
+    let driver =
+      DriverHeader & "\nconst content = " & tripleQuote(nimDep) & """
 
 static:
   let got = parseNimbleRequires(content)
@@ -239,7 +250,8 @@ static:
     var code: int
     {.noRewrite.}:
       (output, code) = compileDriver(path)
-    if code != 0: echo output
+    if code != 0:
+      echo output
     check code == 0
 
   test "parseNimbleRequires dedupes case-sensitive duplicate packages":
@@ -250,7 +262,8 @@ static:
 requires "dup >= 1.0"
 requires "Dup"
 """
-    let driver = DriverHeader & "\nconst content = " & tripleQuote(dupContent) & """
+    let driver =
+      DriverHeader & "\nconst content = " & tripleQuote(dupContent) & """
 
 static:
   let got = parseNimbleRequires(content)
@@ -261,35 +274,39 @@ static:
     var code: int
     {.noRewrite.}:
       (output, code) = compileDriver(path)
-    if code != 0: echo output
+    if code != 0:
+      echo output
     check code == 0
 
   test "mergeExtraRequires dedup-unions -d:tripwireAuditFFIExtraRequires with auto set":
     # The extras define carries `foo,baz`. Auto set is `@["foo", "qux"]`.
     # Result: `foo` dedup'd, `qux` preserved, `baz` appended. Order:
     # auto entries first (preserved), then extras in CSV order.
-    let driver = DriverHeader & """
+    let driver =
+      DriverHeader & """
 static:
   let got = mergeExtraRequires(@["foo", "qux"])
   doAssert got == @["foo", "qux", "baz"], "got=" & $got
 """
     let path = writeDriver(driver)
-    let cmd = "nim c --compileOnly --hints:off --path:" & quoteShell(SrcPath) &
+    let cmd =
+      "nim c --compileOnly --hints:off --path:" & quoteShell(SrcPath) &
       " -d:tripwireAuditFFI -d:tripwireAuditFFITransitive" &
-      " -d:tripwireAuditFFITestHook" &
-      " -d:tripwireAuditFFIExtraRequires:\"foo,baz\" " &
+      " -d:tripwireAuditFFITestHook" & " -d:tripwireAuditFFIExtraRequires:\"foo,baz\" " &
       quoteShell(path) & " 2>&1"
     var output: string
     var code: int
     {.noRewrite.}:
       (output, code) = execCmdEx(cmd)
-    if code != 0: echo output
+    if code != 0:
+      echo output
     check code == 0
 
   test "mergeExtraRequires returns auto set unchanged when the define is empty":
     # Regression guard: when -d:tripwireAuditFFIExtraRequires is unset
     # (or empty), the auto set passes through identically.
-    let driver = DriverHeader & """
+    let driver =
+      DriverHeader & """
 static:
   let got = mergeExtraRequires(@["foo", "qux"])
   doAssert got == @["foo", "qux"], "got=" & $got
@@ -299,7 +316,8 @@ static:
     var code: int
     {.noRewrite.}:
       (output, code) = compileDriver(path)
-    if code != 0: echo output
+    if code != 0:
+      echo output
     check code == 0
 
   test "findFirstNimble returns a .nimble file from a populated fixture dir":
@@ -309,7 +327,8 @@ static:
     # `.nimble` and is an absolute path into the fixture dir — not a
     # specific filename, because walkDir iteration order is not
     # guaranteed stable across Nim versions.
-    let driver = DriverHeader & "\nconst fixtureDir = " & '"' & FixtureDir & '"' & "\n" & """
+    let driver =
+      DriverHeader & "\nconst fixtureDir = " & '"' & FixtureDir & '"' & "\n" & """
 static:
   let got = findFirstNimble(fixtureDir)
   doAssert got.endsWith(".nimble"), "got=" & got
@@ -320,13 +339,16 @@ static:
     var code: int
     {.noRewrite.}:
       (output, code) = compileDriver(path)
-    if code != 0: echo output
+    if code != 0:
+      echo output
     check code == 0
 
   test "findFirstNimble returns empty string when dir contains no .nimble files":
     # Negative case: `empty_dir` under fixtures contains only a `.keep`
     # marker, no `*.nimble`. Must return "".
-    let driver = DriverHeader & "\nconst emptyDir = " & '"' & (FixtureDir / "empty_dir") & '"' & "\n" & """
+    let driver =
+      DriverHeader & "\nconst emptyDir = " & '"' & (FixtureDir / "empty_dir") & '"' &
+      "\n" & """
 static:
   let got = findFirstNimble(emptyDir)
   doAssert got == "", "got=" & got
@@ -336,13 +358,16 @@ static:
     var code: int
     {.noRewrite.}:
       (output, code) = compileDriver(path)
-    if code != 0: echo output
+    if code != 0:
+      echo output
     check code == 0
 
   test "locatePackageDir finds pkgs2 match first (preferred over pkgs)":
     # Mock layout: `mock_pkgs/pkgs2/foo-1.0/` exists. Passing the mock
     # root via the `roots` parameter, `foo` resolves to that path.
-    let driver = DriverHeader & "\nconst mockRoot = " & '"' & (FixtureDir / "mock_pkgs") & '"' & "\n" & """
+    let driver =
+      DriverHeader & "\nconst mockRoot = " & '"' & (FixtureDir / "mock_pkgs") & '"' &
+      "\n" & """
 static:
   let got = locatePackageDir("foo", @[mockRoot])
   doAssert got.endsWith("foo-1.0"), "got=" & got
@@ -353,13 +378,16 @@ static:
     var code: int
     {.noRewrite.}:
       (output, code) = compileDriver(path)
-    if code != 0: echo output
+    if code != 0:
+      echo output
     check code == 0
 
   test "locatePackageDir falls back to pkgs when pkgs2 has no match":
     # `legacy` exists only under `mock_pkgs/pkgs/legacy-2.0/`. The
     # pkgs2 layer is searched first and misses; pkgs layer hits.
-    let driver = DriverHeader & "\nconst mockRoot = " & '"' & (FixtureDir / "mock_pkgs") & '"' & "\n" & """
+    let driver =
+      DriverHeader & "\nconst mockRoot = " & '"' & (FixtureDir / "mock_pkgs") & '"' &
+      "\n" & """
 static:
   let got = locatePackageDir("legacy", @[mockRoot])
   doAssert got.endsWith("legacy-2.0"), "got=" & got
@@ -370,12 +398,15 @@ static:
     var code: int
     {.noRewrite.}:
       (output, code) = compileDriver(path)
-    if code != 0: echo output
+    if code != 0:
+      echo output
     check code == 0
 
   test "locatePackageDir returns empty string for unknown package":
     # Not-found: no `bogus-*` dir in either pkgs2 or pkgs.
-    let driver = DriverHeader & "\nconst mockRoot = " & '"' & (FixtureDir / "mock_pkgs") & '"' & "\n" & """
+    let driver =
+      DriverHeader & "\nconst mockRoot = " & '"' & (FixtureDir / "mock_pkgs") & '"' &
+      "\n" & """
 static:
   let got = locatePackageDir("bogus", @[mockRoot])
   doAssert got == "", "got=" & got
@@ -385,5 +416,6 @@ static:
     var code: int
     {.noRewrite.}:
       (output, code) = compileDriver(path)
-    if code != 0: echo output
+    if code != 0:
+      echo output
     check code == 0

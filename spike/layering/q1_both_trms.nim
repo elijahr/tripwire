@@ -6,11 +6,13 @@ import targets
 var socketRewrites* {.global.} = 0
 var httpRewrites* {.global.} = 0
 
-template rewriteSocketSend*{socketSend(address, data)}(address, data: string) =
+template rewriteSocketSend*{
+  socketSend(address, data)}(address, data: string) =
   inc(socketRewrites)
   # don't actually send
 
-template rewriteHttpGet*{httpGet(url)}(url: string): string =
+template rewriteHttpGet*{
+  httpGet(url)}(url: string): string =
   inc(httpRewrites)
-  socketSend(url, "GET intercepted\r\n")  # high-layer rewrite still calls socket
+  socketSend(url, "GET intercepted\r\n") # high-layer rewrite still calls socket
   "fake-response"

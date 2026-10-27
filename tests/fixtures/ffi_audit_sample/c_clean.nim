@@ -7,4 +7,5 @@
 
 const s = "this string mentions importc but is not a pragma"
 
-proc double(x: int): int = x * 2
+proc double(x: int): int =
+  x * 2

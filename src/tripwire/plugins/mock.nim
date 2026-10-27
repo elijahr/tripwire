@@ -31,16 +31,20 @@ type
   MockUserResponse*[T] = ref object of MockResponse
     returnValue*: T
 
-proc realize*[T](r: MockUserResponse[T]): T {.raises: [].} = r.returnValue
+proc realize*[T](r: MockUserResponse[T]): T {.raises: [].} =
   ## Not a method — Nim 2.2.6 multimethod dispatch doesn't support generic
   ## type parameters. Call sites use concrete T via the TRM body cast:
   ## `MockUserResponse[T](resp).realize()`.
   ##
   ## `raises: []` for firewall-hot-path raises composition; see
   ## `MockResponse.realize` in `tripwire/intercept.nim`.
+  r.returnValue
 
-method supportsPassthrough*(p: MockPlugin): bool {.raises: [].} = true
-method passthroughFor*(p: MockPlugin, procName: string): bool {.raises: [].} = true
+method supportsPassthrough*(p: MockPlugin): bool {.raises: [].} =
+  true
+
+method passthroughFor*(p: MockPlugin, procName: string): bool {.raises: [].} =
+  true
 
 method assertableFields*(p: MockPlugin, i: Interaction): seq[string] {.raises: [].} =
   @["value"]
@@ -52,8 +56,9 @@ registerPlugin(mockPluginInstance)
 # `mockable(fn)` emits a TRM at module scope (see module doc).
 # `expect fn(...)` inside a test registers a mock; assumes module-scope TRM.
 
-proc emitMockTRMFor(procSym: NimNode, args: seq[NimNode],
-                    retType: NimNode): NimNode {.compileTime.} =
+proc emitMockTRMFor(
+    procSym: NimNode, args: seq[NimNode], retType: NimNode
+): NimNode {.compileTime.} =
   ## Generate a TRM matching the user's proc signature. Each call-site arg
   ## is bound to a pattern variable a0, a1, ...
   let procName = $procSym
@@ -68,8 +73,7 @@ proc emitMockTRMFor(procSym: NimNode, args: seq[NimNode],
     let aId = ident("a" & $i)
     patternCall.add(aId)
     # Use the arg's inferred type via getTypeInst on the call-site arg.
-    formalParams.add(nnkIdentDefs.newTree(aId,
-      getTypeInst(arg), newEmptyNode()))
+    formalParams.add(nnkIdentDefs.newTree(aId, getTypeInst(arg), newEmptyNode()))
 
   # Build body: tripwireInterceptBody(pluginInstance, procName,
   #   fingerprintOf(procName, @[$a0, $a1, ...]),
@@ -91,14 +95,16 @@ proc emitMockTRMFor(procSym: NimNode, args: seq[NimNode],
   # detailed analysis.
   let noRewritePragma = nnkPragma.newTree(ident"noRewrite")
   let spyBodyNode = nnkPragmaBlock.newTree(
-    noRewritePragma,
-    nnkStmtList.newTree(patternCall.copyNimTree))
-  let body = newCall("tripwirePluginIntercept",
+    noRewritePragma, nnkStmtList.newTree(patternCall.copyNimTree)
+  )
+  let body = newCall(
+    "tripwirePluginIntercept",
     ident"mockPluginInstance",
     newLit(procName),
     newCall("fingerprintOf", newLit(procName), prefix(renderedArgs, "@")),
     nnkBracketExpr.newTree(ident"MockUserResponse", retType),
-    spyBodyNode)
+    spyBodyNode,
+  )
 
   # Manual nnkTemplateDef with TRM pattern arm.
   # The TRM pattern lives at child index 1 (between name and genericParams),
@@ -119,12 +125,13 @@ proc emitMockTRMFor(procSym: NimNode, args: seq[NimNode],
   let tmplName = genSym(nskTemplate, "mockTRM_" & procName)
   let tdef = nnkTemplateDef.newTree(
     tmplName,
-    nnkStmtList.newTree(patternCall),  # TRM pattern arm
+    nnkStmtList.newTree(patternCall), # TRM pattern arm
     newEmptyNode(),
     formalParams,
     newEmptyNode(),
     newEmptyNode(),
-    body)
+    body,
+  )
   result = newStmtList(tdef)
 
 macro mockable*(call: typed): untyped =
@@ -174,15 +181,16 @@ macro expect*(call: typed, body: untyped): untyped =
   # 2nd, and the value expression is wrapped in a StmtList as the 3rd.
   var valueExpr: NimNode = nil
   for stmt in body:
-    let isRespond = (stmt.kind in {nnkCommand, nnkCall}) and stmt.len >= 1 and
-                    stmt[0].kind == nnkIdent and stmt[0].strVal == "respond"
-    if not isRespond: continue
+    let isRespond =
+      (stmt.kind in {nnkCommand, nnkCall}) and stmt.len >= 1 and stmt[0].kind == nnkIdent and
+      stmt[0].strVal == "respond"
+    if not isRespond:
+      continue
     # Walk the remaining children pairwise (fieldIdent, StmtList(value))
     var i = 1
     while i < stmt.len:
       let fieldNode = stmt[i]
-      if fieldNode.kind == nnkIdent and fieldNode.strVal == "value" and
-         i + 1 < stmt.len:
+      if fieldNode.kind == nnkIdent and fieldNode.strVal == "value" and i + 1 < stmt.len:
         let rhs = stmt[i + 1]
         if rhs.kind == nnkStmtList and rhs.len == 1:
           valueExpr = rhs[0]
@@ -191,15 +199,17 @@ macro expect*(call: typed, body: untyped): untyped =
         break
       # Also support the ExprColonExpr form (single-line: `respond value: 42`
       # may in some layouts parse to `nnkExprColonExpr(value, 42)`).
-      if fieldNode.kind == nnkExprColonExpr and
-         fieldNode[0].kind == nnkIdent and fieldNode[0].strVal == "value":
+      if fieldNode.kind == nnkExprColonExpr and fieldNode[0].kind == nnkIdent and
+          fieldNode[0].strVal == "value":
         valueExpr = fieldNode[1]
         break
       inc i
-    if valueExpr != nil: break
+    if valueExpr != nil:
+      break
   if valueExpr == nil:
-    error("expect ...: must contain `respond value: <expr>`. Got: " &
-          body.treeRepr, body)
+    error(
+      "expect ...: must contain `respond value: <expr>`. Got: " & body.treeRepr, body
+    )
 
   # Resolve return type from the proc symbol.
   let retType = procReturnType(call)
@@ -217,15 +227,20 @@ macro expect*(call: typed, body: untyped): untyped =
   # colon-expression appears as an argument.
   let respConstr = nnkObjConstr.newTree(
     nnkBracketExpr.newTree(ident"MockUserResponse", retType),
-    nnkExprColonExpr.newTree(ident"returnValue", valueExpr))
-  result = newCall("registerMock",
+    nnkExprColonExpr.newTree(ident"returnValue", valueExpr),
+  )
+  result = newCall(
+    "registerMock",
     newCall("currentVerifier"),
     newLit("mock"),
-    newCall("newMock",
+    newCall(
+      "newMock",
       procNameLit,
       newCall("fingerprintOf", procNameLit, prefix(renderedArgs, "@")),
       respConstr,
-      newCall("instantiationInfo")))
+      newCall("instantiationInfo"),
+    ),
+  )
 
 macro assertMock*(call: typed, body: untyped): untyped =
   ## `assertMock fnName(args...): responded value: VALUE`
@@ -250,26 +265,28 @@ macro assertMock*(call: typed, body: untyped): untyped =
   #   Command(Ident responded, Ident value, StmtList(VALUE))
   var valueExpr: NimNode = nil
   for stmt in body:
-    let isResponded = (stmt.kind in {nnkCommand, nnkCall}) and stmt.len >= 1 and
-                      stmt[0].kind == nnkIdent and stmt[0].strVal == "responded"
-    if not isResponded: continue
+    let isResponded =
+      (stmt.kind in {nnkCommand, nnkCall}) and stmt.len >= 1 and stmt[0].kind == nnkIdent and
+      stmt[0].strVal == "responded"
+    if not isResponded:
+      continue
     var i = 1
     while i < stmt.len:
       let fieldNode = stmt[i]
-      if fieldNode.kind == nnkIdent and fieldNode.strVal == "value" and
-         i + 1 < stmt.len:
+      if fieldNode.kind == nnkIdent and fieldNode.strVal == "value" and i + 1 < stmt.len:
         let rhs = stmt[i + 1]
         if rhs.kind == nnkStmtList and rhs.len == 1:
           valueExpr = rhs[0]
         else:
           valueExpr = rhs
         break
-      if fieldNode.kind == nnkExprColonExpr and
-         fieldNode[0].kind == nnkIdent and fieldNode[0].strVal == "value":
+      if fieldNode.kind == nnkExprColonExpr and fieldNode[0].kind == nnkIdent and
+          fieldNode[0].strVal == "value":
         valueExpr = fieldNode[1]
         break
       inc i
-    if valueExpr != nil: break
+    if valueExpr != nil:
+      break
   if valueExpr == nil:
     error("assertMock ...: must contain `responded value: <expr>`", body)
 
@@ -292,20 +309,20 @@ macro assertMock*(call: typed, body: untyped): untyped =
   #     let resp = MockUserResponse[retType](found.response)
   #     doAssert resp.returnValue == VALUE, "assertMock: response mismatch"
   #     v.timeline.markAsserted(found)
-  result = quote do:
+  result = quote:
     block:
       let nfAV = currentVerifier()
       doAssert nfAV != nil, "assertMock outside sandbox"
       let nfAFp = fingerprintOf(`procNameLit`, @`renderedArgs`)
       var nfAFound: Interaction = nil
       for e in nfAV.timeline.entries:
-        if not e.asserted and e.procName == `procNameLit` and
-           ".fp" in e.args and e.args[".fp"] == nfAFp:
+        if not e.asserted and e.procName == `procNameLit` and ".fp" in e.args and
+            e.args[".fp"] == nfAFp:
           nfAFound = e
           break
       doAssert nfAFound != nil,
         "assertMock: no unasserted interaction for " & `procNameLit` &
-        " with fingerprint " & nfAFp
+          " with fingerprint " & nfAFp
       let nfAResp = MockUserResponse[`retType`](nfAFound.response)
       doAssert nfAResp.returnValue == `valueExpr`,
         "assertMock: response mismatch for " & `procNameLit`

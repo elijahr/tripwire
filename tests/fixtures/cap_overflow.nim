@@ -6,19 +6,19 @@
 ## the compiler exits non-zero with the cap-threshold message.
 import tripwire/cap_counter
 
-tripwireCountRewrite()   # 1
-tripwireCountRewrite()   # 2
-tripwireCountRewrite()   # 3
-tripwireCountRewrite()   # 4
-tripwireCountRewrite()   # 5
-tripwireCountRewrite()   # 6
-tripwireCountRewrite()   # 7
-tripwireCountRewrite()   # 8
-tripwireCountRewrite()   # 9
-tripwireCountRewrite()   # 10
-tripwireCountRewrite()   # 11
-tripwireCountRewrite()   # 12
-tripwireCountRewrite()   # 13
-tripwireCountRewrite()   # 14
-tripwireCountRewrite()   # 15 — last one allowed
-tripwireCountRewrite()   # 16 — must error
+tripwireCountRewrite() # 1
+tripwireCountRewrite() # 2
+tripwireCountRewrite() # 3
+tripwireCountRewrite() # 4
+tripwireCountRewrite() # 5
+tripwireCountRewrite() # 6
+tripwireCountRewrite() # 7
+tripwireCountRewrite() # 8
+tripwireCountRewrite() # 9
+tripwireCountRewrite() # 10
+tripwireCountRewrite() # 11
+tripwireCountRewrite() # 12
+tripwireCountRewrite() # 13
+tripwireCountRewrite() # 14
+tripwireCountRewrite() # 15 — last one allowed
+tripwireCountRewrite() # 16 — must error

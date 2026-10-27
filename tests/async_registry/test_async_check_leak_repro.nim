@@ -68,7 +68,7 @@ suite "q1_async_leak port":
 
     sandbox:
       fut = leaker()
-      asyncCheck fut   # plain asyncCheck — the leak vector
+      asyncCheck fut # plain asyncCheck — the leak vector
       # body returns immediately; fut is still pending.
       # Do NOT reduce sleepAsync(20) to 0 or remove it — the body must
       # yield so `sandbox:` pops before `fut` completes. Without a yield,
@@ -97,10 +97,10 @@ suite "q1_async_leak port":
     # `newPendingAsyncDefect(testName)` (errors.nim lines 142-146).
     # Constructed here so a drift in either the template or the footer
     # regresses this assertion rather than silently passing.
-    let expectedMsg = "test 'q1_async_leak_repro' ended with pending async operations." &
+    let expectedMsg =
+      "test 'q1_async_leak_repro' ended with pending async operations." &
       "\nUse `waitFor` to drain futures, or -d:tripwireAllowPendingAsync to" &
-      " suppress." &
-      "\n(tripwire intercepts Nim source calls only. " &
+      " suppress." & "\n(tripwire intercepts Nim source calls only. " &
       "FFI ({.importc.}, {.dynlib.}, {.header.}) is not intercepted in v0. " &
       "See docs/concepts.md#scope.)"
     check raised.msg == expectedMsg

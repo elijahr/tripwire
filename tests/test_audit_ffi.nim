@@ -66,8 +66,8 @@ proc uniqueNimcache(tag: string): string =
   ## Per-test nimcache dir keyed by a tag + unix time + random int.
   ## Each test's compile uses a fresh cache so hint emission fires on
   ## every invocation regardless of other tests' compile history.
-  getTempDir() / ("tripwire_audit_ffi_" & tag & "_" &
-                  $getTime().toUnix() & "_" & $rand(high(int)))
+  getTempDir() /
+    ("tripwire_audit_ffi_" & tag & "_" & $getTime().toUnix() & "_" & $rand(high(int)))
 
 proc uniqueDriverName(prefix: string): string =
   ## Randomized `.nim` filename for Case 4's in-fixture driver. The
@@ -88,7 +88,6 @@ for path in walkFiles(FixtureFFIDir / "driver_e2e_*.nim"):
   removeFile(path)
 
 suite "audit_ffi v0.2 integration regression guard":
-
   test "activation: -d:tripwireAuditFFI fires the hint with Direct FFI and Grand total":
     ## Case 1. Compile `audit_ffi.nim` itself with the direct define.
     ## The module's `{.hint: ffiReport.}` MUST fire and produce a body
@@ -102,15 +101,16 @@ suite "audit_ffi v0.2 integration regression guard":
     ## fails here -- this is the single load-bearing smoke test that
     ## v0.2's activation path is wired end-to-end.
     let nc = uniqueNimcache("activation")
-    let cmd = "nim c --compileOnly --hints:on --nimcache:" & quoteShell(nc) &
-      " --path:" & quoteShell(SrcPath) &
-      " -d:tripwireAuditFFI " & quoteShell(AuditTarget) & " 2>&1"
+    let cmd =
+      "nim c --compileOnly --hints:on --nimcache:" & quoteShell(nc) & " --path:" &
+      quoteShell(SrcPath) & " -d:tripwireAuditFFI " & quoteShell(AuditTarget) & " 2>&1"
     var output: string
     var code: int
     {.noRewrite.}:
       (output, code) = execCmdEx(cmd)
     try:
-      if code != 0: echo output
+      if code != 0:
+        echo output
       check code == 0
       # Stable v0.1-compatible header fragment.
       check "tripwire FFI audit (Defense 2 Part 3)" in output
@@ -135,7 +135,8 @@ suite "audit_ffi v0.2 integration regression guard":
           break
       check haveGrandTotal
     finally:
-      if dirExists(nc): removeDir(nc)
+      if dirExists(nc):
+        removeDir(nc)
 
   test "no-op default: no hint emitted WITHOUT -d:tripwireAuditFFI":
     ## Case 2. Compile `audit_ffi.nim` WITHOUT the define. The entire
@@ -149,13 +150,15 @@ suite "audit_ffi v0.2 integration regression guard":
     ## v0.1 case that IS preservable in v0.2 per the WI1 baseline note).
     ## `nim check` does not populate a nimcache, so no per-test cache
     ## management is needed here.
-    let cmd = "nim check --hints:on --path:" & quoteShell(SrcPath) &
-      " " & quoteShell(AuditTarget) & " 2>&1"
+    let cmd =
+      "nim check --hints:on --path:" & quoteShell(SrcPath) & " " &
+      quoteShell(AuditTarget) & " 2>&1"
     var output: string
     var code: int
     {.noRewrite.}:
       (output, code) = execCmdEx(cmd)
-    if code != 0: echo output
+    if code != 0:
+      echo output
     check code == 0
     # No audit header.
     check "tripwire FFI audit (Defense 2 Part 3)" notin output
@@ -183,16 +186,17 @@ suite "audit_ffi v0.2 integration regression guard":
     ## two-layer guard: static grep pins the source-level absence,
     ## runtime env-clearing pins the behavioral absence.
     let nc = uniqueNimcache("env_indep")
-    let cmd = "env -u TRIPWIRE_FFI_SCAN_PATHS -u TRIPWIRE_FFI_TRANSITIVE_PATHS " &
-      "nim c --compileOnly --hints:on --nimcache:" & quoteShell(nc) &
-      " --path:" & quoteShell(SrcPath) &
-      " -d:tripwireAuditFFI " & quoteShell(AuditTarget) & " 2>&1"
+    let cmd =
+      "env -u TRIPWIRE_FFI_SCAN_PATHS -u TRIPWIRE_FFI_TRANSITIVE_PATHS " &
+      "nim c --compileOnly --hints:on --nimcache:" & quoteShell(nc) & " --path:" &
+      quoteShell(SrcPath) & " -d:tripwireAuditFFI " & quoteShell(AuditTarget) & " 2>&1"
     var output: string
     var code: int
     {.noRewrite.}:
       (output, code) = execCmdEx(cmd)
     try:
-      if code != 0: echo output
+      if code != 0:
+        echo output
       check code == 0
       # Same shape contract as Case 1 MUST hold. A regression that
       # only emits the header when env vars are set would fail one of
@@ -212,7 +216,8 @@ suite "audit_ffi v0.2 integration regression guard":
           break
       check haveGrandTotal
     finally:
-      if dirExists(nc): removeDir(nc)
+      if dirExists(nc):
+        removeDir(nc)
 
   test "end-to-end pragma count: fixture with 4 .importc-family pragmas surfaces in Grand total":
     ## Case 4. Integration loop: write a tiny driver into the fixture
@@ -242,15 +247,16 @@ suite "audit_ffi v0.2 integration regression guard":
     let driverPath = FixtureFFIDir / uniqueDriverName("driver_e2e")
     writeFile(driverPath, "import tripwire/audit_ffi\n")
     let nc = uniqueNimcache("e2e_count")
-    let cmd = "nim c --compileOnly --hints:on --nimcache:" & quoteShell(nc) &
-      " --path:" & quoteShell(SrcPath) &
-      " -d:tripwireAuditFFI " & quoteShell(driverPath) & " 2>&1"
+    let cmd =
+      "nim c --compileOnly --hints:on --nimcache:" & quoteShell(nc) & " --path:" &
+      quoteShell(SrcPath) & " -d:tripwireAuditFFI " & quoteShell(driverPath) & " 2>&1"
     var output: string
     var code: int
     {.noRewrite.}:
       (output, code) = execCmdEx(cmd)
     try:
-      if code != 0: echo output
+      if code != 0:
+        echo output
       check code == 0
       # Stable audit header.
       check "tripwire FFI audit (Defense 2 Part 3)" in output
@@ -273,5 +279,7 @@ suite "audit_ffi v0.2 integration regression guard":
           break
       check grandTotal == 4
     finally:
-      if fileExists(driverPath): removeFile(driverPath)
-      if dirExists(nc): removeDir(nc)
+      if fileExists(driverPath):
+        removeFile(driverPath)
+      if dirExists(nc):
+        removeDir(nc)

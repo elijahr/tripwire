@@ -1,7 +1,7 @@
 ## tests/test_httpclient_plugin.nim — F4: httpclient plugin base + sync request TRM.
 import std/[unittest, httpclient, options, strutils]
-import tripwire/[types, errors, timeline, sandbox, verify, intercept,
-                macros as nfmacros]
+import
+  tripwire/[types, errors, timeline, sandbox, verify, intercept, macros as nfmacros]
 import tripwire/plugins/httpclient as nfhttp
 
 # Wrapper proc — TRM-on-direct-call-in-test gotcha (see test_mock_expect.nim).
@@ -28,10 +28,10 @@ suite "httpclient plugin":
     # fingerprints, otherwise mocking `/api?id=1` would also match
     # `/api?id=2` (a Guarantee 1 / Guarantee 2 interaction-uniqueness
     # violation). Mirrors the chronos_httpclient/websock plugin behavior.
-    let fp1 = fingerprintHttpRequest("http://example.com/api?id=1",
-                                     HttpGet, "", nil, nil)
-    let fp2 = fingerprintHttpRequest("http://example.com/api?id=2",
-                                     HttpGet, "", nil, nil)
+    let fp1 =
+      fingerprintHttpRequest("http://example.com/api?id=1", HttpGet, "", nil, nil)
+    let fp2 =
+      fingerprintHttpRequest("http://example.com/api?id=2", HttpGet, "", nil, nil)
     check fp1 != fp2
     check "query=id=1" in fp1
     check "query=id=2" in fp2
@@ -41,10 +41,8 @@ suite "httpclient plugin":
     # similarly 443 for https). The chronos_httpclient/websock plugins
     # already normalize default ports; this test pins the parity for
     # std/httpclient.
-    let httpFp  = fingerprintHttpRequest("http://example.com/",
-                                         HttpGet, "", nil, nil)
-    let httpsFp = fingerprintHttpRequest("https://example.com/",
-                                         HttpGet, "", nil, nil)
+    let httpFp = fingerprintHttpRequest("http://example.com/", HttpGet, "", nil, nil)
+    let httpsFp = fingerprintHttpRequest("https://example.com/", HttpGet, "", nil, nil)
     check "port=80" in httpFp
     check "port=443" in httpsFp
 
@@ -54,8 +52,7 @@ suite "httpclient plugin":
     # breaking the per-field anchored matcher. The fingerprint builder
     # percent-encodes whitespace in path/query so each field stays a
     # single whitespace-delimited token.
-    let fp = fingerprintHttpRequest("http://x/p with sp?q=a b",
-                                    HttpGet, "", nil, nil)
+    let fp = fingerprintHttpRequest("http://x/p with sp?q=a b", HttpGet, "", nil, nil)
     check "path=/p%20with%20sp" in fp
     check "query=q=a%20b" in fp
     # Sanity: the matcher-head split (used by sandbox.matchesFingerprint)
@@ -78,10 +75,11 @@ suite "httpclient plugin":
     # `query=...` token and its `query=` lookup must surface the
     # entire injected substring as the value.
     let fp1 = fingerprintHttpRequest(
-      "http://example.com/?body=fake", HttpGet, "real-body", nil, nil)
+      "http://example.com/?body=fake", HttpGet, "real-body", nil, nil
+    )
     let fp2 = fingerprintHttpRequest(
-      "http://example.com/?q=%20body=fake", HttpGet,
-      "real-body", nil, nil)
+      "http://example.com/?q=%20body=fake", HttpGet, "real-body", nil, nil
+    )
     let head1 = tokenizeMatcherHead(fp1)
     let head2 = tokenizeMatcherHead(fp2)
     # Each head must contain the full query token verbatim — no
@@ -102,11 +100,12 @@ suite "httpclient plugin":
     ## the most fundamental level.
     sandbox:
       let v = currentVerifier()
-      let m = newMock("request",
+      let m = newMock(
+        "request",
         fingerprintHttpRequest("http://example.com", HttpGet, "", nil, nil),
-        HttpMockResponse(status: 200, body: "ok",
-                         headers: newHttpHeaders()),
-        (filename: "t.nim", line: 1, column: 0))
+        HttpMockResponse(status: 200, body: "ok", headers: newHttpHeaders()),
+        (filename: "t.nim", line: 1, column: 0),
+      )
       registerMock(v, "httpclient", m)
       let c = newHttpClient()
       let r = doRequest(c, "http://example.com")

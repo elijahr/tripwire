@@ -2,8 +2,8 @@
 ##
 ## `inAnyOrder` lives in tests/test_context.nim (Task A3.5); not duplicated here.
 import std/[unittest, macros]
-import tripwire/[types, errors, timeline, sandbox, verify, intercept,
-                macros as nfmacros]
+import
+  tripwire/[types, errors, timeline, sandbox, verify, intercept, macros as nfmacros]
 
 suite "macros":
   test "respond template re-emits its body":
@@ -34,4 +34,4 @@ suite "macros":
       # Idempotent: second mark is a no-op.
       markTRMEmitted("procA_D1_unique")
       doAssert hasEmittedTRM("procA_D1_unique")
-    check true   # static: block would have failed compilation otherwise.
+    check true # static: block would have failed compilation otherwise.

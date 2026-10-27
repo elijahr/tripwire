@@ -3,7 +3,8 @@ import std/asyncdispatch
 
 var rewriteCount {.global.} = 0
 
-template rewritePoll{poll(timeout)}(timeout: int) =
+template rewritePoll{
+  poll(timeout)}(timeout: int) =
   inc(rewriteCount)
   discard
 

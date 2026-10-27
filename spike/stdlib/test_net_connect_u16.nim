@@ -4,8 +4,8 @@ import std/net
 
 var rewriteCount {.global.} = 0
 
-template rewriteConnect{connect(socket, address, port)}(
-    socket: Socket, address: string, port: uint16) =
+template rewriteConnect{
+  connect(socket, address, port)}(socket: Socket, address: string, port: uint16) =
   inc(rewriteCount)
   discard
 

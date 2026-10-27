@@ -38,10 +38,13 @@
 # interpolation) so the message in the compiler output is stable and
 # grep-testable from test_defenses.nim.
 when not defined(tripwireActive) and not defined(tripwireAllowInactive):
-  {.error: "tripwire was imported but not activated. " &
-    "Add `--import:\"tripwire/auto\"` and `--define:\"tripwireActive\"` " &
-    "to your test config.nims, or `--define:\"tripwireAllowInactive\"` " &
-    "to suppress this error.".}
+  {.
+    error:
+      "tripwire was imported but not activated. " &
+      "Add `--import:\"tripwire/auto\"` and `--define:\"tripwireActive\"` " &
+      "to your test config.nims, or `--define:\"tripwireAllowInactive\"` " &
+      "to suppress this error."
+  .}
 
 # ---- Public API surface -------------------------------------------------
 # One `import ... export ...` per core module. The facade does NOT
@@ -63,8 +66,9 @@ import tripwire/config
 import tripwire/futures
 import tripwire/integration_unittest
 
-export types, errors, timeline, sandbox, verify, intercept, nfmacros,
-       config, futures, integration_unittest
+export
+  types, errors, timeline, sandbox, verify, intercept, nfmacros, config, futures,
+  integration_unittest
 
 # ---- Defense 2 Part 3 — FFI audit hook ---------------------------------
 # Opt-in transitive FFI scan. v0 ships a stub that emits a hint; real

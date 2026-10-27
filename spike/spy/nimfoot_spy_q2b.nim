@@ -2,10 +2,12 @@
 ## a normal call inside the lambda body — will term-rewriting still reach into it?
 import common_spy
 
-let origTarget* = proc(a, b: int): int = target(a, b)
+let origTarget* = proc(a, b: int): int =
+  target(a, b)
 
 var rewriteCount* {.global.} = 0
 
-template rewriteTarget*{target(a, b)}(a, b: int): int =
+template rewriteTarget*{
+  target(a, b)}(a, b: int): int =
   inc(rewriteCount)
   origTarget(a, b)
